@@ -5,45 +5,47 @@ local os = require("os")
 local gpu = component.gpu
 
 -- Try to bind GPU to screen if needed
-if gpu and not component.isAvailable("screen") then
-	for address in component.list("screen") do
-		gpu.bind(address, true)
-		break
+if gpu then
+	local screenAvailable = component.isAvailable("screen")
+	if not screenAvailable then
+		for address in component.list("screen") do
+			local ok, err = pcall(gpu.bind, address, true)
+			if ok then break end
+		end
 	end
 end
 
--- Checking if computer is tough enough for such a S T Y L I S H product as PixelOS
+-- Checking if computer is tough enough for PixelOS
 do
 	local potatoes = {}
 
 	-- GPU/screen
 	local ok1, depth = pcall(gpu.getDepth)
 	local ok2, resolution = pcall(gpu.maxResolution)
-	if not ok1 or not depth or not ok2 or not resolution or depth < 8 or resolution < 160 then
-		table.insert(potatoes, "Tier 3 graphics card and screen");
+	if not ok1 or not depth or depth < 8 then
+		table.insert(potatoes, "Tier 3 graphics card");
+	end
+	if not ok2 or not resolution or resolution < 160 then
+		table.insert(potatoes, "Tier 3 screen");
 	end
 
 	-- RAM
 	local ok, totalMem = pcall(computer.totalMemory)
 	if not ok or not totalMem or totalMem < 2 * 1024 * 1024 then
-		table.insert(potatoes, "At least 2x tier 3.5 RAM modules");
+		table.insert(potatoes, "2x tier 3.5 RAM");
 	end
 
 	-- HDD
-	do
-		local filesystemFound = false
-
-		for address in component.list("filesystem") do
-			local ok, space = pcall(component.invoke, address, "spaceTotal")
-			if ok and space and space >= 2 * 1024 * 1024 then
-				filesystemFound = true
-				break
-			end
+	local filesystemFound = false
+	for address in component.list("filesystem") do
+		local ok, space = pcall(component.invoke, address, "spaceTotal")
+		if ok and space and space >= 2 * 1024 * 1024 then
+			filesystemFound = true
+			break
 		end
-
-		if not filesystemFound then
-			table.insert(potatoes, "At least tier 2 hard disk drive");
-		end	
+	end
+	if not filesystemFound then
+		table.insert(potatoes, "Tier 2 hard drive");
 	end
 
 	-- Internet
@@ -56,124 +58,56 @@ do
 		table.insert(potatoes, "EEPROM");
 	end
 
-	-- SORRY BRO NOT TODAY
+	-- Show error and return if requirements not met
 	if #potatoes > 0 then
-		print("Your computer does not meet the minimum system requirements:")
-
+		print("PixelOS requirements not met:")
 		for i = 1, #potatoes do
-			print("  ⨯ " .. potatoes[i])
+			print("  - " .. potatoes[i])
 		end
-
 		return
 	end
 end
 
--- Checking if installer can be downloaded from GitHub or Gitee
-do
-	-- Try multiple URLs in case one fails
-	local urls = {
-		"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
-		"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua",
-		"https://raw.gitee.com/zip132sy/pixelos/master/Installer/Main.lua"
-	}
-	
-	local success, result, url
-	local selectedUrl = nil
-	
-	for i, testUrl in ipairs(urls) do
-		print("Trying URL " .. i .. ": " .. testUrl)
-		success, result = pcall(component.internet.request, testUrl)
-		
-		if success then
-			local deadline = computer.uptime() + 5
-			local message
-			
-			while computer.uptime() < deadline do
-				success, message = result.finishConnect()
-				if success then
-					selectedUrl = testUrl
-					print("Success with URL " .. i .. "!")
-					break
-				else
-					if message then
-						result.close()
-						break
-					else
-						os.sleep(0.1)
-					end
-				end
-			end
-			
-			if selectedUrl then
+-- Download Main.lua and execute
+local internet = component.proxy(component.list("internet")())
+if not internet then
+	print("No internet card!")
+	return
+end
+
+local urls = {
+	"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
+	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua",
+}
+
+local data
+for i, url in ipairs(urls) do
+	local conn = internet.request(url)
+	if conn then
+		local chunk
+		data = ""
+		while true do
+			chunk = conn.read(8192)
+			if chunk then
+				data = data .. chunk
+			else
 				break
 			end
-		else
-			print("Failed to create request: " .. tostring(result))
 		end
-	end
-	
-	if not selectedUrl then
-		print("")
-		print("========================================")
-		print("DOWNLOAD FAILED")
-		print("========================================")
-		print("Could not connect to any Gitee URL.")
-		print("")
-		print("Please check:")
-		print("  1. OpenComputers.cfg: internet.enabled=true")
-		print("  2. internet.http.enabled=true")
-		print("  3. Gitee.com is accessible from your network")
-		print("  4. Try using a different Minecraft version")
-		print("")
-		print("If the problem persists, you may need to:")
-		print("  - Download files manually and install offline")
-		print("  - Use a different hosting service")
-		print("========================================")
-		return
+		conn.close()
+		if data and #data > 1000 then
+			break
+		end
 	end
 end
 
--- Flashing EEPROM with tiny script that will run installer itself after reboot.
--- It's necessary, because we need clean computer without OpenOS hooks to computer.pullSignal()
--- After installation, this will load the BootManager
-component.eeprom.set([[
-	local internet = component.proxy(component.list("internet")())
-	if not internet then
-		print("No internet card!")
-		return
-	end
-	
-	-- Try multiple URLs
-	local urls = {
-		"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
-		"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"
-	}
-	
-	local connection, data, chunk
-	for i, url in ipairs(urls) do
-		connection = internet.request(url)
-		if connection then
-			data = ""
-			while true do
-				chunk = connection.read(math.huge)
-				if chunk then
-					data = data .. chunk
-				else
-					break
-				end
-			end
-			connection.close()
-			if data and #data > 1000 then
-				load(data)()
-				return
-			end
-		end
-	end
-	
-	print("Failed to download installer!")
-]])
+if not data or #data < 1000 then
+	print("Failed to download installer")
+	return
+end
 
--- Set EEPROM label to "PixelOS Install BIOS"
-component.eeprom.setLabel("PixelOS Install BIOS")
-
+-- Flash EEPROM with installer
+local eeprom = component.eeprom
+eeprom.set(data)
+eeprom.setLabel("PixelOS Installer")
 computer.shutdown(true)
