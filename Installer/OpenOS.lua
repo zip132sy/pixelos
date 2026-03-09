@@ -68,8 +68,13 @@ do
 	end
 end
 
--- Download Main.lua and execute
+-- Flash EEPROM with small boot script
+local eeprom = component.eeprom
+local bootScript = [[
+local component = require("component")
+local computer = require("computer")
 local internet = component.proxy(component.list("internet")())
+
 if not internet then
 	print("No internet card!")
 	return
@@ -77,7 +82,7 @@ end
 
 local urls = {
 	"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
-	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua",
+	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"
 }
 
 local data
@@ -106,8 +111,10 @@ if not data or #data < 1000 then
 	return
 end
 
--- Flash EEPROM with installer
-local eeprom = component.eeprom
-eeprom.set(data)
+load(data)()
+]]
+
+eeprom.set(bootScript)
 eeprom.setLabel("PixelOS Installer")
+print("Flashed EEPROM with boot script")
 computer.shutdown(true)
