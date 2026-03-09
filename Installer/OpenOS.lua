@@ -74,13 +74,26 @@ local bootScript = [[
 -- EEPROM boot script for PixelOS installer
 -- EEPROM environment has no require, use global component
 
-local internet = component.proxy(component.list("internet")())
-
-if not internet then
-	print("No internet card!")
+-- Check if component is available
+if not component then
+	print("Component API not available!")
 	return
 end
 
+-- Get internet component
+local internetAddress = component.list("internet")()
+if not internetAddress then
+	print("No internet card found!")
+	return
+end
+
+local internet = component.proxy(internetAddress)
+if not internet or not internet.request then
+	print("Invalid internet component!")
+	return
+end
+
+-- Download URLs
 local urls = {
 	"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
 	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"
@@ -88,8 +101,9 @@ local urls = {
 
 local data
 for i, url in ipairs(urls) do
+	print("Trying: " .. url)
 	local conn = internet.request(url)
-	if conn then
+	if conn and conn.read and conn.close then
 		local chunk
 		data = ""
 		while true do
@@ -102,6 +116,7 @@ for i, url in ipairs(urls) do
 		end
 		conn.close()
 		if data and #data > 1000 then
+			print("Download successful!")
 			break
 		end
 	end
@@ -112,7 +127,22 @@ if not data or #data < 1000 then
 	return
 end
 
-load(data)()
+-- Execute installer
+local success, err = pcall(load, data)
+if success then
+	local func = load(data)
+	if func then
+		print("Starting installer...")
+		local ok, errorMsg = pcall(func)
+		if not ok then
+			print("Installer error: " .. tostring(errorMsg))
+		end
+	else
+		print("Failed to load installer")
+	end
+else
+	print("Failed to parse installer: " .. tostring(err))
+end
 ]]
 
 eeprom.set(bootScript)
