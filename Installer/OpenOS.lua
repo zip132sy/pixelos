@@ -56,10 +56,11 @@ do
 	end
 end
 
--- Checking if installer can be downloaded from Gitee, because of PKIX errors, server blacklists, etc
+-- Checking if installer can be downloaded from GitHub or Gitee
 do
 	-- Try multiple URLs in case one fails
 	local urls = {
+		"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
 		"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua",
 		"https://raw.gitee.com/zip132sy/pixelos/master/Installer/Main.lua"
 	}
@@ -130,28 +131,34 @@ component.eeprom.set([[
 		return
 	end
 	
-	local connection = internet.request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
-	if not connection then
-		print("Failed to connect!")
-		return
-	end
+	-- Try multiple URLs
+	local urls = {
+		"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
+		"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"
+	}
 	
-	local data = ""
-	local chunk
-	
-	while true do
-		chunk = connection.read(math.huge)
-		
-		if chunk then
-			data = data .. chunk
-		else
-			break
+	local connection, data, chunk
+	for i, url in ipairs(urls) do
+		connection = internet.request(url)
+		if connection then
+			data = ""
+			while true do
+				chunk = connection.read(math.huge)
+				if chunk then
+					data = data .. chunk
+				else
+					break
+				end
+			end
+			connection.close()
+			if data and #data > 1000 then
+				load(data)()
+				return
+			end
 		end
 	end
 	
-	connection.close()
-	
-	load(data)()
+	print("Failed to download installer!")
 ]])
 
 -- Set EEPROM label to "PixelOS Install BIOS"
