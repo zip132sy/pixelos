@@ -134,7 +134,8 @@ local internetConnections = {}
 
 local function rawRequest(url, chunkHandler)
 	-- Try each repository URL until one works
-	for urlIndex, baseRepoUrl in ipairs(repositoryURLs) do
+	for urlIndex, repo in ipairs(repositoryURLs) do
+		local baseRepoUrl = repo.url
 		-- Don't encode / and : as they are valid in URLs
 		local fullUrl = baseRepoUrl .. url:gsub("([^%w%-%_%.%~/:])", function(char)
 			return string.format("%%%02X", string.byte(char))
