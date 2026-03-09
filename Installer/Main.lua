@@ -393,10 +393,9 @@ local function download(url, path)
 	local fileExists = targetProxy.exists(path)
 	
 	if fileExists then
-		-- File exists, skip downloading and add to cache
-		log("File already exists: " .. path)
-		downloadedFilesCache[path] = true
-		return
+		-- Delete existing file to ensure clean download
+		log("Deleting existing file: " .. path)
+		targetProxy.remove(path)
 	end
 
 	-- Try to read from local filesystem first (if available)
@@ -552,11 +551,6 @@ local function download(url, path)
 	if not downloadSuccess then
 		-- CRITICAL ERROR - stop installation
 		error("Download failed: " .. url .. " - " .. tostring(lastError))
-	end
-	else
-		log("ERROR: Failed to open target file: " .. tostring(reason))
-		-- CRITICAL ERROR - stop installation
-		error("Failed to open target file: " .. fullUrl .. " - " .. tostring(reason))
 	end
 end
 
