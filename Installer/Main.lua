@@ -521,6 +521,7 @@ local function download(url, path)
 	-- Try each repository URL until one works
 	local downloadSuccess = false
 	local lastError = nil
+	local tempPath = path .. ".downloading"
 	
 	for repoIndex, repo in ipairs(repositoryURLs) do
 		local baseRepoUrl = repo.url
@@ -530,16 +531,20 @@ local function download(url, path)
 		end)
 		log("Trying repository " .. repoIndex .. ": " .. fullUrl)
 		
-		local fileHandle, reason = targetProxy.open(path, "wb")
+		-- Download to temporary file first
+		local fileHandle, reason = targetProxy.open(tempPath, "wb")
 		if fileHandle then
-			log("Opened target file for writing: " .. path)
+			log("Opened temp file for writing: " .. tempPath)
 			local success, errorMessage = rawRequest(url, function(chunk)
 				targetProxy.write(fileHandle, chunk)
 			end)
 
 			targetProxy.close(fileHandle)
 			if success then
-				-- Add to cache after successful download
+				-- Download successful, move temp file to target
+				log("Download completed, moving temp file to target...")
+				targetProxy.remove(path) -- Remove old file if exists
+				targetProxy.rename(tempPath, path)
 				downloadedFilesCache[path] = true
 				log("Network download completed: " .. url)
 				downloadSuccess = true
@@ -547,9 +552,11 @@ local function download(url, path)
 			else
 				log("Repository " .. repoIndex .. " failed: " .. tostring(errorMessage))
 				lastError = errorMessage
+				-- Clean up temp file on failure
+				targetProxy.remove(tempPath)
 			end
 		else
-			log("Failed to open target file: " .. tostring(reason))
+			log("Failed to open temp file: " .. tostring(reason))
 			lastError = reason
 		end
 	end
