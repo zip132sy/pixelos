@@ -164,6 +164,7 @@ local function rawRequest(url, chunkHandler)
 	os.sleep(0.5)
 	
 	for urlIndex, repo in ipairs(repositoryURLs) do
+		::nextUrl::
 		local baseRepoUrl = repo.url
 		-- Don't encode / and : as they are valid in URLs
 		local fullUrl = baseRepoUrl .. url:gsub("([^%w%-%_%.%~/:])", function(char)
@@ -180,7 +181,10 @@ local function rawRequest(url, chunkHandler)
 		if not internetHandle then
 			log("FAILED to establish connection! reason=" .. tostring(reason))
 			-- Try next URL
-			goto nextUrl
+			log("Moving to next URL...")
+			-- Add delay between URLs to avoid rate limiting
+			os.sleep(0.5)
+			goto continue
 		end
 		
 		log("Connection established successfully, reading data...")
@@ -196,7 +200,10 @@ local function rawRequest(url, chunkHandler)
 					log("Download FAILED: " .. tostring(reason))
 					-- Close this connection and try next URL
 					internetHandle.close()
-					goto nextUrl
+					log("Moving to next URL...")
+					-- Add delay between URLs to avoid rate limiting
+					os.sleep(0.5)
+					goto continue
 				else
 					log("Download completed successfully!")
 					-- Close connection after successful download
@@ -207,12 +214,7 @@ local function rawRequest(url, chunkHandler)
 				break
 			end
 		end
-		
-		::nextUrl::
-		-- Continue to next URL
-		log("Moving to next URL...")
-		-- Add delay between URLs to avoid rate limiting
-		os.sleep(0.5)
+		::continue::
 	end
 	
 	-- All URLs failed
