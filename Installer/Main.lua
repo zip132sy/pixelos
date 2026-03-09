@@ -11,7 +11,7 @@ local event = event
 
 -- Checking for required components
 local function getComponentAddress(name)
-	return component.list(name)() or error("Required " .. name .. " component is missing")
+	return component.list(name)()
 end
 
 local EEPROMAddress, internetAddress, GPUAddress
@@ -31,8 +31,14 @@ end
 -- Binding GPU to screen in case it's not done yet
 local screenWidth, screenHeight
 if GPUAddress then
-	component.invoke(GPUAddress, "bind", getComponentAddress("screen"))
-	screenWidth, screenHeight = component.invoke(GPUAddress, "getResolution")
+	local screenAddress = getComponentAddress("screen")
+	if screenAddress then
+		pcall(component.invoke, GPUAddress, "bind", screenAddress)
+		local success, w, h = pcall(component.invoke, GPUAddress, "getResolution")
+		if success then
+			screenWidth, screenHeight = w, h
+		end
+	end
 end
 
 -- Repository URLs
@@ -147,6 +153,12 @@ local internetConnections = {}
 local function rawRequest(url, chunkHandler)
 	-- Try each repository URL until one works
 	log("=== Starting rawRequest for: " .. url .. " ===")
+	
+	-- Check if internet component is available
+	if not internetAddress then
+		log("ERROR: Internet component is not available")
+		return false, "Internet component is not available"
+	end
 	
 	-- Small delay to avoid "too many open connections" error from server
 	os.sleep(0.5)
@@ -383,8 +395,12 @@ local function download(url, path)
 	local dirPath = filesystemPath(path)
 	if not directoryCache[dirPath] then
 		log("Creating directory: " .. dirPath)
-		targetProxy.makeDirectory(dirPath)
-		directoryCache[dirPath] = true
+		local success, errorMsg = pcall(targetProxy.makeDirectory, dirPath)
+		if success then
+			directoryCache[dirPath] = true
+		else
+			log("Warning: Failed to create directory: " .. tostring(errorMsg))
+		end
 	end
 
 	-- Check if file exists
@@ -393,7 +409,7 @@ local function download(url, path)
 	if fileExists then
 		-- Delete existing file to ensure clean download
 		log("Deleting existing file: " .. path)
-		targetProxy.remove(path)
+		pcall(targetProxy.remove, path)
 	end
 
 	-- Try to read from local filesystem first (if available)
@@ -533,20 +549,27 @@ local function download(url, path)
 
 			targetProxy.close(fileHandle)
 			if success then
-				-- Download successful, move temp file to target
-				log("Download completed, moving temp file to target...")
-				targetProxy.remove(path) -- Remove old file if exists
-				targetProxy.rename(tempPath, path)
+			-- Download successful, move temp file to target
+			log("Download completed, moving temp file to target...")
+			pcall(targetProxy.remove, path) -- Remove old file if exists
+			local renameSuccess, renameError = pcall(targetProxy.rename, tempPath, path)
+			if renameSuccess then
 				downloadedFilesCache[path] = true
 				log("Network download completed: " .. url)
 				downloadSuccess = true
 				break
 			else
-				log("Repository " .. repoIndex .. " failed: " .. tostring(errorMessage))
-				lastError = errorMessage
+				log("Warning: Failed to rename temp file: " .. tostring(renameError))
+				lastError = renameError
 				-- Clean up temp file on failure
-				targetProxy.remove(tempPath)
+				pcall(targetProxy.remove, tempPath)
 			end
+		else
+			log("Repository " .. repoIndex .. " failed: " .. tostring(errorMessage))
+			lastError = errorMessage
+			-- Clean up temp file on failure
+			pcall(targetProxy.remove, tempPath)
+		end
 		else
 			log("Failed to open temp file: " .. tostring(reason))
 			lastError = reason
@@ -554,9 +577,13 @@ local function download(url, path)
 	end
 	
 	if not downloadSuccess then
-		-- CRITICAL ERROR - stop installation
-		error("Download failed: " .. url .. " - " .. tostring(lastError))
+		-- Log error but don't stop installation
+		log("Download failed: " .. url .. " - " .. tostring(lastError))
+		-- Return false to indicate failure
+		return false, "Download failed: " .. url .. " - " .. tostring(lastError)
 	end
+	-- Return true to indicate success
+	return true
 end
 
 local function deserialize(text)
@@ -1883,14 +1910,20 @@ workspace:draw()
 	end
 
 	-- Flash EEPROM with BootManager
-	if bootManagerContent then
-		component.invoke(EEPROMAddress, "set", bootManagerContent)
-		log("EEPROM flashed successfully")
+	if bootManagerContent and EEPROMAddress then
+		local success, errorMsg = pcall(component.invoke, EEPROMAddress, "set", bootManagerContent)
+		if success then
+			log("EEPROM flashed successfully")
+		else
+			log("ERROR: Failed to flash EEPROM: " .. tostring(errorMsg))
+		end
+		-- Set EEPROM label
+		pcall(component.invoke, EEPROMAddress, "setLabel", "PixelOS EFI")
+		-- Set EEPROM data
+		pcall(component.invoke, EEPROMAddress, "setData", selectedFilesystemProxy.address)
 	else
-		log("ERROR: Failed to flash EEPROM - bootManagerContent is nil!")
+		log("ERROR: Failed to flash EEPROM - bootManagerContent is nil or EEPROM address is missing!")
 	end
-	component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
-	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 
 
 	-- Saving system versions
