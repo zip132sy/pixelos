@@ -11,6 +11,7 @@ local event = event
 
 -- Checking for required components
 local function getComponentAddress(name)
+	if not component then return nil end
 	return component.list(name)()
 end
 
@@ -91,10 +92,10 @@ local function centrize(width)
 end
 
 local function centrizedText(y, color, text)
-	if not GPUAddress or not screenWidth then return end
-	component.invoke(GPUAddress, "fill", 1, y, screenWidth, 1, " ")
-	component.invoke(GPUAddress, "setForeground", color)
-	component.invoke(GPUAddress, "set", centrize(#text), y, text)
+	if not GPUAddress or not screenWidth or not component then return end
+	pcall(component.invoke, GPUAddress, "fill", 1, y, screenWidth, 1, " ")
+	pcall(component.invoke, GPUAddress, "setForeground", color)
+	pcall(component.invoke, GPUAddress, "set", centrize(#text), y, text)
 end
 
 local function title()
@@ -107,19 +108,19 @@ local function title()
 end
 
 local function progress(value, text)
-	if not GPUAddress then return end
+	if not GPUAddress or not component then return end
 	local width = 26
 	local x, y, part = centrize(width), title(), math.ceil(width * value)
 	
-	component.invoke(GPUAddress, "setForeground", 0x878787)
-	component.invoke(GPUAddress, "set", x, y, string.rep("─", part))
-	component.invoke(GPUAddress, "setForeground", 0xC3C3C3)
-	component.invoke(GPUAddress, "set", x + part, y, string.rep("─", width - part))
+	pcall(component.invoke, GPUAddress, "setForeground", 0x878787)
+	pcall(component.invoke, GPUAddress, "set", x, y, string.rep("─", part))
+	pcall(component.invoke, GPUAddress, "setForeground", 0xC3C3C3)
+	pcall(component.invoke, GPUAddress, "set", x + part, y, string.rep("─", width - part))
 	
 	-- Show progress text if provided
 	if text then
-		component.invoke(GPUAddress, "setForeground", 0x666666)
-		component.invoke(GPUAddress, "set", centrize(#text), y + 1, text)
+		pcall(component.invoke, GPUAddress, "setForeground", 0x666666)
+		pcall(component.invoke, GPUAddress, "set", centrize(#text), y + 1, text)
 	end
 end
 
@@ -235,8 +236,11 @@ local function request(url)
 	local sources = {}
 	
 	-- 1. Current filesystem (where the installer is running from)
-	local currentDir = component.list("filesystem")()
-	if currentDir then
+	local currentDir
+	if component then
+		currentDir = component.list("filesystem")()
+	end
+	if currentDir and component then
 		local currentFilesystemProxy = component.proxy(currentDir)
 		table.insert(sources, {proxy = currentFilesystemProxy, name = "Current Filesystem"})
 		log("Added current filesystem to sources: " .. currentDir)
@@ -419,8 +423,11 @@ local function download(url, path)
 	log("Trying local file: " .. localPath)
 	
 	-- Check if the file exists in the current directory
-	local currentDir = component.list("filesystem")()
-	if currentDir then
+	local currentDir
+	if component then
+		currentDir = component.list("filesystem")()
+	end
+	if currentDir and component then
 		local currentFilesystemProxy = component.proxy(currentDir)
 		log("Current filesystem: " .. currentDir)
 		
@@ -598,9 +605,9 @@ local function deserialize(text)
 end
 
 -- Clearing screen
-if GPUAddress and screenWidth and screenHeight then
-	component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
-	component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
+if GPUAddress and screenWidth and screenHeight and component then
+	pcall(component.invoke, GPUAddress, "setBackground", 0xE1E1E1)
+	pcall(component.invoke, GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 end
 
 -- Checking minimum system requirements
@@ -609,27 +616,41 @@ do
 		centrizedText(title(), 0x878787, text)
 
 		local signal
-		repeat
-			signal = computer.pullSignal()
-		until signal == "key_down" or signal == "touch"
+		if computer then
+			repeat
+				signal = computer.pullSignal()
+			until signal == "key_down" or signal == "touch"
 
-		computer.shutdown()
+			computer.shutdown()
+		else
+			-- If no computer component, just wait a bit and exit
+			os.sleep(2)
+			error(text)
+		end
 	end
 
-	if GPUAddress and component.invoke(GPUAddress, "getDepth") ~= 8 then
-		warning("Tier 3 GPU and screen are required")
+	if GPUAddress and component then
+		local success, depth = pcall(component.invoke, GPUAddress, "getDepth")
+		if success and depth ~= 8 then
+			warning("Tier 3 GPU and screen are required")
+		end
 	end
 
-	if computer.totalMemory() < 1024 * 1024 * 2 then
-		warning("At least 2x Tier 3.5 RAM modules are required")
+	if computer then
+		local success, totalMemory = pcall(computer.totalMemory)
+		if success and totalMemory < 1024 * 1024 * 2 then
+			warning("At least 2x Tier 3.5 RAM modules are required")
+		end
 	end
 
 	-- Searching for appropriate temporary filesystem for storing libraries, images, etc
-	for address in component.list("filesystem") do
-		local proxy = component.proxy(address)
-		if proxy.spaceTotal() >= 2 * 1024 * 1024 then
-			temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
-			break
+	if component then
+		for address in component.list("filesystem") do
+			local proxy = component.proxy(address)
+			if proxy.spaceTotal() >= 2 * 1024 * 1024 then
+				temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
+				break
+			end
 		end
 	end
 
@@ -649,12 +670,13 @@ localization = deserialize(request(installerURL .. "Localizations/ChineseSimplif
 -- Calculate total size and prepare progress tracking
 local totalFiles = #files.installerFiles
 local downloadedFiles = 0
-local startTime = computer.uptime()
+local startTime = computer and computer.uptime() or os.time()
 
 -- After that we could download required libraries for installer from it
 for i = 1, #files.installerFiles do
 	downloadedFiles = i
-	local elapsed = computer.uptime() - startTime
+	local currentTime = computer and computer.uptime() or os.time()
+	local elapsed = currentTime - startTime
 	local remaining = totalFiles - i
 	local estimatedTotal = (elapsed / i) * totalFiles
 	local eta = math.max(0, estimatedTotal - elapsed)
@@ -816,12 +838,16 @@ if installerMenu then
 	pcall(function()
 		local rebootItem = installerMenu:addItem("🗘", localization.reboot or "Reboot")
 		rebootItem.onTouch = function()
-			computer.shutdown(true)
+			if computer then
+				computer.shutdown(true)
+			end
 		end
 
 		local shutdownItem = installerMenu:addItem("⏻", localization.shutdown or "Shutdown")
 		shutdownItem.onTouch = function()
-			computer.shutdown()
+			if computer then
+				computer.shutdown()
+			end
 		end
 
 		-- Add battery display
@@ -849,24 +875,28 @@ if installerMenu then
 
 			-- Function to get real time using OpenComputers internet API
 			local function getRealTime()
-				-- Only get real time once during installation to avoid network overhead
-				if realTime then
-					return realTime
-				end
-				
-				local connection, reason = component.invoke(internetAddress, "request", "http://worldtimeapi.org/api/ip")
-				if connection then
-					local data = ""
-					local chunk
-					while true do
-						chunk = connection.read(math.huge)
-						if chunk then
-							data = data .. chunk
-						else
-							break
-						end
+			-- Only get real time once during installation to avoid network overhead
+			if realTime then
+				return realTime
+			end
+			
+			if not component or not internetAddress then
+				return nil
+			end
+			
+			local connection, reason = component.invoke(internetAddress, "request", "http://worldtimeapi.org/api/ip")
+			if connection then
+				local data = ""
+				local chunk
+				while true do
+					chunk = connection.read(math.huge)
+					if chunk then
+						data = data .. chunk
+					else
+						break
 					end
-					connection.close()
+				end
+				connection.close()
 					
 					-- Parse JSON response
 					local success, result = pcall(load("return " .. data:gsub("true", "true"):gsub("false", "false"):gsub("null", "nil")))
@@ -1767,7 +1797,7 @@ end
 
 	-- Downloading files from created list
 local versions, path, id, version, shortcut = {}
-local downloadStartTime = computer.uptime()
+local downloadStartTime = computer and computer.uptime() or os.time()
 local totalDownloadedSize = 0
 local filesToDownload = {}
 local lastDrawTime = 0
@@ -1808,7 +1838,8 @@ for i = 1, totalFiles do
 	currentFileLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
 	
 	-- Calculate ETA
-	local downloadElapsed = computer.uptime() - downloadStartTime
+	local currentTime = computer and computer.uptime() or os.time()
+	local downloadElapsed = currentTime - downloadStartTime
 	local downloadRemaining = totalFiles - i
 	local downloadEstimatedTotal = (downloadElapsed / math.max(1, i)) * totalFiles
 	local downloadEta = math.max(0, downloadEstimatedTotal - downloadElapsed)
@@ -1842,7 +1873,7 @@ for i = 1, totalFiles do
 	progressBar.prefixText = math.floor(i / totalFiles * 100) .. "%"
 	
 	-- Draw only if enough time has passed
-	local currentTime = computer.uptime()
+	local currentTime = computer and computer.uptime() or os.time()
 	if currentTime - lastDrawTime >= drawInterval or i == 1 or i == totalFiles then
 		workspace:draw()
 		lastDrawTime = currentTime
@@ -1939,34 +1970,41 @@ workspace:draw()
 	addTitle(0x969696, localization.installed)
 	
 	-- Update EFI label after installation
-	component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+	if component and EEPROMAddress then
+		pcall(component.invoke, EEPROMAddress, "setLabel", "PixelOS EFI")
+	end
 	
 	addStageButton(localization.reboot).onTouch = function()
-		computer.shutdown(true)
-	end
+			if computer then
+				computer.shutdown(true)
+			end
+		end
 	workspace:draw()
 
 	-- Removing temporary installer directory
 	temporaryFilesystemProxy.remove(installerPath)
 	
 	-- 生成安装日志文件
-	local logFileName = "/PixelOS-Install-Log.txt"
-	local logFileContent = "PixelOS Installation Log\n"
-	logFileContent = logFileContent .. "=============================\n"
-	logFileContent = logFileContent .. "Timestamp: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-	logFileContent = logFileContent .. "Installation completed successfully!\n"
-	logFileContent = logFileContent .. "\nSystem Information:\n"
-	if component and component.computer then
-		logFileContent = logFileContent .. "- Computer ID: " .. component.computer.address() .. "\n"
-		if component.computer.energy and component.computer.maxEnergy then
-			local energy = component.computer.energy()
-			local maxEnergy = component.computer.maxEnergy()
-			if energy and maxEnergy and maxEnergy > 0 then
-				local percentage = (energy / maxEnergy) * 100
-				logFileContent = logFileContent .. "- Energy: " .. math.floor(percentage) .. "%\n"
-			end
+local logFileName = "/PixelOS-Install-Log.txt"
+local logFileContent = "PixelOS Installation Log\n"
+logFileContent = logFileContent .. "=============================\n"
+logFileContent = logFileContent .. "Timestamp: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
+logFileContent = logFileContent .. "Installation completed successfully!\n"
+logFileContent = logFileContent .. "\nSystem Information:\n"
+if component and component.computer then
+	local success, address = pcall(component.computer.address)
+	if success then
+		logFileContent = logFileContent .. "- Computer ID: " .. address .. "\n"
+	end
+	if component.computer.energy and component.computer.maxEnergy then
+		local success1, energy = pcall(component.computer.energy)
+		local success2, maxEnergy = pcall(component.computer.maxEnergy)
+		if success1 and success2 and energy and maxEnergy and maxEnergy > 0 then
+			local percentage = (energy / maxEnergy) * 100
+			logFileContent = logFileContent .. "- Energy: " .. math.floor(percentage) .. "%\n"
 		end
 	end
+end
 	logFileContent = logFileContent .. "- Selected Filesystem: " .. selectedFilesystemProxy.address .. "\n"
 	logFileContent = logFileContent .. "- Username: " .. usernameInput.text .. "\n"
 	logFileContent = logFileContent .. "- Language: " .. localizationComboBox:getItem(localizationComboBox.selectedItem).text .. "\n"
