@@ -1998,26 +1998,26 @@ workspace:draw()
 	end
 	
 	-- 生成安装日志文件
-local logFileName = "/PixelOS-Install-Log.txt"
-local logFileContent = "PixelOS Installation Log\n"
-logFileContent = logFileContent .. "=============================\n"
-logFileContent = logFileContent .. "Timestamp: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
-logFileContent = logFileContent .. "Installation completed successfully!\n"
-logFileContent = logFileContent .. "\nSystem Information:\n"
-if component and component.computer then
-	local success, address = pcall(component.computer.address)
-	if success then
-		logFileContent = logFileContent .. "- Computer ID: " .. address .. "\n"
-	end
-	if component.computer.energy and component.computer.maxEnergy then
-		local success1, energy = pcall(component.computer.energy)
-		local success2, maxEnergy = pcall(component.computer.maxEnergy)
-		if success1 and success2 and energy and maxEnergy and maxEnergy > 0 then
-			local percentage = (energy / maxEnergy) * 100
-			logFileContent = logFileContent .. "- Energy: " .. math.floor(percentage) .. "%\n"
+	local logFileName = "/PixelOS-Install-Log.txt"
+	local logFileContent = "PixelOS Installation Log\n"
+	logFileContent = logFileContent .. "=============================\n"
+	logFileContent = logFileContent .. "Timestamp: " .. os.date("%Y-%m-%d %H:%M:%S") .. "\n"
+	logFileContent = logFileContent .. "Installation completed successfully!\n"
+	logFileContent = logFileContent .. "\nSystem Information:\n"
+	if component and component.computer then
+		local success, address = pcall(component.computer.address)
+		if success then
+			logFileContent = logFileContent .. "- Computer ID: " .. address .. "\n"
+		end
+		if component.computer.energy and component.computer.maxEnergy then
+			local success1, energy = pcall(component.computer.energy)
+			local success2, maxEnergy = pcall(component.computer.maxEnergy)
+			if success1 and success2 and energy and maxEnergy and maxEnergy > 0 then
+				local percentage = (energy / maxEnergy) * 100
+				logFileContent = logFileContent .. "- Energy: " .. math.floor(percentage) .. "%\n"
+			end
 		end
 	end
-end
 	logFileContent = logFileContent .. "- Selected Filesystem: " .. selectedFilesystemProxy.address .. "\n"
 	logFileContent = logFileContent .. "- Username: " .. usernameInput.text .. "\n"
 	logFileContent = logFileContent .. "- Language: " .. localizationComboBox:getItem(localizationComboBox.selectedItem).text .. "\n"
@@ -2044,6 +2044,7 @@ end
 	else
 		log("Failed to create log file: No filesystem available")
 	end
+end
 end)
 
 --------------------------------------------------------------------------------
