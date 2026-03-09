@@ -159,51 +159,39 @@ local function rawRequest(url, chunkHandler)
 		-- Debug: Check internet address
 		log("Internet address: " .. tostring(internetAddress))
 		
-		-- Reuse existing connection if available
-		local internetHandle, reason
-		if internetConnections[fullUrl] then
-			log("Reusing cached connection for: " .. fullUrl)
-			internetHandle = internetConnections[fullUrl]
-		else
-			log("Creating new connection for: " .. fullUrl)
-			log("Calling component.invoke(internetAddress, 'request', fullUrl)...")
-			-- Direct call without pcall to get all return values
-			internetHandle, reason = component.invoke(internetAddress, "request", fullUrl)
-			log("internet.request returned: handle=" .. tostring(internetHandle) .. ", reason=" .. tostring(reason))
-			if internetHandle then
-				internetConnections[fullUrl] = internetHandle
-				log("Connection established successfully for: " .. url)
-			else
-				log("FAILED to establish connection! reason=" .. tostring(reason))
-				-- Try next URL
-				goto nextUrl
-			end
+		-- Always create NEW connection (don't reuse old ones that might be stale)
+		log("Creating new connection for: " .. fullUrl)
+		local internetHandle, reason = component.invoke(internetAddress, "request", fullUrl)
+		log("internet.request returned: handle=" .. tostring(internetHandle) .. ", reason=" .. tostring(reason))
+		if not internetHandle then
+			log("FAILED to establish connection! reason=" .. tostring(reason))
+			-- Try next URL
+			goto nextUrl
 		end
-
-		if internetHandle then
-			log("Reading data from connection...")
-			local chunk, reason
-			while true do
-				chunk, reason = internetHandle.read(math.huge) 
-				log("read() returned: chunk=" .. tostring(chunk ~= nil) .. ", reason=" .. tostring(reason))
-				
-				if chunk then
-					chunkHandler(chunk)
+		
+		log("Connection established successfully, reading data...")
+		local chunk, reason
+		while true do
+			chunk, reason = internetHandle.read(math.huge) 
+			log("read() returned: chunk=" .. tostring(chunk ~= nil) .. ", reason=" .. tostring(reason))
+			
+			if chunk then
+				chunkHandler(chunk)
+			else
+				if reason then
+					log("Download FAILED: " .. tostring(reason))
+					-- Close this connection and try next URL
+					internetHandle.close()
+					goto nextUrl
 				else
-					if reason then
-						log("Download FAILED: " .. tostring(reason))
-						-- Try next URL
-						goto nextUrl
-					else
-						log("Download completed successfully!")
-						return true, nil
-					end
-					
-					break
+					log("Download completed successfully!")
+					-- Close connection after successful download
+					internetHandle.close()
+					return true, nil
 				end
+				
+				break
 			end
-
-			-- Don't close the connection immediately, keep it for reuse
 		end
 		
 		::nextUrl::
