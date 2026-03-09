@@ -146,6 +146,7 @@ local internetConnections = {}
 
 local function rawRequest(url, chunkHandler)
 	-- Try each repository URL until one works
+	log("=== Starting rawRequest for: " .. url .. " ===")
 	for urlIndex, repo in ipairs(repositoryURLs) do
 		local baseRepoUrl = repo.url
 		-- Don't encode / and : as they are valid in URLs
@@ -161,36 +162,40 @@ local function rawRequest(url, chunkHandler)
 		-- Reuse existing connection if available
 		local internetHandle, reason
 		if internetConnections[fullUrl] then
+			log("Reusing cached connection for: " .. fullUrl)
 			internetHandle = internetConnections[fullUrl]
 		else
-			log("Calling internet.request...")
+			log("Creating new connection for: " .. fullUrl)
+			log("Calling component.invoke(internetAddress, 'request', fullUrl)...")
 			-- Direct call without pcall to get all return values
 			internetHandle, reason = component.invoke(internetAddress, "request", fullUrl)
-			log("internet.request result: " .. tostring(internetHandle) .. ", reason: " .. tostring(reason))
+			log("internet.request returned: handle=" .. tostring(internetHandle) .. ", reason=" .. tostring(reason))
 			if internetHandle then
 				internetConnections[fullUrl] = internetHandle
-				log("Connection established for: " .. url)
+				log("Connection established successfully for: " .. url)
 			else
-				log("Failed to establish connection: " .. tostring(reason))
+				log("FAILED to establish connection! reason=" .. tostring(reason))
 				-- Try next URL
 				goto nextUrl
 			end
 		end
 
 		if internetHandle then
+			log("Reading data from connection...")
 			local chunk, reason
 			while true do
 				chunk, reason = internetHandle.read(math.huge) 
+				log("read() returned: chunk=" .. tostring(chunk ~= nil) .. ", reason=" .. tostring(reason))
 				
 				if chunk then
 					chunkHandler(chunk)
 				else
 					if reason then
-						log("Download failed: " .. tostring(reason))
+						log("Download FAILED: " .. tostring(reason))
 						-- Try next URL
 						goto nextUrl
 					else
-						log("Download completed successfully: " .. url)
+						log("Download completed successfully!")
 						return true, nil
 					end
 					
@@ -203,10 +208,11 @@ local function rawRequest(url, chunkHandler)
 		
 		::nextUrl::
 		-- Continue to next URL
+		log("Moving to next URL...")
 	end
 	
 	-- All URLs failed
-	log("Connection failed for all repository URLs")
+	log("=== rawRequest FAILED for all URLs ===")
 	return false, "Connection failed for all repository URLs"
 end
 
