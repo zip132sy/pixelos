@@ -4,17 +4,28 @@ local os = require("os")
 
 local gpu = component.gpu
 
+-- Try to bind GPU to screen if needed
+if gpu and not component.isAvailable("screen") then
+	for address in component.list("screen") do
+		gpu.bind(address, true)
+		break
+	end
+end
+
 -- Checking if computer is tough enough for such a S T Y L I S H product as PixelOS
 do
 	local potatoes = {}
 
 	-- GPU/screen
-	if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+	local ok1, depth = pcall(gpu.getDepth)
+	local ok2, resolution = pcall(gpu.maxResolution)
+	if not ok1 or not depth or not ok2 or not resolution or depth < 8 or resolution < 160 then
 		table.insert(potatoes, "Tier 3 graphics card and screen");
 	end
 
 	-- RAM
-	if computer.totalMemory() < 2 * 1024 * 1024 then
+	local ok, totalMem = pcall(computer.totalMemory)
+	if not ok or not totalMem or totalMem < 2 * 1024 * 1024 then
 		table.insert(potatoes, "At least 2x tier 3.5 RAM modules");
 	end
 
