@@ -147,6 +147,10 @@ local internetConnections = {}
 local function rawRequest(url, chunkHandler)
 	-- Try each repository URL until one works
 	log("=== Starting rawRequest for: " .. url .. " ===")
+	
+	-- Small delay to avoid "too many open connections" error from server
+	os.sleep(0.5)
+	
 	for urlIndex, repo in ipairs(repositoryURLs) do
 		local baseRepoUrl = repo.url
 		-- Don't encode / and : as they are valid in URLs
@@ -155,11 +159,9 @@ local function rawRequest(url, chunkHandler)
 		end)
 		
 		log("Trying URL " .. urlIndex .. ": " .. fullUrl)
-
-		-- Debug: Check internet address
 		log("Internet address: " .. tostring(internetAddress))
 		
-		-- Always create NEW connection (don't reuse old ones that might be stale)
+		-- Create NEW connection
 		log("Creating new connection for: " .. fullUrl)
 		local internetHandle, reason = component.invoke(internetAddress, "request", fullUrl)
 		log("internet.request returned: handle=" .. tostring(internetHandle) .. ", reason=" .. tostring(reason))
@@ -197,6 +199,8 @@ local function rawRequest(url, chunkHandler)
 		::nextUrl::
 		-- Continue to next URL
 		log("Moving to next URL...")
+		-- Add delay between URLs to avoid rate limiting
+		os.sleep(0.5)
 	end
 	
 	-- All URLs failed
