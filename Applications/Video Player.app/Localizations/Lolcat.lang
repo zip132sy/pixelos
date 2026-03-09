@@ -1,0 +1,21 @@
+{
+	videoPlayer = "Video Player",
+	play = "Play",
+	pause = "Pause",
+	stop = "Stop",
+	nextFrame = "Next Frame",
+	previousFrame = "Previous Frame",
+	speed = "Speed",
+	fps = "FPS",
+	currentFrame = "Frame",
+	totalFrames = "Total",
+	noVideo = "No video loaded",
+	openVideo = "Open Video",
+	downloadVideo = "Download Video",
+	url = "URL",
+	downloading = "Downloading",
+	downloadFailed = "Download failed",
+	fileNotFound = "File not found",
+	invalidFormat = "Invalid video format",
+	close = "Close"
+}

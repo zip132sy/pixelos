@@ -1,0 +1,44 @@
+# PixelOS License
+
+## Alkuperäinen MineOS-lisenssi
+
+Copyright (c) 2015-2019 Maksim Primov
+
+Tämä ohjelmisto on lisensoitu MIT-lisenssillä. Katso lisätietoja alkuperäisestä lisenssistä.
+
+## PixelOS-muokkaukset
+
+Copyright (c) 2024-2025 PixelOS Development Team
+
+PixelOS on Muokattu versio MineOS:stä, joka on suunniteltu tarjoamaan
+parempaa yhteensopivuutta ja lisäominaisuuksia OpenComputers-modille.
+
+### Tärkeimmät muokkaukset:
+
+1. **Yhteensopivuus Fold Craft Launcherin kanssa**
+   - Korjattu NullPointerException-virheet Android-pohjaisissa Minecraft-ympäristöissä
+   - Korvatut alkuperäiset Lua-kirjastot puhtaalla LuaJ-toteutuksella
+   - Mukautettu Unicode-kirjasto parempaa yhteensopivuutta varten
+
+2. **Kiinan kielen tuki**
+   - Oletuskieli asetettu kiinaksi
+   - Parannettu lokalisointituki
+
+3. **Asennuksen parannukset**
+   - Graafinen asennusvelho
+   - Edistymisilmaisimet ja animaatiot
+   - Yksinkertaistettu asennusprosessi
+
+4. **Virhekorjaukset**
+   - Korjattu getUnicodeFunctions()-virhe
+   - Parannettu virheenkäsittely
+   - Parempi yhteensopivuus eri OpenComputers-versioiden kanssa
+
+### Tunnustukset
+
+PixelOS perustuu MineOS:ään, jonka on luonut Maksim Primov.
+Haluamme kiittää alkuperäistä MineOS-kehitystiimiä tämän
+upean käyttöjärjestelmän luomisesta OpenComputersille.
+
+Original MineOS: https://github.com/MightyPirates/OpenComputers
+PixelOS: https://gitee.com/zip132sy/pixelos

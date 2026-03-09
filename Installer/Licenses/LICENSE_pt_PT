@@ -1,0 +1,44 @@
+# PixelOS License
+
+## Licença original do MineOS
+
+Copyright (c) 2015-2019 Maksim Primov
+
+Este software está licenciado sob a licença MIT. Consulte a licença original para mais informações.
+
+## Modificações do PixelOS
+
+Copyright (c) 2024-2025 PixelOS Development Team
+
+PixelOS é uma versão modificada do MineOS, projetada para fornecer
+compatibilidade aprimorada e recursos adicionais para o mod OpenComputers.
+
+### Principais modificações:
+
+1. **Compatibilidade com Fold Craft Launcher**
+   - Correção de erros NullPointerException em ambientes Minecraft baseados em Android
+   - Substituição de bibliotecas Lua nativas por implementação LuaJ pura
+   - Biblioteca Unicode personalizada para melhor compatibilidade
+
+2. **Suporte ao idioma chinês**
+   - Idioma padrão definido como chinês
+   - Suporte de localização aprimorado
+
+3. **Melhorias na instalação**
+   - Assistente de instalação gráfico
+   - Indicadores de progresso e animações
+   - Processo de instalação simplificado
+
+4. **Correções de bugs**
+   - Correção do erro getUnicodeFunctions()
+   - Tratamento de erros aprimorado
+   - Melhor compatibilidade com várias versões do OpenComputers
+
+### Agradecimentos
+
+PixelOS é baseado no MineOS, criado por Maksim Primov.
+Gostaríamos de agradecer à equipe de desenvolvimento original do MineOS por criar
+este incrível sistema operacional para OpenComputers.
+
+Original MineOS: https://github.com/MightyPirates/OpenComputers
+PixelOS: https://gitee.com/zip132sy/pixelos

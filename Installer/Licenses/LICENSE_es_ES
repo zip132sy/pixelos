@@ -1,0 +1,74 @@
+# Licencia de PixelOS
+
+## Licencia Original de MineOS
+
+Copyright (c) 2015-2019 Maksim Primov
+
+Por la presente se otorga permiso, sin cargo alguno, a cualquier persona que obtenga una copia
+de este software y los documentos asociados (el "Software"), para tratar
+el Software sin restricción, incluyendo, sin limitación, los derechos
+de usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y/o vender
+copias del Software, y para permitir a las personas a quienes se les proporcione el
+Software hacerlo, sujeto a las siguientes condiciones:
+
+El aviso de copyright anterior y este aviso de permiso se incluirán en
+todas las copias o partes sustanciales del Software.
+
+EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO, EXPRESA O
+IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A LAS GARANTÍAS DE COMERCIABILIDAD,
+IDONEIDAD PARA UN PROPÓSITO PARTICULAR Y NO INFRACCIÓN. EN NINGÚN CASO LOS
+AUTORES O TITULARES DE LOS DERECHOS DE AUTOR SERÁN RESPONSABLES DE CUALQUIER RECLAMO,
+DAÑO U OTRA RESPONSABILIDAD, YA SEA EN UNA ACCIÓN DE CONTRATO, AGRAVIO O DE OTRA FORMA,
+QUE SURJA DEL SOFTWARE O DEL USO U OTRAS TRANSACCIONES EN EL SOFTWARE.
+
+## Modificaciones de PixelOS
+
+Copyright (c) 2024-2025 Equipo de Desarrollo de PixelOS
+
+PixelOS es una versión modificada de MineOS, diseñada para proporcionar
+compatibilidad mejorada y características adicionales para el mod OpenComputers.
+
+### Modificaciones Clave:
+
+1. **Compatibilidad con Fold Craft Launcher**
+   - Corregidos errores NullPointerException en entornos de Minecraft basados en Android
+   - Reemplazadas las bibliotecas Lua nativas con implementación pura de LuaJ
+   - Biblioteca Unicode personalizada para mejor compatibilidad
+
+2. **Soporte de Idioma Chino**
+   - Idioma predeterminado establecido en chino
+   - Soporte de localización mejorado
+
+3. **Mejoras de Instalación**
+   - Asistente de instalación gráfico
+   - Indicadores de progreso y animaciones
+   - Proceso de instalación simplificado
+
+4. **Corrección de Errores**
+   - Corregido el error getUnicodeFunctions()
+   - Manejo de errores mejorado
+   - Mejor compatibilidad con varias versiones de OpenComputers
+
+### Agradecimientos
+
+PixelOS está basado en MineOS, creado por Maksim Primov.
+Nos gustaría agradecer al equipo de desarrollo original de MineOS por crear
+este increíble sistema operativo para OpenComputers.
+
+MineOS Original: https://github.com/MightyPirates/OpenComputers
+PixelOS: https://gitee.com/zip132sy/pixelos
+
+## Bibliotecas de Terceros
+
+Este proyecto incluye las siguientes bibliotecas de terceros:
+
+- **LuaJ**: Copyright (c) 2006-2014 Contribuyentes del Proyecto Luaj
+  Licencia MIT
+  
+- **OpenComputers**: Copyright (c) 2013-2019 Florian 'Sangarius' Seidl
+  Licencia MIT
+
+- **MineOS**: Copyright (c) 2015-2019 Maksim Primov
+  Licencia MIT
+
+Para más información sobre estas bibliotecas, visite sus respectivos repositorios.

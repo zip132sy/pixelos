@@ -1,0 +1,75 @@
+# PixelOS ライセンス
+
+## 元の MineOS ライセンス
+
+Copyright (c) 2015-2019 Maksim Primov
+
+ hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+## PixelOS 改変版
+
+Copyright (c) 2024-2025 PixelOS 開発チーム
+
+PixelOS は、OpenComputers モジュール向けに強化された互換性と追加機能を提供するために設計された、
+MineOS の改変版です。
+
+### 主な改変:
+
+1. **Fold Craft Launcher 互換性**
+   - Android ベースの Minecraft 環境での NullPointerException エラーを修正
+   - ネイティブ Lua ライブラリを純粋な LuaJ 実装に置き換え
+   - より良い互換性のためのカスタム Unicode ライブラリ
+
+2. **中国語サポート**
+   - デフォルト言語を中国語に設定
+   - 改善されたローカリゼーションサポート
+
+3. **インストールの改善**
+   - グラフィカルインストールウィザード
+   - 進捗インジケータとアニメーション
+   - 簡素化されたインストールプロセス
+
+4. **バグ修正**
+   - getUnicodeFunctions() エラーを修正
+   - エラー処理の改善
+   - 様々な OpenComputers バージョンとのより良い互換性
+
+### 謝辞
+
+PixelOS は Maksim Primov によって作成された MineOS に基づいています。
+OpenComputers のためにこの素晴らしいオペレーティングシステムを作成した、
+元の MineOS 開発チームに感謝いたします。
+
+元の MineOS: https://github.com/MightyPirates/OpenComputers
+PixelOS: https://gitee.com/zip132sy/pixelos
+
+## サードパーティライブラリ
+
+このプロジェクトには、以下のサードパーティライブラリが含まれています:
+
+- **LuaJ**: Copyright (c) 2006-2014 Luaj プロジェクト貢献者
+  MIT ライセンス
+  
+- **OpenComputers**: Copyright (c) 2013-2019 Florian 'Sangarius' Seidl
+  MIT ライセンス
+
+- **MineOS**: Copyright (c) 2015-2019 Maksim Primov
+  MIT ライセンス
+
+これらのライブラリの詳細については、それぞれのリポジトリをご覧ください。

@@ -1,0 +1,19 @@
+{
+	camera = "Камера",
+	takePhoto = "Сүрет түсіру",
+	takeVideo = "Видео түсіру",
+	settings = "Параметрлер",
+	resolution = "Ажыраттық",
+	quality = "Сапасы",
+	flash = "Жарқан",
+	autofocus = "Автофокус",
+	whiteBalance = "Ақ түс",
+	iso = "ISO",
+	exposure = "Экспозиция",
+	cancel = "Болдырмау",
+	save = "Сақтау",
+	photoSaved = "Фото сақталды",
+	videoSaved = "Видео сақталды",
+	error = "Қате",
+	noCamera = "Камера табыл табылмады"
+}
