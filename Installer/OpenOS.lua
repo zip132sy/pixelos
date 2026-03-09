@@ -68,11 +68,12 @@ do
 	end
 end
 
--- Flash EEPROM with small boot script
+-- Flash EEPROM with small boot script (EEPROM environment has no require)
 local eeprom = component.eeprom
 local bootScript = [[
-local component = require("component")
-local computer = require("computer")
+-- EEPROM boot script for PixelOS installer
+-- EEPROM environment has no require, use global component
+
 local internet = component.proxy(component.list("internet")())
 
 if not internet then
