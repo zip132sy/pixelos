@@ -512,28 +512,47 @@ local function download(url, path)
 
 	-- Fallback to network request if local file doesn't exist
 	log("Falling back to network request for: " .. url)
-	-- Don't encode / and : as they are valid in URLs
-	local fullUrl = repositoryURL .. url:gsub("([^%w%-%_%.%~/:])", function(char)
-		return string.format("%%%02X", string.byte(char))
-	end)
-	log("Full URL: " .. fullUrl)
-	local fileHandle, reason = targetProxy.open(path, "wb")
-	if fileHandle then	
-		log("Opened target file for writing: " .. path)
-		local success, errorMessage = rawRequest(url, function(chunk)
-			targetProxy.write(fileHandle, chunk)
+	
+	-- Try each repository URL until one works
+	local downloadSuccess = false
+	local lastError = nil
+	
+	for repoIndex, repo in ipairs(repositoryURLs) do
+		local baseRepoUrl = repo.url
+		-- Don't encode / and : as they are valid in URLs
+		local fullUrl = baseRepoUrl .. url:gsub("([^%w%-%_%.%~/:])", function(char)
+			return string.format("%%%02X", string.byte(char))
 		end)
+		log("Trying repository " .. repoIndex .. ": " .. fullUrl)
+		
+		local fileHandle, reason = targetProxy.open(path, "wb")
+		if fileHandle then
+			log("Opened target file for writing: " .. path)
+			local success, errorMessage = rawRequest(url, function(chunk)
+				targetProxy.write(fileHandle, chunk)
+			end)
 
-		targetProxy.close(fileHandle)
-		if success then
-			-- Add to cache after successful download
-			downloadedFilesCache[path] = true
-			log("Network download completed: " .. url)
+			targetProxy.close(fileHandle)
+			if success then
+				-- Add to cache after successful download
+				downloadedFilesCache[path] = true
+				log("Network download completed: " .. url)
+				downloadSuccess = true
+				break
+			else
+				log("Repository " .. repoIndex .. " failed: " .. tostring(errorMessage))
+				lastError = errorMessage
+			end
 		else
-			log("ERROR: Network download failed: " .. tostring(errorMessage))
-			-- CRITICAL ERROR - stop installation
-			error("Download failed: " .. fullUrl .. " - " .. tostring(errorMessage))
+			log("Failed to open target file: " .. tostring(reason))
+			lastError = reason
 		end
+	end
+	
+	if not downloadSuccess then
+		-- CRITICAL ERROR - stop installation
+		error("Download failed: " .. url .. " - " .. tostring(lastError))
+	end
 	else
 		log("ERROR: Failed to open target file: " .. tostring(reason))
 		-- CRITICAL ERROR - stop installation
