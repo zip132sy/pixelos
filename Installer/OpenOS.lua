@@ -23,7 +23,8 @@ do
 		local filesystemFound = false
 
 		for address in component.list("filesystem") do
-			if component.invoke(address, "spaceTotal") >= 2 * 1024 * 1024 then
+			local ok, space = pcall(component.invoke, address, "spaceTotal")
+			if ok and space and space >= 2 * 1024 * 1024 then
 				filesystemFound = true
 				break
 			end
