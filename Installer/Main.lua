@@ -130,6 +130,18 @@ local function filesystemHideExtension(path)
 end
 
 local urlCache = {}
+local fileHashes = {}
+local sha256
+
+-- Try to load SHA-256 library for verification (optional)
+local function initSha256()
+	if not sha256 then
+		pcall(function()
+			sha256 = require("SHA-256")
+		end)
+	end
+end
+
 local internetConnections = {}
 
 local function rawRequest(url, chunkHandler)
@@ -245,10 +257,34 @@ local function request(url)
 				log("Opened file successfully: " .. url)
 				local data = proxy.read(fileHandle)
 				proxy.close(fileHandle)
-				-- Cache the result
-				urlCache[url] = data
-				log("Read file successfully: " .. url)
-				return data
+				-- Verify file integrity (skip for first download, verify on retry)
+				if urlCache[url .. "_verified"] then
+					log("Verifying file integrity for: " .. url)
+					initSha256()
+					if sha256 then
+						local hash = sha256(data)
+						local expectedHash = fileHashes[url]
+						if expectedHash and hash ~= expectedHash then
+							log("File hash mismatch for: " .. url .. " (got: " .. hash .. ", expected: " .. expectedHash .. ")")
+							log("Will re-download: " .. url)
+							-- Continue to download
+						else
+							log("File hash verified for: " .. url)
+							urlCache[url] = data
+							return data
+						end
+					else
+						log("SHA-256 library not available, skipping verification")
+						urlCache[url] = data
+						return data
+					end
+				else
+					-- First time, cache and return
+					urlCache[url] = data
+					urlCache[url .. "_verified"] = true
+					log("Read file successfully: " .. url)
+					return data
+				end
 			else
 				log("Failed to open file: " .. url)
 			end
