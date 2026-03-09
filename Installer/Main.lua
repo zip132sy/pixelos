@@ -253,10 +253,10 @@ local function request(url)
 	end
 	
 	-- 3. Temporary filesystem (for installer files)
-	if temporaryFilesystemProxy then
-		table.insert(sources, {proxy = temporaryFilesystemProxy, name = "Temporary Filesystem"})
-		log("Added temporary filesystem to sources: " .. temporaryFilesystemProxy.address)
-	end
+	if temporaryFilesystemProxy and temporaryFilesystemProxy.address then
+			table.insert(sources, {proxy = temporaryFilesystemProxy, name = "Temporary Filesystem"})
+			log("Added temporary filesystem to sources: " .. temporaryFilesystemProxy.address)
+		end
 	
 	-- Try each source
 	for _, source in ipairs(sources) do
@@ -623,9 +623,11 @@ do
 
 			computer.shutdown()
 		else
-			-- If no computer component, just wait a bit and exit
+			-- If no computer component, just wait a bit and exit gracefully
 			os.sleep(2)
-			error(text)
+			-- Instead of error, just return to allow program to continue
+			log("Warning: " .. text)
+			return
 		end
 	end
 
@@ -795,9 +797,9 @@ paths = loadLibrary("Paths")
 event = loadLibrary("Event")
 filesystem = loadLibrary("Filesystem")
 
-if filesystem and type(filesystem) == "table" and filesystem.setProxy then
-	filesystem.setProxy(temporaryFilesystemProxy)
-end
+if filesystem and type(filesystem) == "table" and filesystem.setProxy and temporaryFilesystemProxy then
+		filesystem.setProxy(temporaryFilesystemProxy)
+	end
 
 bit32 = bit32 or loadLibrary("Bit32")
 image = loadLibrary("Image")
@@ -1486,9 +1488,9 @@ addStage(function()
 							for i = 1, #list do
 								local path = "/" .. list[i]
 
-								if proxy.address ~= temporaryFilesystemProxy.address or path ~= installerPath then
-									proxy.remove(path)
-								end
+								if temporaryFilesystemProxy and temporaryFilesystemProxy.address and (proxy.address ~= temporaryFilesystemProxy.address or path ~= installerPath) then
+					proxy.remove(path)
+				end
 							end
 
 							updateDisks()
@@ -1512,7 +1514,7 @@ addStage(function()
 						diskLabel.eventHandler = function(workspace, label, e1, e2, e3, e4, e5, e6, e7, e8)
 							-- Handle both single and double click for compatibility
 							if e1 == "touch" then
-								if not disabled and proxy.address ~= temporaryFilesystemProxy.address then
+								if not disabled and temporaryFilesystemProxy and temporaryFilesystemProxy.address and proxy.address ~= temporaryFilesystemProxy.address then
 									-- Create input field for renaming
 									if GUI.input then
 										local input = GUI.input(1, 1, disk.width - 2, 1, 0xF0F0F0, 0x787878, 0xC3C3C3, 0xF0F0F0, 0x878787, proxy.getLabel() or "")
@@ -1548,7 +1550,7 @@ addStage(function()
 					end
 
 					-- Add data disk button if not disabled
-					if not disabled and proxy.address ~= temporaryFilesystemProxy.address then
+					if not disabled and temporaryFilesystemProxy and temporaryFilesystemProxy.address and proxy.address ~= temporaryFilesystemProxy.address then
 						if GUI.button then
 							local dataDiskButton = disk:addChild(GUI.button(1, 9, disk.width, 1, 0x40CC80, 0xE1E1E1, 0x009940, 0xE1E1E1, "Data Disk"))
 							dataDiskButton.onTouch = function()
@@ -1656,15 +1658,17 @@ addStage(function()
 		-- Construct correct path without double "Installer/" prefix
 		local licenseFilePath = installerPath .. "Licenses/" .. licenseFileName
 		if temporaryFilesystemProxy then
-			local fileHandle, reason = temporaryFilesystemProxy.open(licenseFilePath, "rb")
+			local fileHandle, reason = pcall(temporaryFilesystemProxy.open, licenseFilePath, "rb")
 			if fileHandle then
 				local content = ""
 				local chunk
 				repeat
-					chunk = temporaryFilesystemProxy.read(fileHandle, math.huge)
-					content = content .. (chunk or "")
-				until not chunk
-				temporaryFilesystemProxy.close(fileHandle)
+					local readSuccess, chunkData = pcall(temporaryFilesystemProxy.read, fileHandle, math.huge)
+					if readSuccess and chunkData then
+						content = content .. chunkData
+					end
+				until not chunkData
+				pcall(temporaryFilesystemProxy.close, fileHandle)
 				if text and text.wrap and layout then
 					lines = text.wrap({content}, layout.width - 2)
 				end
@@ -1701,9 +1705,13 @@ addStage(function()
 	end
 
 	local function switchProxy(runnable)
-		filesystem.setProxy(selectedFilesystemProxy)
-		runnable()
-		filesystem.setProxy(temporaryFilesystemProxy)
+		if filesystem and type(filesystem) == "table" and filesystem.setProxy then
+			filesystem.setProxy(selectedFilesystemProxy)
+			runnable()
+			if temporaryFilesystemProxy then
+				filesystem.setProxy(temporaryFilesystemProxy)
+			end
+		end
 	end
 
 	-- Creating system paths
@@ -1921,11 +1929,14 @@ workspace:draw()
 	local bootManagerPath = "EFI/Minified.lua"
 	
 	-- Try to read from local file first
-	if temporaryFilesystemProxy.exists(bootManagerPath) then
-		local fileHandle = temporaryFilesystemProxy.open(bootManagerPath, "rb")
-		if fileHandle then
-			bootManagerContent = temporaryFilesystemProxy.read(fileHandle)
-			temporaryFilesystemProxy.close(fileHandle)
+	if temporaryFilesystemProxy then
+		local exists, _ = pcall(temporaryFilesystemProxy.exists, bootManagerPath)
+		if exists then
+			local fileHandle = temporaryFilesystemProxy.open(bootManagerPath, "rb")
+			if fileHandle then
+				bootManagerContent = temporaryFilesystemProxy.read(fileHandle)
+				temporaryFilesystemProxy.close(fileHandle)
+			end
 		end
 	end
 	
@@ -1982,7 +1993,9 @@ workspace:draw()
 	workspace:draw()
 
 	-- Removing temporary installer directory
-	temporaryFilesystemProxy.remove(installerPath)
+	if temporaryFilesystemProxy then
+		pcall(temporaryFilesystemProxy.remove, installerPath)
+	end
 	
 	-- 生成安装日志文件
 local logFileName = "/PixelOS-Install-Log.txt"
