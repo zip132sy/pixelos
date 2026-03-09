@@ -807,8 +807,8 @@ if installerMenu then
 					return realTime
 				end
 				
-				local success, connection = pcall(component.invoke, internetAddress, "request", "http://worldtimeapi.org/api/ip")
-				if success then
+				local connection, reason = component.invoke(internetAddress, "request", "http://worldtimeapi.org/api/ip")
+				if connection then
 					local data = ""
 					local chunk
 					while true do
