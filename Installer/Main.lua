@@ -152,14 +152,8 @@ local function rawRequest(url, chunkHandler)
 			internetHandle = internetConnections[fullUrl]
 		else
 			log("Calling internet.request...")
-			-- Add error handling for component.invoke
-			local ok, result = pcall(component.invoke, internetAddress, "request", fullUrl)
-			if not ok then
-				log("ERROR: component.invoke failed: " .. tostring(result))
-				-- Try next URL
-				goto nextUrl
-			end
-			internetHandle, reason = result, nil
+			-- Direct call without pcall to get all return values
+			internetHandle, reason = component.invoke(internetAddress, "request", fullUrl)
 			log("internet.request result: " .. tostring(internetHandle) .. ", reason: " .. tostring(reason))
 			if internetHandle then
 				internetConnections[fullUrl] = internetHandle
