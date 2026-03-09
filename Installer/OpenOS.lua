@@ -68,28 +68,25 @@ do
 	end
 end
 
--- Flash EEPROM with small boot script (EEPROM environment has no require)
+-- Flash EEPROM with small boot script (EEPROM environment has no require or print)
 local eeprom = component.eeprom
 local bootScript = [[
 -- EEPROM boot script for PixelOS installer
--- EEPROM environment has no require, use global component
+-- EEPROM environment has no require or print
 
 -- Check if component is available
 if not component then
-	print("Component API not available!")
 	return
 end
 
 -- Get internet component
 local internetAddress = component.list("internet")()
 if not internetAddress then
-	print("No internet card found!")
 	return
 end
 
 local internet = component.proxy(internetAddress)
 if not internet or not internet.request then
-	print("Invalid internet component!")
 	return
 end
 
@@ -101,7 +98,6 @@ local urls = {
 
 local data
 for i, url in ipairs(urls) do
-	print("Trying: " .. url)
 	local conn = internet.request(url)
 	if conn and conn.read and conn.close then
 		local chunk
@@ -116,14 +112,12 @@ for i, url in ipairs(urls) do
 		end
 		conn.close()
 		if data and #data > 1000 then
-			print("Download successful!")
 			break
 		end
 	end
 end
 
 if not data or #data < 1000 then
-	print("Failed to download installer")
 	return
 end
 
@@ -132,16 +126,8 @@ local success, err = pcall(load, data)
 if success then
 	local func = load(data)
 	if func then
-		print("Starting installer...")
-		local ok, errorMsg = pcall(func)
-		if not ok then
-			print("Installer error: " .. tostring(errorMsg))
-		end
-	else
-		print("Failed to load installer")
+		pcall(func)
 	end
-else
-	print("Failed to parse installer: " .. tostring(err))
 end
 ]]
 
