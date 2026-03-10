@@ -60,59 +60,64 @@ do
 	end
 end
 
-print("")
-print("Downloading PixelOS installer...")
+do
+	local success, result = pcall(component.internet.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
 
-local internetAddress = component.list("internet")()
-if not internetAddress then
-	print("Error: No internet card found")
-	return
+	if not success then
+		if result then
+			if result:match("PKIX") then
+				print("SSL certificate rejected. Update Java or install certificate manually")
+			else
+				print("Server unavailable: " .. tostring(result))
+			end
+		else
+			print("Server unavailable for unknown reasons")
+		end
+
+		return
+	end
+
+	local deadline = computer.uptime() + 5
+	local message
+
+	while computer.uptime() < deadline do
+		success, message = result.finishConnect()
+
+		if success then
+			break
+		else
+			if message then
+				break
+			else
+				os.sleep(0.1)
+			end
+		end
+	end
+
+	result.close()
+
+	if not success then
+		print("Server unavailable. Check if gitee.com is not blocked")
+		return
+	end
 end
 
-local internet = component.proxy(internetAddress)
-
-local urls = {
-	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua",
-	"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua"
-}
-
-local data
-for i, url in ipairs(urls) do
-	print("Trying: " .. url)
-	local success, conn = pcall(internet.request, url)
-	if success and conn then
-		data = ""
-		local chunk
-		repeat
-			chunk = conn.read(math.huge)
-			if chunk then
-				data = data .. chunk
-			end
-		until not chunk
-		conn.close()
+component.eeprom.set([[
+	local connection, data, chunk = component.proxy(component.list("internet")()).request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
+	
+	while true do
+		chunk = connection.read(math.huge)
 		
-		if data and #data > 1000 then
-			print("Download successful from: " .. url)
+		if chunk then
+			data = data .. chunk
+		else
 			break
 		end
 	end
-end
+	
+	connection.close()
+	
+	load(data)()
+]])
 
-if not data or #data < 1000 then
-	print("Error: Failed to download installer from all sources")
-	return
-end
-
-print("Starting PixelOS installer...")
-print("")
-
-local func, err = load(data, "=installer")
-if func then
-	setfenv(func, _G)
-	local ok, err = pcall(func)
-	if not ok then
-		print("Installer error: " .. tostring(err))
-	end
-else
-	print("Error loading installer: " .. tostring(err))
-end
+computer.shutdown(true)
