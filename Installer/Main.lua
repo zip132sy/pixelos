@@ -384,7 +384,7 @@ local window = workspace:addChild(GUI.window(1, 1, 80, 24))
 window.localX, window.localY = math.ceil(workspace.width / 2 - window.width / 2), math.ceil(workspace.height / 2 - window.height / 2)
 window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
 
--- Feature #5: Top menu with time and battery
+-- Top menu
 local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
 local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 
@@ -395,34 +395,6 @@ end
 installerMenu:addItem("Shutdown").onTouch = function()
 	computer.shutdown()
 end
-
--- Feature #5: Battery widget (with error handling)
-local batteryWidget = menu:addChild(GUI.object(1, 1, 15, 1))
-batteryWidget.draw = function()
-	pcall(function()
-		local energy = computer.energy()
-		local maxEnergy = computer.maxEnergy()
-		if energy and maxEnergy and maxEnergy > 0 then
-			local percent = math.min(math.floor((energy / maxEnergy) * 100), 100)
-			local powerText = localization and localization.power or "Power"
-			screen.drawText(batteryWidget.x, batteryWidget.y, 0x787878, string.format("%s: %d%%", powerText, percent))
-		end
-	end)
-end
-
--- Feature #5: Time widget with Beijing timezone (UTC+8)
-local timeWidget = menu:addChild(GUI.object(1, 1, 5, 1))
-timeWidget.draw = function()
-	pcall(function()
-		local currentTime = os.time()
-		local beijingTime = currentTime + 8 * 3600
-		screen.drawText(timeWidget.x, timeWidget.y, 0x787878, os.date("%H:%M", beijingTime))
-	end)
-end
-
--- Position widgets
-batteryWidget.x = workspace.width - 20
-timeWidget.x = workspace.width - 5
 
 -- Main vertical layout
 local layout = window:addChild(GUI.layout(1, 1, window.width, window.height - 2, 1, 1))
