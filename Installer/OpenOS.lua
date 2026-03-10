@@ -4,48 +4,34 @@ local os = require("os")
 
 local gpu = component.gpu
 
--- Try to bind GPU to screen if needed
-if gpu then
-	local screenAvailable = component.isAvailable("screen")
-	if not screenAvailable then
-		for address in component.list("screen") do
-			local ok, err = pcall(gpu.bind, address, true)
-			if ok then break end
-		end
-	end
-end
-
 -- Checking if computer is tough enough for PixelOS
 do
 	local potatoes = {}
 
 	-- GPU/screen
-	local ok1, depth = pcall(gpu.getDepth)
-	local ok2, resolution = pcall(gpu.maxResolution)
-	if not ok1 or not depth or depth < 8 then
-		table.insert(potatoes, "Tier 3 graphics card");
-	end
-	if not ok2 or not resolution or resolution < 160 then
-		table.insert(potatoes, "Tier 3 screen");
+	if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+		table.insert(potatoes, "Tier 3 graphics card and screen");
 	end
 
 	-- RAM
-	local ok, totalMem = pcall(computer.totalMemory)
-	if not ok or not totalMem or totalMem < 2 * 1024 * 1024 then
-		table.insert(potatoes, "2x tier 3.5 RAM");
+	if computer.totalMemory() < 2 * 1024 * 1024 then
+		table.insert(potatoes, "At least 2x tier 3.5 RAM modules");
 	end
 
 	-- HDD
-	local filesystemFound = false
-	for address in component.list("filesystem") do
-		local ok, space = pcall(component.invoke, address, "spaceTotal")
-		if ok and space and space >= 2 * 1024 * 1024 then
-			filesystemFound = true
-			break
+	do
+		local filesystemFound = false
+
+		for address in component.list("filesystem") do
+			if component.invoke(address, "spaceTotal") >= 2 * 1024 * 1024 then
+				filesystemFound = true
+				break
+			end
 		end
-	end
-	if not filesystemFound then
-		table.insert(potatoes, "Tier 2 hard drive");
+
+		if not filesystemFound then
+			table.insert(potatoes, "At least tier 2 hard disk drive");
+		end	
 	end
 
 	-- Internet
@@ -58,101 +44,91 @@ do
 		table.insert(potatoes, "EEPROM");
 	end
 
-	-- Show error and return if requirements not met
+	-- SORRY BRO NOT TODAY
 	if #potatoes > 0 then
-		print("PixelOS requirements not met:")
+		print("Your computer does not meet the minimum system requirements:")
+
 		for i = 1, #potatoes do
 			print("  - " .. potatoes[i])
 		end
+
 		return
 	end
 end
 
--- Download and execute Main.lua directly (avoid EEPROM size limitations)
-print("")
-print("Downloading PixelOS installer...")
-
-local internetAddress = component.list("internet")()
-if not internetAddress then
-	print("Error: No internet card found")
-	return
-end
-
-local internet = component.proxy(internetAddress)
-
--- Download from multiple URLs with fallback
-local urls = {
+-- Checking if installer can be downloaded (test multiple URLs)
+local workingURL = nil
+local testURLs = {
 	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua",
 	"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua"
 }
 
-local data
-for i, url in ipairs(urls) do
-	print("Trying: " .. url)
-	local success, conn = pcall(internet.request, url)
-	if success and conn then
-		data = ""
-		local chunk
-		repeat
-			chunk = conn.read(math.huge)
-			if chunk then
-				data = data .. chunk
+for i, url in ipairs(testURLs) do
+	print("Testing connection: " .. url)
+	local success, result = pcall(component.internet.request, url)
+
+	if success and result then
+		local deadline = computer.uptime() + 5
+		local message
+
+		while computer.uptime() < deadline do
+			success, message = result.finishConnect()
+
+			if success then
+				break
+			else
+				if message then
+					break
+				else
+					os.sleep(0.1)
+				end
 			end
-		until not chunk
-		conn.close()
+		end
+
+		result.close()
+
+		if success then
+			print("Connection successful!")
+			workingURL = url
+			break
+		else
+			print("Connection failed: " .. tostring(message))
+		end
+	else
+		print("Failed to create connection: " .. tostring(result))
+	end
+end
+
+if not workingURL then
+	print("Error: All download servers are unavailable")
+	print("Please check your internet connection and try again")
+	return
+end
+
+-- Flashing EEPROM with tiny script that will run installer itself after reboot.
+-- It's necessary, because we need clean computer without OpenOS hooks to computer.pullSignal()
+print("Flashing EEPROM...")
+component.eeprom.set(string.format([[
+	local connection, data, chunk = component.proxy(component.list("internet")()).request("%s"), ""
+	
+	while true do
+		chunk = connection.read(math.huge)
 		
-		if data and #data > 1000 then
-			print("Download successful from: " .. url)
+		if chunk then
+			data = data .. chunk
+		else
 			break
 		end
 	end
-end
-
-if not data or #data < 1000 then
-	print("Error: Failed to download installer from all sources")
-	return
-end
-
--- Save to temporary file and execute
-print("Saving installer...")
-local fsAddress = component.list("filesystem")()
-if not fsAddress then
-	print("Error: No filesystem found")
-	return
-end
-
-local fs = component.proxy(fsAddress)
-local tmpFile = "/tmp/installer.lua"
-
--- Clean up old file if exists
-if fs.exists(tmpFile) then
-	fs.remove(tmpFile)
-end
-
--- Write new file
-local handle = fs.open(tmpFile, "w")
-if handle then
-	fs.write(handle, data)
-	fs.close(handle)
-	print("Installer saved to: " .. tmpFile)
 	
-	-- Execute installer
-	print("Starting PixelOS installer...")
-	print("")
+	connection.close()
 	
-	-- Load and execute
-	local success, err = pcall(loadfile, tmpFile)
-	if success and err then
-		err()
-	else
-		print("Error executing installer: " .. tostring(err))
-	end
-else
-	print("Error: Cannot create temporary file")
-	-- Try to execute directly
-	print("Executing directly...")
-	local func = load(data, "installer")
-	if func then
-		pcall(func)
-	end
-end
+	load(data)()
+]], workingURL))
+
+component.eeprom.setLabel("PixelOS Installer")
+
+print("EEPROM flashed successfully")
+print("Rebooting to start installation...")
+
+computer.shutdown(true)
