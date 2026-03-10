@@ -388,7 +388,17 @@ window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
 local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
 local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 
--- Feature: Add time and battery info to menu
+local statusMenuItem
+
+local function updateStatusMenuItem()
+	if statusMenuItem and localization then
+		local battery = getBatteryInfo() or 0
+		local powerText = localization.power or "Power"
+		local timeStr = formatTime()
+		statusMenuItem.text = " " .. timeStr .. " | " .. battery .. "% " .. powerText
+	end
+end
+
 local function getBatteryInfo()
 	local ok, energy = pcall(computer.energy)
 	local ok2, maxEnergy = pcall(computer.maxEnergy)
@@ -400,14 +410,17 @@ local function getBatteryInfo()
 end
 
 local function formatTime()
-	local currentTime = os.time()
-	local beijingTime = currentTime + 8 * 3600
-	return os.date("%H:%M", beijingTime)
+	local zone = 8
+	if localization and localization.settings_timeZone then
+		zone = tonumber(localization.settings_timeZone) or 8
+	end
+	local localTime = os.time() + zone * 3600
+	return os.date("%H:%M", localTime)
 end
 
-local statusText = " | " .. formatTime() .. " | " .. (getBatteryInfo() or 0) .. "%"
-installerMenu:addItem(statusText).onTouch = function()
-	-- Click to refresh
+statusMenuItem = installerMenu:addItem("").onTouch = function()
+	updateStatusMenuItem()
+	workspace:draw()
 end
 
 installerMenu:addItem("Reboot").onTouch = function()
@@ -474,6 +487,7 @@ for i = 1, #files.localizations do
 end
 -- Load default localization immediately
 localization = deserialize(request(installerURL .. files.localizations[defaultLocalizationIndex]))
+updateStatusMenuItem()
 
 local stage = 1
 local stages = {}
@@ -522,6 +536,7 @@ for i = 1, #files.localizations do
 	localizationComboBox:addItem(filesystemHideExtension(filesystemName(files.localizations[i]))).onTouch = function()
 		-- Obtaining localization table
 		localization = deserialize(request(installerURL .. files.localizations[i]))
+		updateStatusMenuItem()
 
 		-- Filling widgets with selected localization data
 		usernameInput.placeholderText = localization.username
