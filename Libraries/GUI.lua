@@ -348,16 +348,16 @@ local function containerDraw(container)
 			
 			if not child.hidden then
 				child.x, child.y = container.x + child.localX - 1, container.y + child.localY - 1
-				child:draw()
+				if child.draw then
+					child:draw()
+				else
+					error("GUI:500: Child " .. i .. " of container has no draw method. Type: " .. type(child) .. ", hidden: " .. tostring(child.hidden))
+				end
 			end
 		end
 
 		screen.setDrawLimit(R1X1, R1Y1, R1X2, R1Y2)
 	end
-
-	-- if container.workspace and container.workspace.capturedObject == container then
-	-- 	screen.drawRectangle(container.x, container.y, container.width, 1, 0xFF0000, 0x0, " ")
-	-- end
 
 	return container
 end

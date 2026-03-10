@@ -1013,14 +1013,28 @@ end, 1)
 
 flushLog()
 
--- Error handling
+-- Error handling with detailed logging
 local function handleErrors()
 	local success, err = pcall(function()
 		workspace:start()
 	end)
 	if not success then
 		logError("Fatal error: " .. tostring(err))
+		
+		-- Log workspace state
+		logError("workspace: " .. tostring(workspace))
+		logError("workspace.draw: " .. tostring(workspace and workspace.draw))
+		logError("workspace.children: " .. tostring(workspace and #workspace.children))
+		
+		if workspace and workspace.children then
+			for i = 1, #workspace.children do
+				local child = workspace.children[i]
+				logError("Child " .. i .. ": " .. tostring(child) .. ", draw: " .. tostring(child.draw))
+			end
+		end
+		
 		flushLog()
+		
 		-- Display error on screen
 		component.invoke(GPUAddress, "setBackground", 0x000000)
 		component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
