@@ -2043,7 +2043,7 @@ addStage(function()
 	else
 		log("Failed to create log file: No filesystem available")
 	end
-end
+end)
 
 --------------------------------------------------------------------------------
 

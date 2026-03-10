@@ -68,115 +68,91 @@ do
 	end
 end
 
--- Flash EEPROM with robust boot script
-local eeprom = component.eeprom
-local bootScript = [[
--- EEPROM boot script for PixelOS installer
+-- Download and execute Main.lua directly (avoid EEPROM size limitations)
+print("")
+print("Downloading PixelOS installer...")
 
--- Get screen and GPU for output if available
-local screenAddress = component.list("screen")()
-local gpuAddress = component.list("gpu")()
-local gpu
-
-if screenAddress and gpuAddress then
-	gpu = component.proxy(gpuAddress)
-	if gpu then
-		gpu.bind(screenAddress, true)
-		gpu.setBackground(0x000000)
-		gpu.setForeground(0xFFFFFF)
-		gpu.fill(1, 1, 80, 25, " ")
-	end
-end
-
--- Simple print function that uses GPU if available
-local function print(text)
-	if gpu then
-		local y = 1
-		local lines = {}
-		local start = 1
-		while start <= #text do
-			local pos = text:find("\n", start)
-			if pos then
-				lines[#lines+1] = text:sub(start, pos-1)
-				start = pos + 1
-			else
-				lines[#lines+1] = text:sub(start)
-				break
-			end
-		end
-		for i, line in ipairs(lines) do
-			gpu.set(1, i, line)
-			if i >= 25 then break end
-		end
-	end
-end
-
--- Main boot process
-print("PixelOS Installer Booting...")
-
--- Check if component is available
-if not component then
-	return
-end
-
--- Get internet component
-print("Checking internet...")
 local internetAddress = component.list("internet")()
 if not internetAddress then
+	print("Error: No internet card found")
 	return
 end
 
 local internet = component.proxy(internetAddress)
-if not internet or not internet.request then
-	return
-end
 
--- Download URLs
-print("Downloading installer...")
+-- Download from multiple URLs with fallback
 local urls = {
-	"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua",
-	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"
+	"https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua",
+	"https://raw.githubusercontent.com/zip132sy/pixelos/master/Installer/Main.lua"
 }
 
 local data
 for i, url in ipairs(urls) do
 	print("Trying: " .. url)
-	local conn = internet.request(url)
-	if conn and conn.read and conn.close then
-		local chunk
+	local success, conn = pcall(internet.request, url)
+	if success and conn then
 		data = ""
-		while true do
-			chunk = conn.read(8192)
+		local chunk
+		repeat
+			chunk = conn.read(math.huge)
 			if chunk then
 				data = data .. chunk
-			else
-				break
 			end
-		end
+		until not chunk
 		conn.close()
+		
 		if data and #data > 1000 then
-			print("Download successful!")
+			print("Download successful from: " .. url)
 			break
 		end
 	end
 end
 
 if not data or #data < 1000 then
+	print("Error: Failed to download installer from all sources")
 	return
 end
 
--- Execute installer
-print("Starting installer...")
-local success, err = pcall(load, data)
-if success then
-	local func = load(data)
+-- Save to temporary file and execute
+print("Saving installer...")
+local fsAddress = component.list("filesystem")()
+if not fsAddress then
+	print("Error: No filesystem found")
+	return
+end
+
+local fs = component.proxy(fsAddress)
+local tmpFile = "/tmp/installer.lua"
+
+-- Clean up old file if exists
+if fs.exists(tmpFile) then
+	fs.remove(tmpFile)
+end
+
+-- Write new file
+local handle = fs.open(tmpFile, "w")
+if handle then
+	fs.write(handle, data)
+	fs.close(handle)
+	print("Installer saved to: " .. tmpFile)
+	
+	-- Execute installer
+	print("Starting PixelOS installer...")
+	print("")
+	
+	-- Load and execute
+	local success, err = pcall(loadfile, tmpFile)
+	if success and err then
+		err()
+	else
+		print("Error executing installer: " .. tostring(err))
+	end
+else
+	print("Error: Cannot create temporary file")
+	-- Try to execute directly
+	print("Executing directly...")
+	local func = load(data, "installer")
 	if func then
 		pcall(func)
 	end
 end
-]]
-
-eeprom.set(bootScript)
-eeprom.setLabel("PixelOS Installer")
-print("Flashed EEPROM with boot script")
-computer.shutdown(true)
