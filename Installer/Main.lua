@@ -1,4 +1,3 @@
-
 -- Based on MineOS by IgorTimofeev
 -- Modified for PixelOS
 
@@ -254,9 +253,9 @@ local function request(url)
 	
 	-- 3. Temporary filesystem (for installer files)
 	if temporaryFilesystemProxy and temporaryFilesystemProxy.address then
-			table.insert(sources, {proxy = temporaryFilesystemProxy, name = "Temporary Filesystem"})
-			log("Added temporary filesystem to sources: " .. temporaryFilesystemProxy.address)
-		end
+		table.insert(sources, {proxy = temporaryFilesystemProxy, name = "Temporary Filesystem"})
+		log("Added temporary filesystem to sources: " .. temporaryFilesystemProxy.address)
+	end
 	
 	-- Try each source
 	for _, source in ipairs(sources) do
@@ -558,27 +557,27 @@ local function download(url, path)
 
 			targetProxy.close(fileHandle)
 			if success then
-			-- Download successful, move temp file to target
-			log("Download completed, moving temp file to target...")
-			pcall(targetProxy.remove, path) -- Remove old file if exists
-			local renameSuccess, renameError = pcall(targetProxy.rename, tempPath, path)
-			if renameSuccess then
-				downloadedFilesCache[path] = true
-				log("Network download completed: " .. url)
-				downloadSuccess = true
-				break
+				-- Download successful, move temp file to target
+				log("Download completed, moving temp file to target...")
+				pcall(targetProxy.remove, path) -- Remove old file if exists
+				local renameSuccess, renameError = pcall(targetProxy.rename, tempPath, path)
+				if renameSuccess then
+					downloadedFilesCache[path] = true
+					log("Network download completed: " .. url)
+					downloadSuccess = true
+					break
+				else
+					log("Warning: Failed to rename temp file: " .. tostring(renameError))
+					lastError = renameError
+					-- Clean up temp file on failure
+					pcall(targetProxy.remove, tempPath)
+				end
 			else
-				log("Warning: Failed to rename temp file: " .. tostring(renameError))
-				lastError = renameError
+				log("Repository " .. repoIndex .. " failed: " .. tostring(errorMessage))
+				lastError = errorMessage
 				-- Clean up temp file on failure
 				pcall(targetProxy.remove, tempPath)
 			end
-		else
-			log("Repository " .. repoIndex .. " failed: " .. tostring(errorMessage))
-			lastError = errorMessage
-			-- Clean up temp file on failure
-			pcall(targetProxy.remove, tempPath)
-		end
 		else
 			log("Failed to open temp file: " .. tostring(reason))
 			lastError = reason
@@ -798,8 +797,8 @@ event = loadLibrary("Event")
 filesystem = loadLibrary("Filesystem")
 
 if filesystem and type(filesystem) == "table" and filesystem.setProxy and temporaryFilesystemProxy then
-		filesystem.setProxy(temporaryFilesystemProxy)
-	end
+	filesystem.setProxy(temporaryFilesystemProxy)
+end
 
 bit32 = bit32 or loadLibrary("Bit32")
 image = loadLibrary("Image")
@@ -877,29 +876,29 @@ if installerMenu then
 
 			-- Function to get real time using OpenComputers internet API
 			local function getRealTime()
-			-- Only get real time once during installation to avoid network overhead
-			if realTime then
-				return realTime
-			end
-			
-			if not component or not internetAddress then
-				return nil
-			end
-			
-			local connection, reason = component.invoke(internetAddress, "request", "http://worldtimeapi.org/api/ip")
-			if connection then
-				local data = ""
-				local chunk
-				while true do
-					chunk = connection.read(math.huge)
-					if chunk then
-						data = data .. chunk
-					else
-						break
-					end
+				-- Only get real time once during installation to avoid network overhead
+				if realTime then
+					return realTime
 				end
-				connection.close()
-					
+				
+				if not component or not internetAddress then
+					return nil
+				end
+				
+				local connection, reason = component.invoke(internetAddress, "request", "http://worldtimeapi.org/api/ip")
+				if connection then
+					local data = ""
+					local chunk
+					while true do
+						chunk = connection.read(math.huge)
+						if chunk then
+							data = data .. chunk
+						else
+							break
+						end
+					end
+					connection.close()
+						
 					-- Parse JSON response
 					local success, result = pcall(load("return " .. data:gsub("true", "true"):gsub("false", "false"):gsub("null", "nil")))
 					if success and result and result.datetime then
@@ -1257,7 +1256,7 @@ local function checkUserInputs()
 	pcall(function()
 		if usernameInput and withoutPasswordSwitchAndLabel and withoutPasswordSwitchAndLabel.switch and passwordInput and passwordSubmitInput and nextButton and usernamePasswordText then
 			local nameEmpty = #usernameInput.text == 0
-			local nameVaild = usernameInput.text:match("^%w[%w%s_]+$")
+			local nameVaild = usernameInput.text:match("^%w[%w%s_]+")
 			local passValid = withoutPasswordSwitchAndLabel.switch.state or (#passwordInput.text > 0 and #passwordSubmitInput.text > 0 and passwordInput.text == passwordSubmitInput.text)
 
 			if (nameEmpty or nameVaild) and passValid then
@@ -1425,10 +1424,10 @@ addStage(function()
 		
 		local diskLayout
 		if layout and GUI and type(GUI) == "table" and GUI.layout then
-		diskLayout = layout:addChild(GUI.layout(1, 1, layout.width, 11, 1, 1))
-		diskLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
-		diskLayout:setSpacing(1, 1, 1)
-	end
+			diskLayout = layout:addChild(GUI.layout(1, 1, layout.width, 11, 1, 1))
+			diskLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
+			diskLayout:setSpacing(1, 1, 1)
+		end
 
 		local HDDImage = loadImage("HDD")
 		local dataDiskProxy = nil
@@ -1489,8 +1488,8 @@ addStage(function()
 								local path = "/" .. list[i]
 
 								if temporaryFilesystemProxy and temporaryFilesystemProxy.address and (proxy.address ~= temporaryFilesystemProxy.address or path ~= installerPath) then
-					proxy.remove(path)
-				end
+									proxy.remove(path)
+								end
 							end
 
 							updateDisks()
@@ -1544,31 +1543,31 @@ addStage(function()
 							end
 						end
 					end
-					
-					if GUI.progressBar and localization then
-						disk:addChild(GUI.progressBar(2, 8, disk.width - 2, disabled and 0xCCDBFF or 0x66B6FF, disabled and 0xD2D2D2 or 0xC3C3C3, disabled and 0xC3C3C3 or 0xA5A5A5, math.floor(proxy.spaceUsed() / proxy.spaceTotal() * 100), true, true, "", "% " .. localization.used))
-					end
-
-					-- Add data disk button if not disabled
-					if not disabled and temporaryFilesystemProxy and temporaryFilesystemProxy.address and proxy.address ~= temporaryFilesystemProxy.address then
-						if GUI.button then
-							local dataDiskButton = disk:addChild(GUI.button(1, 9, disk.width, 1, 0x40CC80, 0xE1E1E1, 0x009940, 0xE1E1E1, "Data Disk"))
-							dataDiskButton.onTouch = function()
-								selectDataDisk(proxy)
-							end
-						end
-						
-						-- Add data disk indicator
-						if GUI.label then
-							local dataDiskIndicator = disk:addChild(GUI.label(2, 3, disk.width - 2, 1, 0x40CC80, "Data Disk"))
-							dataDiskIndicator:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-							dataDiskIndicator.hidden = true
-						end
-					end
-
-					disk.eventHandler = diskEventHandler
-					disk.proxy = proxy
 				end
+				
+				if GUI.progressBar and localization then
+					disk:addChild(GUI.progressBar(2, 8, disk.width - 2, disabled and 0xCCDBFF or 0x66B6FF, disabled and 0xD2D2D2 or 0xC3C3C3, disabled and 0xC3C3C3 or 0xA5A5A5, math.floor(proxy.spaceUsed() / proxy.spaceTotal() * 100), true, true, "", "% " .. localization.used))
+				end
+
+				-- Add data disk button if not disabled
+				if not disabled and temporaryFilesystemProxy and temporaryFilesystemProxy.address and proxy.address ~= temporaryFilesystemProxy.address then
+					if GUI.button then
+						local dataDiskButton = disk:addChild(GUI.button(1, 9, disk.width, 1, 0x40CC80, 0xE1E1E1, 0x009940, 0xE1E1E1, "Data Disk"))
+						dataDiskButton.onTouch = function()
+							selectDataDisk(proxy)
+						end
+					end
+					
+					-- Add data disk indicator
+					if GUI.label then
+						local dataDiskIndicator = disk:addChild(GUI.label(2, 3, disk.width - 2, 1, 0x40CC80, "Data Disk"))
+						dataDiskIndicator:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+						dataDiskIndicator.hidden = true
+					end
+				end
+
+				disk.eventHandler = diskEventHandler
+				disk.proxy = proxy
 			end
 
 			if diskLayout then
@@ -1752,12 +1751,12 @@ addStage(function()
 	addImage(3, 2, "Downloading")
 
 	local container, progressBar, currentFileLabel, progressInfoLabel
-if GUI and type(GUI) == "table" then
-	container = layout:addChild(GUI.container(1, 1, layout.width - 20, 5))
-	progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, true, "0%", "%"))
-	currentFileLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x2D2D2D, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	progressInfoLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x666666, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-end
+	if GUI and type(GUI) == "table" then
+		container = layout:addChild(GUI.container(1, 1, layout.width - 20, 5))
+		progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, true, "0%", "%"))
+		currentFileLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x2D2D2D, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		progressInfoLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x666666, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	end
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -1804,119 +1803,119 @@ end
 	addToList(wallpapersSwitchAndLabel.switch.state, "optionalWallpapers")
 
 	-- Downloading files from created list
-local versions, path, id, version, shortcut = {}
-local downloadStartTime = computer and computer.uptime() or os.time()
-local totalDownloadedSize = 0
-local filesToDownload = {}
-local lastDrawTime = 0
-local drawInterval = 0.5 -- Only draw every 0.5 seconds
+	local versions, path, id, version, shortcut = {}
+	local downloadStartTime = computer and computer.uptime() or os.time()
+	local totalDownloadedSize = 0
+	local filesToDownload = {}
+	local lastDrawTime = 0
+	local drawInterval = 0.5 -- Only draw every 0.5 seconds
 
--- Filter out already downloaded files
-for i = 1, #downloadList do
-	local currentPath = getData(downloadList[i])
-	local fullPath = OSPath .. currentPath
-	if not filesystem.exists(fullPath) then
-		table.insert(filesToDownload, downloadList[i])
-	else
-		-- File already exists, add to versions if needed
-		local p, id, v, s = getData(downloadList[i])
+	-- Filter out already downloaded files
+	for i = 1, #downloadList do
+		local currentPath = getData(downloadList[i])
+		local fullPath = OSPath .. currentPath
+		if not filesystem.exists(fullPath) then
+			table.insert(filesToDownload, downloadList[i])
+		else
+			-- File already exists, add to versions if needed
+			local p, id, v, s = getData(downloadList[i])
+			if id then
+				versions[id] = {
+					path = OSPath .. p,
+					version = v or 1,
+				}
+			end
+			-- Create shortcut if needed
+			if s then
+				switchProxy(function()
+					system.createShortcut(
+						userPaths.desktop .. filesystem.hideExtension(filesystem.name(filesystem.path(p))),
+						OSPath .. filesystem.path(p)
+					)
+				end)
+			end
+		end
+	end
+
+	local totalFiles = #filesToDownload
+	for i = 1, totalFiles do
+		path, id, version, shortcut = getData(filesToDownload[i])
+
+		-- Update current file label
+		currentFileLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
+		
+		-- Calculate ETA
+		local currentTime = computer and computer.uptime() or os.time()
+		local downloadElapsed = currentTime - downloadStartTime
+		local downloadRemaining = totalFiles - i
+		local downloadEstimatedTotal = (downloadElapsed / math.max(1, i)) * totalFiles
+		local downloadEta = math.max(0, downloadEstimatedTotal - downloadElapsed)
+		
+		-- Show detailed progress info - use seconds if less than 1 minute, otherwise show minutes and seconds
+		local timeText
+		local downloadEtaSeconds = math.floor(downloadEta)
+		if downloadEta < 60 then
+			timeText = string.format("~%d %s", downloadEtaSeconds, localization.seconds or "sec")
+		else
+			local downloadEtaMinutes = math.floor(downloadEta / 60)
+			local remainingSeconds = downloadEtaSeconds % 60
+			timeText = string.format("~%d %s %d %s", downloadEtaMinutes, localization.minutes or "min", remainingSeconds, localization.seconds or "sec")
+		end
+		
+		-- Show detailed progress info
+		local sizeText = ""
+		if totalDownloadedSize >= 1024 * 1024 then
+			sizeText = string.format(" | %s: %.1f %s", localization.downloadedSize or "Size", totalDownloadedSize / (1024 * 1024), localization.MB or "MB")
+		else
+			sizeText = string.format(" | %s: %.0f %s", localization.downloadedSize or "Size", totalDownloadedSize / 1024, localization.KB or "KB")
+		end
+		
+		progressInfoLabel.text = string.format("%s: %d/%d | %s: %s%s",
+			localization.remainingFiles or "Remaining", i, totalFiles,
+			localization.estimatedTime or "ETA", timeText,
+			sizeText)
+		
+		-- Update progress bar
+		progressBar.value = math.floor(i / totalFiles * 100)
+		progressBar.prefixText = math.floor(i / totalFiles * 100) .. "%"
+		
+		-- Draw only if enough time has passed
+		local currentTime = computer and computer.uptime() or os.time()
+		if currentTime - lastDrawTime >= drawInterval or i == 1 or i == totalFiles then
+			workspace:draw()
+			lastDrawTime = currentTime
+		end
+
+		-- Download file and get size
+		download(path, OSPath .. path)
+		
+		-- Calculate downloaded size (approximate)
+		local filePath = OSPath .. path
+		if filesystem.exists(filePath) then
+			totalDownloadedSize = totalDownloadedSize + filesystem.size(filePath)
+		end
+
+		-- Adding system versions data
 		if id then
 			versions[id] = {
-				path = OSPath .. p,
-				version = v or 1,
+				path = OSPath .. path,
+				version = version or 1,
 			}
 		end
-		-- Create shortcut if needed
-		if s then
+
+		-- Create shortcut if possible
+		if shortcut then
 			switchProxy(function()
 				system.createShortcut(
-					userPaths.desktop .. filesystem.hideExtension(filesystem.name(filesystem.path(p))),
-					OSPath .. filesystem.path(p)
+					userPaths.desktop .. filesystem.hideExtension(filesystem.name(filesystem.path(path))),
+					OSPath .. filesystem.path(path)
 				)
 			end)
 		end
 	end
-end
 
-local totalFiles = #filesToDownload
-for i = 1, totalFiles do
-	path, id, version, shortcut = getData(filesToDownload[i])
-
-	-- Update current file label
-	currentFileLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
-	
-	-- Calculate ETA
-	local currentTime = computer and computer.uptime() or os.time()
-	local downloadElapsed = currentTime - downloadStartTime
-	local downloadRemaining = totalFiles - i
-	local downloadEstimatedTotal = (downloadElapsed / math.max(1, i)) * totalFiles
-	local downloadEta = math.max(0, downloadEstimatedTotal - downloadElapsed)
-	
-	-- Show detailed progress info - use seconds if less than 1 minute, otherwise show minutes and seconds
-	local timeText
-	local downloadEtaSeconds = math.floor(downloadEta)
-	if downloadEta < 60 then
-		timeText = string.format("~%d %s", downloadEtaSeconds, localization.seconds or "sec")
-	else
-		local downloadEtaMinutes = math.floor(downloadEta / 60)
-		local remainingSeconds = downloadEtaSeconds % 60
-		timeText = string.format("~%d %s %d %s", downloadEtaMinutes, localization.minutes or "min", remainingSeconds, localization.seconds or "sec")
-	end
-	
-	-- Show detailed progress info
-	local sizeText = ""
-	if totalDownloadedSize >= 1024 * 1024 then
-		sizeText = string.format(" | %s: %.1f %s", localization.downloadedSize or "Size", totalDownloadedSize / (1024 * 1024), localization.MB or "MB")
-	else
-		sizeText = string.format(" | %s: %.0f %s", localization.downloadedSize or "Size", totalDownloadedSize / 1024, localization.KB or "KB")
-	end
-	
-	progressInfoLabel.text = string.format("%s: %d/%d | %s: %s%s",
-		localization.remainingFiles or "Remaining", i, totalFiles,
-		localization.estimatedTime or "ETA", timeText,
-		sizeText)
-	
-	-- Update progress bar
-	progressBar.value = math.floor(i / totalFiles * 100)
-	progressBar.prefixText = math.floor(i / totalFiles * 100) .. "%"
-	
-	-- Draw only if enough time has passed
-	local currentTime = computer and computer.uptime() or os.time()
-	if currentTime - lastDrawTime >= drawInterval or i == 1 or i == totalFiles then
-		workspace:draw()
-		lastDrawTime = currentTime
-	end
-
-	-- Download file and get size
-	download(path, OSPath .. path)
-	
-	-- Calculate downloaded size (approximate)
-	local filePath = OSPath .. path
-	if filesystem.exists(filePath) then
-		totalDownloadedSize = totalDownloadedSize + filesystem.size(filePath)
-	end
-
-	-- Adding system versions data
-	if id then
-		versions[id] = {
-			path = OSPath .. path,
-			version = version or 1,
-		}
-	end
-
-	-- Create shortcut if possible
-	if shortcut then
-		switchProxy(function()
-			system.createShortcut(
-				userPaths.desktop .. filesystem.hideExtension(filesystem.name(filesystem.path(path))),
-				OSPath .. filesystem.path(path)
-			)
-		end)
-	end
-end
-
--- Final draw to show 100% completion
-workspace:draw()
+	-- Final draw to show 100% completion
+	workspace:draw()
 
 	-- Flashing EEPROM
 	layout:removeChildren()
@@ -1986,10 +1985,10 @@ workspace:draw()
 	end
 	
 	addStageButton(localization.reboot).onTouch = function()
-			if computer then
-				computer.shutdown(true)
-			end
+		if computer then
+			computer.shutdown(true)
 		end
+	end
 	workspace:draw()
 
 	-- Removing temporary installer directory
