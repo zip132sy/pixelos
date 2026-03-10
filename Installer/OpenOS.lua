@@ -140,18 +140,29 @@ if handle then
 	print("Starting PixelOS installer...")
 	print("")
 	
-	-- Load and execute
-	local success, err = pcall(loadfile, tmpFile)
-	if success and err then
-		err()
-	else
+	-- Load and execute using dofile equivalent
+	local success, err = pcall(function()
+		local func = load(data, "installer", "t", _G)
+		if func then
+			func()
+		else
+			error("Failed to load installer script")
+		end
+	end)
+	
+	if not success then
 		print("Error executing installer: " .. tostring(err))
+		print("")
+		print("Please check:")
+		print("1. Internet card is installed and enabled")
+		print("2. Network connection is working")
+		print("3. Repository URLs are accessible")
 	end
 else
 	print("Error: Cannot create temporary file")
 	-- Try to execute directly
 	print("Executing directly...")
-	local func = load(data, "installer")
+	local func = load(data, "installer", "t", _G)
 	if func then
 		pcall(func)
 	end
