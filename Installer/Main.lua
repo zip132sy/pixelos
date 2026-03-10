@@ -940,4 +940,20 @@ end)
 --------------------------------------------------------------------------------
 
 loadStage()
+
+local function statusUpdateLoop()
+	while true do
+		os.sleep(1)
+		if workspace.running then
+			updateStatusMenuItem()
+			workspace:draw()
+		else
+			break
+		end
+	end
+end
+
+local statusThread = require("thread")
+statusThread.start(statusUpdateLoop)
+
 workspace:start()
