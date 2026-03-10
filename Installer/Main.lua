@@ -333,7 +333,8 @@ function require(module)
 
 		local handle, reason = temporaryFilesystemProxy.open(installerPath .. "Libraries/" .. module .. ".lua", "rb")
 		if handle then
-			local data, chunk = ""
+			local data = ""
+			local chunk
 			repeat
 				chunk = temporaryFilesystemProxy.read(handle, math.huge)
 				data = data .. (chunk or "")
@@ -418,7 +419,8 @@ local function formatTime()
 	return os.date("%H:%M", localTime)
 end
 
-statusMenuItem = installerMenu:addItem("").onTouch = function()
+statusMenuItem = installerMenu:addItem("")
+statusMenuItem.onTouch = function()
 	updateStatusMenuItem()
 	workspace:draw()
 end
@@ -824,7 +826,11 @@ addStage(function()
 
 	local function addToList(state, key)
 		if state then
-			local selectedLocalization, path, localizationName = localizationComboBox:getItem(localizationComboBox.selectedItem).text
+			local selectedItem = localizationComboBox:getItem(localizationComboBox.selectedItem)
+			local selectedLocalization, path, localizationName
+			if selectedItem and selectedItem.text then
+				selectedLocalization = selectedItem.text
+			end
 			
 			for i = 1, #files[key] do
 				path = getData(files[key][i])
