@@ -39,7 +39,8 @@ local function log(...)
 	
 	table.insert(logBuffer, message)
 	
-	if #logBuffer >= 10 then
+	-- Always flush on error or every 5 messages
+	if #logBuffer >= 5 then
 		flushLog()
 	end
 	
@@ -48,14 +49,20 @@ end
 
 local function flushLog()
 	if temporaryFilesystemProxy then
-		local content = table.concat(logBuffer, "\n")
-		local handle = temporaryFilesystemProxy.open(logFilePath, "a")
-		if handle then
+		local content = table.concat(logBuffer, "\n") .. "\n"
+		local ok, handle = pcall(temporaryFilesystemProxy.open, temporaryFilesystemProxy, logFilePath, "a")
+		if ok and handle then
 			temporaryFilesystemProxy.write(handle, content)
 			temporaryFilesystemProxy.close(handle)
 			logBuffer = {}
 		end
 	end
+end
+
+-- Error logging
+local function logError(message)
+	log("ERROR:", message)
+	flushLog()
 end
 
 -- Checking for required components
@@ -1008,4 +1015,23 @@ local statusUpdateHandler = event.addHandler(function()
 end, 1)
 
 flushLog()
-workspace:start()
+
+-- Error handling
+local function handleErrors()
+	local success, err = pcall(function()
+		workspace:start()
+	end)
+	if not success then
+		logError("Fatal error: " .. tostring(err))
+		flushLog()
+		-- Display error on screen
+		component.invoke(GPUAddress, "setBackground", 0x000000)
+		component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
+		component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
+		component.invoke(GPUAddress, "set", 1, 1, "Error: " .. err)
+		component.invoke(GPUAddress, "set", 1, 3, "Check log at: " .. logFilePath)
+		error(err)
+	end
+end
+
+handleErrors()
