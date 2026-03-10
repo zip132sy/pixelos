@@ -4,43 +4,30 @@ local os = require("os")
 
 local gpu = component.gpu
 
-if gpu then
-	local screenAvailable = component.isAvailable("screen")
-	if not screenAvailable then
-		for address in component.list("screen") do
-			local ok, err = pcall(gpu.bind, address, true)
-			if ok then break end
-		end
-	end
-end
-
 do
 	local potatoes = {}
 
-	local ok1, depth = pcall(gpu.getDepth)
-	local ok2, resolution = pcall(gpu.maxResolution)
-	if not ok1 or not depth or depth < 8 then
-		table.insert(potatoes, "Tier 3 graphics card");
-	end
-	if not ok2 or not resolution or resolution < 160 then
-		table.insert(potatoes, "Tier 3 screen");
+	if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+		table.insert(potatoes, "Tier 3 graphics card and screen");
 	end
 
-	local ok, totalMem = pcall(computer.totalMemory)
-	if not ok or not totalMem or totalMem < 2 * 1024 * 1024 then
-		table.insert(potatoes, "2x tier 3.5 RAM");
+	if computer.totalMemory() < 2 * 1024 * 1024 then
+		table.insert(potatoes, "At least 2x tier 3.5 RAM modules");
 	end
 
-	local filesystemFound = false
-	for address in component.list("filesystem") do
-		local ok, space = pcall(component.invoke, address, "spaceTotal")
-		if ok and space and space >= 2 * 1024 * 1024 then
-			filesystemFound = true
-			break
+	do
+		local filesystemFound = false
+
+		for address in component.list("filesystem") do
+			if component.invoke(address, "spaceTotal") >= 2 * 1024 * 1024 then
+				filesystemFound = true
+				break
+			end
 		end
-	end
-	if not filesystemFound then
-		table.insert(potatoes, "Tier 2 hard drive");
+
+		if not filesystemFound then
+			table.insert(potatoes, "At least tier 2 hard disk drive");
+		end	
 	end
 
 	if not component.isAvailable("internet") then
@@ -52,10 +39,12 @@ do
 	end
 
 	if #potatoes > 0 then
-		print("PixelOS requirements not met:")
+		print("Your computer does not meet the minimum system requirements:")
+
 		for i = 1, #potatoes do
 			print("  - " .. potatoes[i])
 		end
+
 		return
 	end
 end
@@ -66,12 +55,12 @@ do
 	if not success then
 		if result then
 			if result:match("PKIX") then
-				print("SSL certificate rejected. Update Java or install certificate manually")
+				print("Download server SSL certificate was rejected. Update Java or install certificate manually")
 			else
-				print("Server unavailable: " .. tostring(result))
+				print("Download server unavailable: " .. tostring(result))
 			end
 		else
-			print("Server unavailable for unknown reasons")
+			print("Download server unavailable for unknown reasons")
 		end
 
 		return
@@ -97,7 +86,7 @@ do
 	result.close()
 
 	if not success then
-		print("Server unavailable. Check if gitee.com is not blocked")
+		print("Download server unavailable. Check if gitee.com is not blocked")
 		return
 	end
 end
@@ -117,9 +106,7 @@ component.eeprom.set([[
 	
 	connection.close()
 	
-	local func = load(data)
-	setfenv(func, _G)
-	func()
+	load(data)()
 ]])
 
 computer.shutdown(true)
