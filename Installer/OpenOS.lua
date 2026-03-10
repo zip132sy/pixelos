@@ -117,7 +117,9 @@ component.eeprom.set([[
 	
 	connection.close()
 	
-	load(data)()
+	local func = load(data)
+	setfenv(func, _G)
+	func()
 ]])
 
 computer.shutdown(true)
