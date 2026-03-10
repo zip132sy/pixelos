@@ -1,5 +1,18 @@
 
--- Logging function
+-- Feature: Multiple repository URLs with fallback
+local repositoryURLs = {
+	"https://gitee.com/zip132sy/pixelos/raw/master/",
+	"https://raw.githubusercontent.com/zip132sy/pixelos/master/"
+}
+local repositoryURL = repositoryURLs[1]
+local installerURL = "Installer/"
+local EFIURL = "EFI/Minified.lua"
+
+local installerPath = "/PixelOS installer/"
+local installerPicturesPath = installerPath .. "Installer/Pictures/"
+local OSPath = "/"
+
+-- Logging function (after installerPath is defined)
 local logFilePath = installerPath .. "installer.log"
 local logBuffer = {}
 
@@ -43,19 +56,6 @@ component.invoke(GPUAddress, "bind", getComponentAddress("screen"))
 local screenWidth, screenHeight = component.invoke(GPUAddress, "getResolution")
 
 log("Installer started")
-
--- Feature: Multiple repository URLs with fallback
-local repositoryURLs = {
-	"https://gitee.com/zip132sy/pixelos/raw/master/",
-	"https://raw.githubusercontent.com/zip132sy/pixelos/master/"
-}
-local repositoryURL = repositoryURLs[1]
-local installerURL = "Installer/"
-local EFIURL = "EFI/Minified.lua"
-
-local installerPath = "/PixelOS installer/"
-local installerPicturesPath = installerPath .. "Installer/Pictures/"
-local OSPath = "/"
 
 local temporaryFilesystemProxy, selectedFilesystemProxy
 
