@@ -26,6 +26,9 @@ local function toString(value)
 	end
 end
 
+-- Forward declaration
+local flushLog
+
 local function log(...)
 	local args = {...}
 	local parts = {}
@@ -437,7 +440,7 @@ local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 local statusMenuItem
 
 local function updateStatusMenuItem()
-	if statusMenuItem and localization then
+	if statusMenuItem and statusMenuItem.text and localization then
 		local battery = getBatteryInfo() or 0
 		local powerText = localization.power or "Power"
 		local timeStr = formatTime()
@@ -837,7 +840,7 @@ addStage(function()
 
 	-- Renaming if possible
 	if not selectedFilesystemProxy.getLabel() then
-		selectedFilesystemProxy.setLabel("PixelOS")
+		selectedFilesystemProxy.setLabel("PixelOS Install")
 	end
 
 	local function switchProxy(runnable)
@@ -970,7 +973,7 @@ addStage(function()
 	workspace:draw()
 	
 	component.invoke(EEPROMAddress, "set", request(EFIURL))
-	component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install EFI")
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 
 	-- Saving system versions
