@@ -444,7 +444,7 @@ local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 local statusMenuItem
 
 local function updateStatusMenuItem()
-	if statusMenuItem and statusMenuItem.text and localization then
+	if statusMenuItem and localization then
 		local battery = getBatteryInfo() or 0
 		local powerText = localization.power or "Power"
 		local timeStr = formatTime()

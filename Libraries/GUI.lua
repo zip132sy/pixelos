@@ -385,8 +385,7 @@ local function workspaceStart(workspace, eventPullTimeout)
 		animation,
 		animationIndex,
 		animationOnFinishMethodsIndex,
-		animationOnFinishMethods,
-		lastAnimationTime = 0
+		animationOnFinishMethods
 
 	local function processObject(object, boundsX1, boundsY1, boundsX2, boundsY2)
 		local govno = false
@@ -480,6 +479,8 @@ local function workspaceStart(workspace, eventPullTimeout)
 	end
 
 	workspace.eventPullTimeout = eventPullTimeout
+
+	local lastAnimationTime = 0
 
 	repeat
 		e1, e2, e3, e4, e5, e6, e7, e8, e9, e10, e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22, e23, e24, e25, e26, e27, e28, e29, e30, e31, e32 = event.pull(workspace.animations and 0 or workspace.eventPullTimeout)
