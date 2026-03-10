@@ -442,6 +442,8 @@ local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x7878
 local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 
 local statusMenuItem
+local rebootMenuItem
+local shutdownMenuItem
 
 local function updateStatusMenuItem()
 	if statusMenuItem and localization then
@@ -449,6 +451,20 @@ local function updateStatusMenuItem()
 		local powerText = localization.power or "Power"
 		local timeStr = formatTime()
 		statusMenuItem.text = " " .. timeStr .. " | " .. battery .. "% " .. powerText
+	end
+end
+
+local function updateMenuItems()
+	if statusMenuItem then
+		updateStatusMenuItem()
+	end
+	
+	if rebootMenuItem and localization then
+		rebootMenuItem.text = localization.reboot or "Reboot"
+	end
+	
+	if shutdownMenuItem and localization then
+		shutdownMenuItem.text = localization.shutdown or "Shutdown"
 	end
 end
 
@@ -480,12 +496,14 @@ statusMenuItem.onTouch = function()
 	end
 end
 
-installerMenu:addItem("Reboot").onTouch = function()
+rebootMenuItem = installerMenu:addItem("")
+rebootMenuItem.onTouch = function()
 	log("Reboot clicked")
 	computer.shutdown(true)
 end
 
-installerMenu:addItem("Shutdown").onTouch = function()
+shutdownMenuItem = installerMenu:addItem("")
+shutdownMenuItem.onTouch = function()
 	log("Shutdown clicked")
 	computer.shutdown()
 end
@@ -546,7 +564,7 @@ for i = 1, #files.localizations do
 end
 -- Load default localization immediately
 localization = deserialize(request(installerURL .. files.localizations[defaultLocalizationIndex]))
-updateStatusMenuItem()
+updateMenuItems()
 
 local stage = 1
 local stages = {}
@@ -595,7 +613,7 @@ for i = 1, #files.localizations do
 	localizationComboBox:addItem(filesystemHideExtension(filesystemName(files.localizations[i]))).onTouch = function()
 		-- Obtaining localization table
 		localization = deserialize(request(installerURL .. files.localizations[i]))
-		updateStatusMenuItem()
+		updateMenuItems()
 
 		-- Filling widgets with selected localization data
 		usernameInput.placeholderText = localization.username
