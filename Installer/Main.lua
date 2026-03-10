@@ -1,4 +1,33 @@
 
+-- Logging function
+local logFilePath = installerPath .. "installer.log"
+local logBuffer = {}
+
+local function log(...)
+	local args = {...}
+	local message = os.date("%H:%M:%S") .. " " .. table.concat(args, "\t")
+	
+	table.insert(logBuffer, message)
+	
+	if #logBuffer >= 10 then
+		flushLog()
+	end
+	
+	computer.pushSignal("log", message)
+end
+
+local function flushLog()
+	if temporaryFilesystemProxy then
+		local content = table.concat(logBuffer, "\n")
+		local handle = temporaryFilesystemProxy.open(logFilePath, "a")
+		if handle then
+			temporaryFilesystemProxy.write(handle, content)
+			temporaryFilesystemProxy.close(handle)
+			logBuffer = {}
+		end
+	end
+end
+
 -- Checking for required components
 local function getComponentAddress(name)
 	return component.list(name)() or error("Required " .. name .. " component is missing")
@@ -12,6 +41,8 @@ local EEPROMAddress, internetAddress, GPUAddress =
 -- Binding GPU to screen in case it's not done yet
 component.invoke(GPUAddress, "bind", getComponentAddress("screen"))
 local screenWidth, screenHeight = component.invoke(GPUAddress, "getResolution")
+
+log("Installer started")
 
 -- Feature: Multiple repository URLs with fallback
 local repositoryURLs = {
@@ -421,6 +452,7 @@ end
 
 statusMenuItem = installerMenu:addItem("")
 statusMenuItem.onTouch = function()
+	log("statusMenuItem.onTouch called", "workspace:", workspace, "workspace.draw:", workspace and workspace.draw)
 	if workspace and workspace.draw then
 		updateStatusMenuItem()
 		workspace:draw()
@@ -428,10 +460,12 @@ statusMenuItem.onTouch = function()
 end
 
 installerMenu:addItem("Reboot").onTouch = function()
+	log("Reboot clicked")
 	computer.shutdown(true)
 end
 
 installerMenu:addItem("Shutdown").onTouch = function()
+	log("Shutdown clicked")
 	computer.shutdown()
 end
 
@@ -558,7 +592,11 @@ local function addStage(onTouch)
 	table.insert(stages, function()
 		layout:removeChildren()
 		onTouch()
-		workspace:draw()
+		if workspace and workspace.draw then
+			workspace:draw()
+		else
+			log("ERROR: workspace.draw is nil in addStage")
+		end
 	end)
 end
 
@@ -945,10 +983,12 @@ loadStage()
 
 local event = require("Event")
 local statusUpdateHandler = event.addHandler(function()
-	if workspace.running then
+	log("statusUpdateHandler called", "workspace:", workspace, "workspace.draw:", workspace and workspace.draw)
+	if workspace and workspace.draw then
 		updateStatusMenuItem()
 		workspace:draw()
 	end
 end, 1)
 
+flushLog()
 workspace:start()
