@@ -26,8 +26,17 @@ local function toString(value)
 	end
 end
 
--- Forward declaration
-local flushLog
+local function flushLog()
+	if temporaryFilesystemProxy then
+		local content = table.concat(logBuffer, "\n") .. "\n"
+		local ok, handle = pcall(temporaryFilesystemProxy.open, temporaryFilesystemProxy, logFilePath, "a")
+		if ok and handle then
+			temporaryFilesystemProxy.write(handle, content)
+			temporaryFilesystemProxy.close(handle)
+			logBuffer = {}
+		end
+	end
+end
 
 local function log(...)
 	local args = {...}
@@ -45,18 +54,6 @@ local function log(...)
 	end
 	
 	computer.pushSignal("log", message)
-end
-
-local function flushLog()
-	if temporaryFilesystemProxy then
-		local content = table.concat(logBuffer, "\n") .. "\n"
-		local ok, handle = pcall(temporaryFilesystemProxy.open, temporaryFilesystemProxy, logFilePath, "a")
-		if ok and handle then
-			temporaryFilesystemProxy.write(handle, content)
-			temporaryFilesystemProxy.close(handle)
-			logBuffer = {}
-		end
-	end
 end
 
 -- Error logging
