@@ -421,8 +421,10 @@ end
 
 statusMenuItem = installerMenu:addItem("")
 statusMenuItem.onTouch = function()
-	updateStatusMenuItem()
-	workspace:draw()
+	if workspace and workspace.draw then
+		updateStatusMenuItem()
+		workspace:draw()
+	end
 end
 
 installerMenu:addItem("Reboot").onTouch = function()
