@@ -286,21 +286,28 @@ installerMenu:addItem("Shutdown").onTouch = function()
 	computer.shutdown()
 end
 
--- Feature #5: Battery widget
+-- Feature #5: Battery widget (with error handling)
 local batteryWidget = menu:addChild(GUI.object(1, 1, 15, 1))
 batteryWidget.draw = function()
-	local energy = computer.energy()
-	local maxEnergy = computer.maxEnergy()
-	if energy and maxEnergy and maxEnergy > 0 then
-		local percent = math.min(math.floor((energy / maxEnergy) * 100), 100)
-		screen.drawText(batteryWidget.x, batteryWidget.y, 0x787878, string.format("Power: %d%%", percent))
-	end
+	pcall(function()
+		local energy = computer.energy()
+		local maxEnergy = computer.maxEnergy()
+		if energy and maxEnergy and maxEnergy > 0 then
+			local percent = math.min(math.floor((energy / maxEnergy) * 100), 100)
+			local powerText = localization and localization.power or "Power"
+			screen.drawText(batteryWidget.x, batteryWidget.y, 0x787878, string.format("%s: %d%%", powerText, percent))
+		end
+	end)
 end
 
--- Feature #5: Time widget with timezone
+-- Feature #5: Time widget with Beijing timezone (UTC+8)
 local timeWidget = menu:addChild(GUI.object(1, 1, 5, 1))
 timeWidget.draw = function()
-	screen.drawText(timeWidget.x, timeWidget.y, 0x787878, os.date("%H:%M"))
+	pcall(function()
+		local currentTime = os.time()
+		local beijingTime = currentTime + 8 * 3600
+		screen.drawText(timeWidget.x, timeWidget.y, 0x787878, os.date("%H:%M", beijingTime))
+	end)
 end
 
 -- Position widgets
@@ -352,7 +359,18 @@ end
 local prevButton = addStageButton("<")
 local nextButton = addStageButton(">")
 
+-- Feature #2: Load ChineseSimplified localization by default BEFORE creating UI
 local localization
+local defaultLocalizationIndex = 1
+for i = 1, #files.localizations do
+	if filesystemHideExtension(filesystemName(files.localizations[i])) == "ChineseSimplified" then
+		defaultLocalizationIndex = i
+		break
+	end
+end
+-- Load default localization immediately
+localization = deserialize(request(installerURL .. files.localizations[defaultLocalizationIndex]))
+
 local stage = 1
 local stages = {}
 
