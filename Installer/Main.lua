@@ -16,9 +16,23 @@ local OSPath = "/"
 local logFilePath = installerPath .. "installer.log"
 local logBuffer = {}
 
+local function toString(value)
+	if type(value) == "nil" then
+		return "nil"
+	elseif type(value) == "table" then
+		return "table"
+	else
+		return tostring(value)
+	end
+end
+
 local function log(...)
 	local args = {...}
-	local message = os.date("%H:%M:%S") .. " " .. table.concat(args, "\t")
+	local parts = {}
+	for i = 1, #args do
+		parts[i] = toString(args[i])
+	end
+	local message = os.date("%H:%M:%S") .. " " .. table.concat(parts, "\t")
 	
 	table.insert(logBuffer, message)
 	
