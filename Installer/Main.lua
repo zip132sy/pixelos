@@ -112,17 +112,127 @@ local function rawRequest(url, chunkHandler)
 	error("Connection failed for all URLs: " .. tostring(lastError))
 end
 
+-- Load SHA-256 library for file verification
+local sha256
+pcall(function()
+	sha256 = require("SHA-256")
+end)
+
+-- Load file hashes for verification
+local fileHashes
+pcall(function()
+	fileHashes = dofile(installerPath .. "FileHashes.lua")
+end)
+
+-- Cache directory for downloaded files
+local cacheDir = "/PixelOS cache/"
+
+-- Function to verify file hash
+local function verifyHash(data, expectedHash)
+	if not sha256 or not expectedHash then
+		return true
+	end
+	local actualHash = sha256(data)
+	return actualHash == expectedHash
+end
+
+-- Function to check if cached file exists and is valid
+local function getCachedFile(url)
+	if not temporaryFilesystemProxy then
+		return nil
+	end
+	
+	local cachePath = cacheDir .. url:gsub("/", "_")
+	
+	if not temporaryFilesystemProxy.exists(cachePath) then
+		return nil
+	end
+	
+	local fileHandle = temporaryFilesystemProxy.open(cachePath, "rb")
+	if not fileHandle then
+		return nil
+	end
+	
+	local data = ""
+	local chunk
+	repeat
+		chunk = temporaryFilesystemProxy.read(fileHandle, math.huge)
+		data = data .. (chunk or "")
+	until not chunk
+	
+	temporaryFilesystemProxy.close(fileHandle)
+	
+	-- Verify hash if available
+	local expectedHash = fileHashes and fileHashes[url]
+	if expectedHash and not verifyHash(data, expectedHash) then
+		-- Hash mismatch, remove invalid cache
+		temporaryFilesystemProxy.remove(cachePath)
+		return nil
+	end
+	
+	return data
+end
+
+-- Function to save file to cache
+local function saveToCache(url, data)
+	if not temporaryFilesystemProxy then
+		return
+	end
+	
+	temporaryFilesystemProxy.makeDirectory(cacheDir)
+	
+	local cachePath = cacheDir .. url:gsub("/", "_")
+	local fileHandle = temporaryFilesystemProxy.open(cachePath, "wb")
+	
+	if fileHandle then
+		temporaryFilesystemProxy.write(fileHandle, data)
+		temporaryFilesystemProxy.close(fileHandle)
+	end
+end
+
 local function request(url)
+	-- Check cache first
+	local cachedData = getCachedFile(url)
+	if cachedData then
+		return cachedData
+	end
+	
+	-- Download from network
 	local data = ""
 	
 	rawRequest(url, function(chunk)
 		data = data .. chunk
 	end)
 
+	-- Save to cache
+	saveToCache(url, data)
+
 	return data
 end
 
 local function download(url, path)
+	-- Check if file already exists and is valid
+	if selectedFilesystemProxy.exists(path) then
+		local fileHandle = selectedFilesystemProxy.open(path, "rb")
+		if fileHandle then
+			local data = ""
+			local chunk
+			repeat
+				chunk = selectedFilesystemProxy.read(fileHandle, math.huge)
+				data = data .. (chunk or "")
+			until not chunk
+			selectedFilesystemProxy.close(fileHandle)
+			
+			-- Verify hash if available
+			local expectedHash = fileHashes and fileHashes[url]
+			if expectedHash and verifyHash(data, expectedHash) then
+				-- File exists and is valid, skip download
+				return
+			end
+		end
+	end
+	
+	-- Download file
 	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
 
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
