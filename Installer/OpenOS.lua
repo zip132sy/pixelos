@@ -106,8 +106,9 @@ end
 print("Starting PixelOS installer...")
 print("")
 
-local func, err = load(data, "=installer", "bt", _G)
+local func, err = load(data, "=installer")
 if func then
+	setfenv(func, _G)
 	local ok, err = pcall(func)
 	if not ok then
 		print("Installer error: " .. tostring(err))
