@@ -645,7 +645,7 @@ addStage(function()
 
 			disk:addChild(GUI.panel(1, 1, disk.width, disk.height, 0xD2D2D2))
 
-			disk:addChild(GUI.button(1, disk.height, disk.width, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.erase)).onTouch = function()
+			disk:addChild(GUI.roundedButton(1, disk.height, disk.width, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.erase)).onTouch = function()
 				local list, path = proxy.list("/")
 				for i = 1, #list do
 					path = "/" .. list[i]
