@@ -645,7 +645,7 @@ local function showInstallation()
                     "剩余时间：" .. remainingText,
                     "剩余文件：" .. remainingFiles .. "  约需空间：" .. estimatedSize .. "KB")
                 
-                os.sleep(0.1) -- Simulate download time
+                computer.pullSignal(0.1)  -- Use computer API instead of os.sleep
             end
         end}
     }
@@ -753,7 +753,7 @@ local function tryBootFromAny()
                         "文件 " .. i .. "/" .. #filesToLoad,
                         "")
                     
-                    os.sleep(0.2) -- Small delay to show progress
+                    computer.pullSignal(0.2)  -- Use computer API instead of os.sleep
                 end
                 
                 -- Load the file

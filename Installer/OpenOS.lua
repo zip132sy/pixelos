@@ -78,7 +78,7 @@ do
 			if message then
 				break
 			else
-				os.sleep(0.1)
+				computer.pullSignal(0.1)  -- Use computer API instead of os.sleep
 			end
 		end
 	end
