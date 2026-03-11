@@ -209,16 +209,56 @@ progress(0)
 local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- After that we could download required libraries for installer from it
+-- First, show loading screen with progress bar
+component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
+component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
+
+-- Draw title
+component.invoke(GPUAddress, "setForeground", 0x3366CC)
+component.invoke(GPUAddress, "set", centrize(40), title(), "PixelOS 安装程序 - 加载必要文件")
+
+-- Create simple progress bar
+local progressBarWidth = 60
+local progressBarX = centrize(progressBarWidth)
+local progressBarY = title() + 2
+
+component.invoke(GPUAddress, "setForeground", 0xD2D2D2)
+component.invoke(GPUAddress, "set", progressBarX, progressBarY, "┌" .. string.rep("─", progressBarWidth - 2) .. "┐")
+component.invoke(GPUAddress, "set", progressBarX, progressBarY + 1, "│" .. string.rep(" ", progressBarWidth - 2) .. "│")
+component.invoke(GPUAddress, "set", progressBarX, progressBarY + 2, "└" .. string.rep("─", progressBarWidth - 2) .. "┘")
+
 local installerStartTime = os.time()
-for i = 1, #files.installerFiles do
+local totalFiles = #files.installerFiles
+
+for i = 1, totalFiles do
 	local elapsed = os.time() - installerStartTime
-	local remaining = (#files.installerFiles - i) * (i > 0 and elapsed / i or 0.5)
+	local remaining = (totalFiles - i) * (i > 0 and elapsed / i or 0.5)
+	local percent = math.floor((i / totalFiles) * 100)
+	local filledWidth = math.floor((percent / 100) * (progressBarWidth - 2))
 	
+	-- Draw progress bar fill
+	component.invoke(GPUAddress, "setBackground", 0x3366CC)
+	component.invoke(GPUAddress, "fill", progressBarX + 1, progressBarY + 1, filledWidth, 1, " ")
+	
+	-- Draw percentage
+	component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
+	component.invoke(GPUAddress, "set", progressBarX + math.floor((progressBarWidth - 4) / 2), progressBarY + 1, string.format("%d%%", percent))
+	
+	-- Draw file info and time
 	component.invoke(GPUAddress, "setForeground", 0x666666)
-	component.invoke(GPUAddress, "set", centrize(40), title() + 1, "Downloading installer files: " .. i .. "/" .. #files.installerFiles)
+	local remainingText = formatTime(remaining)
+	local infoText = "文件：" .. i .. "/" .. totalFiles .. "  剩余时间：" .. remainingText
+	component.invoke(GPUAddress, "set", centrize(infoText), progressBarY + 4, infoText)
+	
+	component.invoke(GPUAddress, "setForeground", 0x878787)
+	component.invoke(GPUAddress, "set", centrize(40), title() + 1, "正在下载：" .. files.installerFiles[i])
 	
 	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
 end
+
+-- Clear screen and continue
+component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
+component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 
 -- Now initialize require function and system libraries
 function require(module)
@@ -313,6 +353,10 @@ stageButtonsLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
 stageButtonsLayout:setSpacing(1, 1, 3)
 
 -- Helper functions that depend on GUI and layout
+local function loadImage(name)
+	return image.load(installerPicturesPath .. name .. ".pic")
+end
+
 local function newSwitchAndLabel(width, color, text, state)
 	return GUI.switchAndLabel(1, 1, width, 6, color, 0xD2D2D2, 0xF0F0F0, 0xA5A5A5, text .. ":", state)
 end

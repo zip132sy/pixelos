@@ -1,4 +1,4 @@
-﻿-- PixelOS BIOS Installer v3.0
+-- PixelOS BIOS Installer v3.0
 -- This code runs from EEPROM after reboot
 -- Graphical installation interface
 
@@ -6,6 +6,13 @@ local c,co=component,computer
 local gpu
 local screen
 local sw,sh=80,25
+
+-- Try to get filesystem component for path operations
+local filesystem = nil
+for addr in c.list("filesystem") do
+    filesystem = c.proxy(addr)
+    break
+end
 
 -- Language detection and localization
 local function detectLanguage()
@@ -261,6 +268,54 @@ local function checkClick(btn,x,y)
     return x>=btn.x and x<btn.x+btn.w and y>=btn.y and y<btn.y+btn.h
 end
 
+-- Progress bar drawing function
+local function drawProgressBar(x, y, width, percent, label, timeText, filesText)
+    if not gpu then return end
+    
+    -- Draw label
+    gpu.setForeground(0x000000)
+    gpu.setBackground(0xE1E1E1)
+    gpu.set(x, y - 1, label or "")
+    
+    -- Draw progress bar background
+    gpu.setBackground(0xD2D2D2)
+    gpu.fill(x, y, width, 1, " ")
+    
+    -- Draw progress bar fill
+    local filledWidth = math.floor((percent / 100) * (width - 2))
+    gpu.setBackground(0x3366CC)
+    gpu.fill(x + 1, y, filledWidth, 1, " ")
+    
+    -- Draw percentage text in center
+    local percentText = string.format("%d%%", percent)
+    gpu.setForeground(0xFFFFFF)
+    gpu.set(x + math.floor((width - #percentText) / 2), y, percentText)
+    
+    -- Draw time and files info below
+    if timeText or filesText then
+        local infoText = (filesText or "") .. "  " .. (timeText or "")
+        gpu.setForeground(0x666666)
+        gpu.set(x, y + 1, infoText)
+    end
+end
+
+-- Format time function for BIOS
+local function formatTime(seconds)
+    if not seconds or seconds < 0 then return "0 sec" end
+    
+    if seconds < 60 then
+        return math.floor(seconds) .. " sec"
+    elseif seconds < 3600 then
+        local mins = math.floor(seconds / 60)
+        local secs = math.floor(seconds % 60)
+        return mins .. " min " .. secs .. " sec"
+    else
+        local hours = math.floor(seconds / 3600)
+        local mins = math.floor((seconds % 3600) / 60)
+        return hours .. " hour " .. mins .. " min"
+    end
+end
+
 -- Installation state
 local installState={
     step=1,
@@ -509,7 +564,7 @@ local function showNetworkCheck()
     end
 end
 
--- Step 5: Installation
+-- Step 5: Installation with progress bar
 local function showInstallation()
     clear(0x2D2D2D)
     drawStatusBar()
@@ -517,53 +572,74 @@ local function showInstallation()
 
     drawText(8,4,loc.step .. " 4/5: " .. loc.installing,0x3366CC,0xE1E1E1)
 
-    -- Format if requested
-    if installState.formatDisk and installState.confirmErase then
-        drawText(8,7,loc.formatting,0x000000,0xE1E1E1)
-        local proxy=c.proxy(installState.targetDisk.address)
-        if proxy then
-            local list=proxy.list("/")
-            if list then
-                for _,item in ipairs(list)do
-                    if item~="."and item~=".."then
-                        proxy.remove("/"..item)
+    -- Installation tasks
+    local tasks = {
+        {name = loc.formatting, func = function()
+            if installState.formatDisk and installState.confirmErase then
+                local proxy=c.proxy(installState.targetDisk.address)
+                if proxy then
+                    local list=proxy.list("/")
+                    if list then
+                        for _,item in ipairs(list)do
+                            if item~="."and item~=".."then
+                                proxy.remove("/"..item)
+                            end
+                        end
                     end
                 end
             end
-        end
-        drawText(25,7,"[OK]",0x00AA00,0xE1E1E1)
-    end
-
-    -- Create directories
-    drawText(8,9,loc.creatingDirs,0x000000,0xE1E1E1)
-    local proxy=c.proxy(installState.targetDisk.address)
-    if proxy then
-        proxy.makeDirectory("System/OS")
-        proxy.makeDirectory("Libraries")
-        proxy.makeDirectory("Applications")
-        proxy.makeDirectory("Desktop")
-    end
-    drawText(40,9,"[OK]",0x00AA00,0xE1E1E1)
-
-    -- Create config
-    drawText(8,11,loc.creatingConfig,0x000000,0xE1E1E1)
-    local config={
-        username=installState.username,
-        password=installState.usePassword and installState.password or nil,
-        network=installState.network,
-        installDate=os.time(),
-        firstBoot=true
+        end},
+        {name = loc.creatingDirs, func = function()
+            local proxy=c.proxy(installState.targetDisk.address)
+            if proxy then
+                proxy.makeDirectory("System/OS")
+                proxy.makeDirectory("Libraries")
+                proxy.makeDirectory("Applications")
+                proxy.makeDirectory("Desktop")
+            end
+        end},
+        {name = loc.creatingConfig, func = function()
+            local config={
+                username=installState.username,
+                password=installState.usePassword and installState.password or nil,
+                network=installState.network,
+                installDate=os.time(),
+                firstBoot=true
+            }
+            -- Save config (simplified)
+        end},
+        {name = "下载系统文件", func = function()
+            -- Simulated file download with progress
+            local totalFiles = 50
+            local startTime = os.time()
+            
+            for i = 1, totalFiles do
+                local elapsed = os.time() - startTime
+                local remaining = (totalFiles - i) * (i > 0 and elapsed / i or 0.5)
+                local remainingText = formatTime(remaining)
+                local percent = math.floor((i / totalFiles) * 100)
+                
+                -- Draw progress bar
+                drawProgressBar(10, 15, sw - 20, percent, 
+                    "正在安装文件：" .. i .. "/" .. totalFiles,
+                    "剩余时间：" .. remainingText,
+                    "剩余文件：" .. (totalFiles - i))
+                
+                os.sleep(0.1) -- Simulate download time
+            end
+        end}
     }
-    -- Save config (simplified)
-    drawText(40,11,"[OK]",0x00AA00,0xE1E1E1)
 
-    -- Progress bar
-    drawBox(8,14,sw-18,3,0xFFFFFF,false)
-    for i=0,100,2 do
-        gpu.setBackground(0x3366CC)
-        gpu.fill(8,14,math.floor((sw-18)*i/100),3," ")
-        drawText(math.floor(sw/2)-3,15,tostring(i).."%",0xFFFFFF,i<50 and 0x3366CC or 0xFFFFFF)
-        os.sleep(0.05)
+    -- Execute tasks with progress
+    local startY = 7
+    for i, task in ipairs(tasks) do
+        drawText(8, startY, task.name, 0x000000, 0xE1E1E1)
+        
+        -- Execute task
+        task.func()
+        
+        drawText(sw - 15, startY, "[OK]", 0x00AA00, 0xE1E1E1)
+        startY = startY + 2
     end
 
     drawText(8,18,"✓ " .. loc.complete,0x00AA00,0xE1E1E1)
@@ -603,30 +679,66 @@ local function executeString(...)
     end
 end
 
--- Try to boot from any available filesystem
+-- Try to boot from any available filesystem with progress bar
 local function tryBootFromAny()
     local booted = false
-    for address in c.list("filesystem") do
-        local proxy = c.proxy(address)
-        if proxy.exists("/OS.lua") then
-            if gpu then
-                clear(0x2D2D2D)
-                drawText(2, 3, "Booting from " .. (proxy.getLabel() or address), 0xFFFFFF, 0x2D2D2D)
-            end
-            
-            local handle, data, chunk = proxy.open("/OS.lua", "rb"), ""
-            if handle then
-                repeat
-                    chunk = proxy.read(handle, math.huge)
-                    data = data .. (chunk or "")
-                until not chunk
-                proxy.close(handle)
+    
+    -- Count total files to load for progress
+    local filesToLoad = {
+        "/OS.lua",
+        "/Libraries/GUI.lua",
+        "/Libraries/System.lua",
+        "/Libraries/Text.lua"
+    }
+    
+    for i, filePath in ipairs(filesToLoad) do
+        for address in c.list("filesystem") do
+            local proxy = c.proxy(address)
+            if proxy.exists(filePath) then
+                if gpu then
+                    -- Draw loading screen with progress
+                    clear(0x2D2D2D)
+                    drawStatusBar()
+                    
+                    drawText(math.floor(sw/2)-10, math.floor(sh/2)-3, "加载系统文件...", 0xFFFFFF, 0x2D2D2D)
+                    
+                    -- Calculate progress
+                    local percent = math.floor((i / #filesToLoad) * 100)
+                    -- Extract filename from path manually
+                    local fileName = filePath
+                    local lastSlash = filePath:match("^.*()/")
+                    if lastSlash then
+                        fileName = filePath:sub(lastSlash + 1)
+                    end
+                    local label = "正在加载：" .. fileName
+                    
+                    drawProgressBar(math.floor(sw/2)-20, math.floor(sh/2), 40, percent, 
+                        label,
+                        "文件 " .. i .. "/" .. #filesToLoad,
+                        "")
+                    
+                    os.sleep(0.2) -- Small delay to show progress
+                end
                 
-                executeString(data, "=/OS.lua")
-                booted = true
-                break
+                -- Load the file
+                local handle, data, chunk = proxy.open(filePath, "rb"), ""
+                if handle then
+                    repeat
+                        chunk = proxy.read(handle, math.huge)
+                        data = data .. (chunk or "")
+                    until not chunk
+                    proxy.close(handle)
+                    
+                    if filePath == "/OS.lua" then
+                        executeString(data, "=/OS.lua")
+                        booted = true
+                        break
+                    end
+                end
             end
         end
+        
+        if booted then break end
     end
     
     if not booted then
