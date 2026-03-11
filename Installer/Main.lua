@@ -6,7 +6,7 @@ local repositoryURLs = {
 }
 local repositoryURL = repositoryURLs[1]
 local installerURL = "Installer/"
-local EFIURL = "EFI/Minified.lua"
+local EFIURL = "EFI/BIOS.lua"
 
 local installerPath = "/PixelOS installer/"
 local installerPicturesPath = installerPath .. "Installer/Pictures/"
