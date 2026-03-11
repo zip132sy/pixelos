@@ -198,21 +198,6 @@ end
 -- Initializing simple package system for loading system libraries
 package = {loading = {}, loaded = {}}
 
--- Main vertical layout
-local layout = window:addChild(GUI.layout(1, 1, window.width, window.height - 2, 1, 1))
-
-local stageButtonsLayout = window:addChild(GUI.layout(1, window.height - 1, window.width, 1, 1, 1))
-stageButtonsLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
-stageButtonsLayout:setSpacing(1, 1, 3)
-
-local function loadImage(name)
-	return image.load(installerPicturesPath .. name .. ".pic")
-end
-
-local function newInput(width, ...)
-	return GUI.input(1, 1, width, 1, 0xF0F0F0, 0x787878, 0xC3C3C3, 0xF0F0F0, 0x878787, "", ...)
-end
-
 local function newSwitchAndLabel(width, color, text, state)
 	return GUI.switchAndLabel(1, 1, width, 6, color, 0xD2D2D2, 0xF0F0F0, 0xA5A5A5, text .. ":", state)
 end
@@ -363,6 +348,21 @@ end
 
 -- Filesystem selection stage
 local stages = {}
+
+-- Main vertical layout
+local layout = window:addChild(GUI.layout(1, 1, window.width, window.height - 2, 1, 1))
+
+local stageButtonsLayout = window:addChild(GUI.layout(1, window.height - 1, window.width, 1, 1, 1))
+stageButtonsLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
+stageButtonsLayout:setSpacing(1, 1, 3)
+
+local function loadImage(name)
+	return image.load(installerPicturesPath .. name .. ".pic")
+end
+
+local function newInput(width, ...)
+	return GUI.input(1, 1, width, 1, 0xF0F0F0, 0x787878, 0xC3C3C3, 0xF0F0F0, 0x878787, "", ...)
+end
 
 local function formatTime(seconds)
 	if not seconds or seconds < 0 then return "0" end
