@@ -7,6 +7,144 @@ local gpu
 local screen
 local sw,sh=80,25
 
+-- Language detection and localization
+local function detectLanguage()
+    -- Try to detect language from system
+    -- Default to Chinese Simplified
+    return "zh_CN"
+end
+
+local function getLocalization()
+    local lang = detectLanguage()
+    
+    local zh_CN = {
+        welcome = "欢迎使用 PixelOS v3.0",
+        biosInstallation = "BIOS 安装程序",
+        basedOnMineOS = "基于 MineOS",
+        wizardGuide = "此向导将指导您完成:",
+        diskSelection = "- 磁盘选择和格式化",
+        userAccount = "- 用户账户设置",
+        networkConfig = "- 网络配置",
+        systemInstall = "- 系统安装",
+        next = "下一步 >",
+        back = "< 上一步",
+        selectDisk = "选择目标磁盘",
+        availableDisks = "可用磁盘:",
+        readOnly = "[只读]",
+        kb = "KB",
+        warning = "警告: 格式化将清除所有数据!",
+        formatDisk = "格式化磁盘后再安装",
+        confirmErase = "确认擦除",
+        aboutToErase = "您即将擦除以下磁盘上的所有数据:",
+        cannotUndone = "此操作无法撤销!",
+        cancel = "取消",
+        erase = "擦除",
+        userSetup = "用户账户",
+        username = "用户名:",
+        password = "密码:",
+        usePassword = "使用密码保护",
+        networkConfig = "网络配置",
+        checkingInternet = "检查网卡...",
+        internetFound = "网卡已找到",
+        noInternet = "未找到网卡",
+        networkUnavailable = "网络功能将不可用",
+        status = "状态:",
+        online = "在线",
+        offline = "离线",
+        installing = "正在安装 PixelOS",
+        formatting = "格式化磁盘...",
+        creatingDirs = "创建系统目录...",
+        creatingConfig = "创建配置...",
+        complete = "安装完成!",
+        reboot = "重启",
+        shutdown = "关机",
+        power = "电量",
+        error = "错误",
+        pressKey = "按任意键继续...",
+        noBootSources = "未找到启动源",
+        pressKeyRestart = "按任意键重启...",
+        bootFrom = "从以下磁盘启动:",
+        -- Additional UI strings
+        step = "步骤",
+        of = "/",
+        select = "选择",
+        settings = "设置",
+        language = "语言",
+        save = "保存",
+        delete = "删除",
+        edit = "编辑",
+        add = "添加"
+    }
+    
+    local en_US = {
+        welcome = "Welcome to PixelOS v3.0",
+        biosInstallation = "BIOS Installation",
+        basedOnMineOS = "Based on MineOS",
+        wizardGuide = "This wizard will guide you through:",
+        diskSelection = "- Disk selection and formatting",
+        userAccount = "- User account setup",
+        networkConfig = "- Network configuration",
+        systemInstall = "- System installation",
+        next = "Next >",
+        back = "< Back",
+        selectDisk = "Select Target Disk",
+        availableDisks = "Available disks:",
+        readOnly = "[Read-Only]",
+        kb = "KB",
+        warning = "WARNING: Formatting will erase all data!",
+        formatDisk = "Format disk before installation",
+        confirmErase = "Confirm Erase",
+        aboutToErase = "You are about to ERASE all data on:",
+        cannotUndone = "This action CANNOT be undone!",
+        cancel = "Cancel",
+        erase = "ERASE",
+        userSetup = "User Account",
+        username = "Username:",
+        password = "Password:",
+        usePassword = "Use password protection",
+        networkConfig = "Network Configuration",
+        checkingInternet = "Checking for Internet card...",
+        internetFound = "Internet card found",
+        noInternet = "No Internet card found",
+        networkUnavailable = "Network features will be unavailable",
+        status = "Status:",
+        online = "Online",
+        offline = "Offline",
+        installing = "Installing PixelOS",
+        formatting = "Formatting disk...",
+        creatingDirs = "Creating system directories...",
+        creatingConfig = "Creating configuration...",
+        complete = "Installation complete!",
+        reboot = "Reboot",
+        shutdown = "Shutdown",
+        power = "Power",
+        error = "Error",
+        pressKey = "Press any key to continue...",
+        noBootSources = "No boot sources found",
+        pressKeyRestart = "Press any key to restart...",
+        bootFrom = "Boot from:",
+        -- Additional UI strings
+        step = "Step",
+        of = "/",
+        select = "Select",
+        settings = "Settings",
+        language = "Language",
+        save = "Save",
+        delete = "Delete",
+        edit = "Edit",
+        add = "Add"
+    }
+    
+    if lang == "zh_CN" then
+        return zh_CN
+    else
+        return en_US
+    end
+end
+
+-- Get localization table
+local loc = getLocalization()
+
 -- Initialize GPU
 local gpuAddress=c.list("gpu")()
 local screenAddress=c.list("screen")()
@@ -42,17 +180,28 @@ local function drawStatusBar()
         local batteryText = ""
         if battery then
             local proxy = c.proxy(battery)
-            local energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
-            batteryText = "Power: " .. energy .. "%"
+            local energy = 0
+            local maxEnergy = 100
+            -- Try different API methods for battery
+            if proxy.getEnergy then
+                energy = proxy.getEnergy() or 0
+                maxEnergy = proxy.getMaxEnergy() or 100
+            elseif proxy.energy then
+                energy = proxy.energy() or 0
+                maxEnergy = proxy.maxEnergy() or 100
+            end
+            local percent = math.floor((energy / maxEnergy) * 100)
+            batteryText = "Power: " .. percent .. "%"
         else
             batteryText = "Power: --%"
         end
         
+        -- Use local time
         local timeText = os.date("%H:%M")
         
         -- Draw battery and time on right side with proper spacing
         local statusBarText = batteryText .. "     " .. timeText
-        gpu.set(sw - #statusBarText, 1, statusBarText)
+        gpu.set(sw - #statusBarText + 1, 1, statusBarText)
     end
 end
 
@@ -123,17 +272,17 @@ local function showWelcome()
     drawStatusBar()
     drawBox(math.floor(sw/2)-25,math.floor(sh/2)-7,50,16,0xE1E1E1,true)
 
-    drawText(math.floor(sw/2)-10,math.floor(sh/2)-6,"PixelOS v3.0",0x3366CC,0xE1E1E1)
-    drawText(math.floor(sw/2)-12,math.floor(sh/2)-4,"BIOS Installation",0x666666,0xE1E1E1)
-    drawText(math.floor(sw/2)-15,math.floor(sh/2)-2,"Based on MineOS by IgorTimofeev",0x666666,0xE1E1E1)
+    drawText(math.floor(sw/2)-10,math.floor(sh/2)-6,loc.welcome,0x3366CC,0xE1E1E1)
+    drawText(math.floor(sw/2)-12,math.floor(sh/2)-4,loc.biosInstallation,0x666666,0xE1E1E1)
+    drawText(math.floor(sw/2)-15,math.floor(sh/2)-2,loc.basedOnMineOS,0x666666,0xE1E1E1)
 
-    drawText(math.floor(sw/2)-18,math.floor(sh/2)+1,"This wizard will guide you through:",0x000000,0xE1E1E1)
-    drawText(math.floor(sw/2)-15,math.floor(sh/2)+2,"- Disk selection and formatting",0x000000,0xE1E1E1)
-    drawText(math.floor(sw/2)-15,math.floor(sh/2)+3,"- User account setup",0x000000,0xE1E1E1)
-    drawText(math.floor(sw/2)-15,math.floor(sh/2)+4,"- Network configuration",0x000000,0xE1E1E1)
-    drawText(math.floor(sw/2)-15,math.floor(sh/2)+5,"- System installation",0x000000,0xE1E1E1)
+    drawText(math.floor(sw/2)-18,math.floor(sh/2)+1,loc.wizardGuide,0x000000,0xE1E1E1)
+    drawText(math.floor(sw/2)-15,math.floor(sh/2)+2,loc.diskSelection,0x000000,0xE1E1E1)
+    drawText(math.floor(sw/2)-15,math.floor(sh/2)+3,loc.userAccount,0x000000,0xE1E1E1)
+    drawText(math.floor(sw/2)-15,math.floor(sh/2)+4,loc.networkConfig,0x000000,0xE1E1E1)
+    drawText(math.floor(sw/2)-15,math.floor(sh/2)+5,loc.systemInstall,0x000000,0xE1E1E1)
 
-    local nextBtn=drawButton(math.floor(sw/2)+10,math.floor(sh/2)+6,10,3,"Next >",true)
+    local nextBtn=drawButton(math.floor(sw/2)+10,math.floor(sh/2)+6,10,3,loc.next,true)
 
     while true do
         local x,y=waitClick()
@@ -149,8 +298,8 @@ local function showDiskSelect()
     drawStatusBar()
     drawBox(5,4,sw-10,sh-7,0xE1E1E1,true)
 
-    drawText(8,4,"Step 1/5: Select Target Disk",0x3366CC,0xE1E1E1)
-    drawText(8,6,"Available disks:",0x000000,0xE1E1E1)
+    drawText(8,4,loc.step .. " 1/5: " .. loc.selectDisk,0x3366CC,0xE1E1E1)
+    drawText(8,6,loc.availableDisks,0x000000,0xE1E1E1)
 
     local disks={}
     for addr,type in c.list("filesystem")do
@@ -166,20 +315,20 @@ local function showDiskSelect()
     local buttons={}
     for i,disk in ipairs(disks)do
         local y=8+(i-1)*3
-        local status=disk.isReadOnly and "[Read-Only]"or"["..math.floor(disk.space/1024).."KB]"
+        local status=disk.isReadOnly and loc.readOnly or "["..math.floor(disk.space/1024)..loc.kb.."]"
         local btn=drawButton(10,y,sw-20,2,disk.label.." "..status,i==1)
         btn.disk=disk
         btn.label=disk.label
         table.insert(buttons,btn)
     end
 
-    drawText(8,sh-8,"WARNING: Formatting will erase all data!",0xFF0000,0xE1E1E1)
+    drawText(8,sh-8,loc.warning,0xFF0000,0xE1E1E1)
 
     local formatCb=drawButton(10,sh-6,3,1,"",false)
-    drawText(14,sh-6,"Format disk before installation",0x000000,0xE1E1E1)
+    drawText(14,sh-6,loc.formatDisk,0x000000,0xE1E1E1)
 
-    local backBtn=drawButton(10,sh-4,10,3,"< Back",false)
-    local nextBtn=drawButton(sw-20,sh-4,10,3,"Next >",true)
+    local backBtn=drawButton(10,sh-4,10,3,loc.back,false)
+    local nextBtn=drawButton(sw-20,sh-4,10,3,loc.next,true)
 
     local selected=1
     installState.formatDisk=false
@@ -225,14 +374,14 @@ local function showConfirmErase()
     drawStatusBar()
     drawBox(math.floor(sw/2)-20,math.floor(sh/2)-6,40,12,0xE1E1E1,true)
 
-    drawText(math.floor(sw/2)-8,math.floor(sh/2)-4,"? WARNING",0xFF0000,0xE1E1E1)
-    drawText(math.floor(sw/2)-15,math.floor(sh/2)-2,"You are about to ERASE all data on:",0x000000,0xE1E1E1)
+    drawText(math.floor(sw/2)-8,math.floor(sh/2)-4,"? " .. loc.warning,0xFF0000,0xE1E1E1)
+    drawText(math.floor(sw/2)-15,math.floor(sh/2)-2,loc.aboutToErase,0x000000,0xE1E1E1)
     drawText(math.floor(sw/2)-10,math.floor(sh/2),installState.targetDisk.label,0x3366CC,0xE1E1E1)
 
-    drawText(math.floor(sw/2)-15,math.floor(sh/2)+2,"This action CANNOT be undone!",0xFF0000,0xE1E1E1)
+    drawText(math.floor(sw/2)-15,math.floor(sh/2)+2,loc.cannotUndone,0xFF0000,0xE1E1E1)
 
-    local noBtn=drawButton(math.floor(sw/2)-15,math.floor(sh/2)+4,10,3,"Cancel",true)
-    local yesBtn=drawButton(math.floor(sw/2)+5,math.floor(sh/2)+4,10,3,"ERASE",false)
+    local noBtn=drawButton(math.floor(sw/2)-15,math.floor(sh/2)+4,10,3,loc.cancel,true)
+    local yesBtn=drawButton(math.floor(sw/2)+5,math.floor(sh/2)+4,10,3,loc.erase,false)
 
     while true do
         local x,y=waitClick()
@@ -251,23 +400,23 @@ local function showUserSetup()
     drawStatusBar()
     drawBox(5,4,sw-10,sh-7,0xE1E1E1,true)
 
-    drawText(8,4,"Step 2/5: User Account",0x3366CC,0xE1E1E1)
+    drawText(8,4,loc.step .. " 2/5: " .. loc.userSetup,0x3366CC,0xE1E1E1)
 
-    drawText(8,7,"Username:",0x000000,0xE1E1E1)
+    drawText(8,7,loc.username,0x000000,0xE1E1E1)
     drawBox(20,6,sw-30,3,0xFFFFFF,false)
     drawText(22,7,installState.username,0x000000,0xFFFFFF)
 
-    drawText(8,11,"Password:",0x000000,0xE1E1E1)
+    drawText(8,11,loc.password,0x000000,0xE1E1E1)
     local usePassCb=drawButton(20,10,3,1,"",installState.usePassword)
-    drawText(24,10,"Use password protection",0x000000,0xE1E1E1)
+    drawText(24,10,loc.usePassword,0x000000,0xE1E1E1)
 
     if installState.usePassword then
         drawBox(20,13,sw-30,3,0xFFFFFF,false)
         drawText(22,14,string.rep("*",#installState.password),0x000000,0xFFFFFF)
     end
 
-    local backBtn=drawButton(10,sh-4,10,3,"< Back",false)
-    local nextBtn=drawButton(sw-20,sh-4,10,3,"Next >",true)
+    local backBtn=drawButton(10,sh-4,10,3,loc.back,false)
+    local nextBtn=drawButton(sw-20,sh-4,10,3,loc.next,true)
 
     while true do
         local x,y,b=waitClick()
@@ -322,26 +471,26 @@ local function showNetworkCheck()
     drawStatusBar()
     drawBox(5,4,sw-10,sh-7,0xE1E1E1,true)
 
-    drawText(8,4,"Step 3/5: Network Configuration",0x3366CC,0xE1E1E1)
+    drawText(8,4,loc.step .. " 3/5: " .. loc.networkConfig,0x3366CC,0xE1E1E1)
 
-    drawText(8,7,"Checking for Internet card...",0x000000,0xE1E1E1)
+    drawText(8,7,loc.checkingInternet,0x000000,0xE1E1E1)
 
     local inet=c.list("internet")()
     if inet then
-        drawText(8,9,"? Internet card found",0x00AA00,0xE1E1E1)
+        drawText(8,9,"? " .. loc.internetFound,0x00AA00,0xE1E1E1)
         drawText(8,10,"  Address: "..inet:sub(1,8).."...",0x666666,0xE1E1E1)
         installState.network=true
 
-        drawText(8,13,"Network connectivity:",0x000000,0xE1E1E1)
-        drawText(8,14,"  Status: Online",0x00AA00,0xE1E1E1)
+        drawText(8,13,loc.bootFrom .. ":",0x000000,0xE1E1E1)
+        drawText(8,14,"  " .. loc.status .. ": " .. loc.online,0x00AA00,0xE1E1E1)
     else
-        drawText(8,9,"? No Internet card found",0xFF0000,0xE1E1E1)
-        drawText(8,10,"  Network features will be unavailable",0x666666,0xE1E1E1)
+        drawText(8,9,"? " .. loc.noInternet,0xFF0000,0xE1E1E1)
+        drawText(8,10,"  " .. loc.networkUnavailable,0x666666,0xE1E1E1)
         installState.network=false
     end
 
-    local backBtn=drawButton(10,sh-4,10,3,"< Back",false)
-    local nextBtn=drawButton(sw-20,sh-4,10,3,"Next >",true)
+    local backBtn=drawButton(10,sh-4,10,3,loc.back,false)
+    local nextBtn=drawButton(sw-20,sh-4,10,3,loc.next,true)
 
     while true do
         local x,y=waitClick()
@@ -359,11 +508,11 @@ local function showInstallation()
     drawStatusBar()
     drawBox(5,4,sw-10,sh-7,0xE1E1E1,true)
 
-    drawText(8,4,"Step 4/5: Installing PixelOS",0x3366CC,0xE1E1E1)
+    drawText(8,4,loc.step .. " 4/5: " .. loc.installing,0x3366CC,0xE1E1E1)
 
     -- Format if requested
     if installState.formatDisk and installState.confirmErase then
-        drawText(8,7,"Formatting disk...",0x000000,0xE1E1E1)
+        drawText(8,7,loc.formatting,0x000000,0xE1E1E1)
         local proxy=c.proxy(installState.targetDisk.address)
         if proxy then
             local list=proxy.list("/")
@@ -379,7 +528,7 @@ local function showInstallation()
     end
 
     -- Create directories
-    drawText(8,9,"Creating system directories...",0x000000,0xE1E1E1)
+    drawText(8,9,loc.creatingDirs,0x000000,0xE1E1E1)
     local proxy=c.proxy(installState.targetDisk.address)
     if proxy then
         proxy.makeDirectory("System/OS")
@@ -390,7 +539,7 @@ local function showInstallation()
     drawText(40,9,"[OK]",0x00AA00,0xE1E1E1)
 
     -- Create config
-    drawText(8,11,"Creating configuration...",0x000000,0xE1E1E1)
+    drawText(8,11,loc.creatingConfig,0x000000,0xE1E1E1)
     local config={
         username=installState.username,
         password=installState.usePassword and installState.password or nil,
@@ -410,9 +559,9 @@ local function showInstallation()
         os.sleep(0.05)
     end
 
-    drawText(8,18,"? Installation complete!",0x00AA00,0xE1E1E1)
+    drawText(8,18,"✓ " .. loc.complete,0x00AA00,0xE1E1E1)
 
-    local rebootBtn=drawButton(math.floor(sw/2)-5,sh-5,12,3,"Reboot",true)
+    local rebootBtn=drawButton(math.floor(sw/2)-5,sh-5,12,3,loc.reboot,true)
 
     while true do
         local x,y=waitClick()
@@ -441,8 +590,8 @@ local function executeString(...)
     
     if gpu then
         clear(0x2D2D2D)
-        drawText(2, 3, "Error: " .. tostring(reason), 0xFF0000, 0x2D2D2D)
-        drawText(2, 5, "Press any key to continue...", 0xFFFFFF, 0x2D2D2D)
+        drawText(2, 3, loc.error .. ": " .. tostring(reason), 0xFF0000, 0x2D2D2D)
+        drawText(2, 5, loc.pressKey, 0xFFFFFF, 0x2D2D2D)
         co.pullSignal()
     end
 end
@@ -476,8 +625,8 @@ local function tryBootFromAny()
     if not booted then
         if gpu then
             clear(0x2D2D2D)
-            drawText(2, 3, "No boot sources found", 0xFF0000, 0x2D2D2D)
-            drawText(2, 5, "Press any key to restart...", 0xFFFFFF, 0x2D2D2D)
+            drawText(2, 3, loc.noBootSources, 0xFF0000, 0x2D2D2D)
+            drawText(2, 5, loc.pressKeyRestart, 0xFFFFFF, 0x2D2D2D)
             co.pullSignal()
         end
         co.shutdown(true)

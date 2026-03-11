@@ -502,8 +502,10 @@ addStage(function()
 	addImage(0, 1, "Languages")
 	layout:addChild(localizationComboBox)
 
+	-- Set default language to Chinese Simplified immediately
+	selectDefaultLanguage()
+	
 	workspace:draw()
-	localizationComboBox:getItem(1).onTouch()
 end)
 
 -- Filesystem selection stage
@@ -639,7 +641,15 @@ addStage(function()
 	end)
 	
 	if not success or not licenseContent or licenseContent == "" then
-		licenseContent = request("Licenses/LICENSE_en_US")
+		-- Try fallback to English if specific language not found
+		success, err = pcall(function()
+			licenseContent = request("Licenses/LICENSE_en_US")
+		end)
+	end
+	
+	-- If still failed, use a default message
+	if not success or not licenseContent or licenseContent == "" then
+		licenseContent = "PixelOS License Agreement\n\nBy using this software, you agree to the terms and conditions."
 	end
 	
 	local lines = text.wrap({licenseContent}, layout.width - 2)

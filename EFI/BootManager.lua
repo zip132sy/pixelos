@@ -348,20 +348,28 @@ local function drawStatusBar()
         local batteryText = ""
         if battery then
             local proxy = c.proxy(battery)
-            local energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
-            batteryText = loc.power .. ": " .. energy .. "%"
+            local energy = 0
+            local maxEnergy = 100
+            -- Try different API methods for battery
+            if proxy.getEnergy then
+                energy = proxy.getEnergy() or 0
+                maxEnergy = proxy.getMaxEnergy() or 100
+            elseif proxy.energy then
+                energy = proxy.energy() or 0
+                maxEnergy = proxy.maxEnergy() or 100
+            end
+            local percent = math.floor((energy / maxEnergy) * 100)
+            batteryText = loc.power .. ": " .. percent .. "%"
         else
             batteryText = loc.power .. ": --%"
         end
         
-        local uptime = computer.uptime()
-        local hours = math.floor(uptime / 3600) % 24
-        local minutes = math.floor((uptime % 3600) / 60)
-        local timeText = string.format("%02d:%02d", hours, minutes)
+        -- Use local time
+        local timeText = os.date("%H:%M")
         
         -- Draw battery and time on right side with proper spacing
         local statusBarText = batteryText .. "     " .. timeText
-        gpu.set(sw - #statusBarText, 1, statusBarText)
+        gpu.set(sw - #statusBarText + 1, 1, statusBarText)
     end
 end
 
