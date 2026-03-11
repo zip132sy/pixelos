@@ -161,16 +161,17 @@ end
 component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
 component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 
+-- Warning function (global)
+local function warning(text)
+	centrizedText(title(), 0xFF9900, "Warning: " .. text)
+	centrizedText(title() + 1, 0x878787, "Continuing anyway...")
+	
+	-- Don't shutdown, just continue after a short delay
+	os.sleep(1)
+end
+
 -- Checking minimum system requirements
 do
-	local function warning(text)
-		centrizedText(title(), 0xFF9900, "Warning: " .. text)
-		centrizedText(title() + 1, 0x878787, "Continuing anyway...")
-		
-		-- Don't shutdown, just continue after a short delay
-		os.sleep(1)
-	end
-
 	if component.invoke(GPUAddress, "getDepth") ~= 8 then
 		warning("Tier 3 GPU and screen are required")
 	end
@@ -225,7 +226,7 @@ function require(module)
 			end
 		else
 			-- File doesn't exist, try to skip or use fallback
-			warning("Module not found: " .. module .. " (path: " .. filePath .. ")")
+			-- Clear the loading state and return nil
 			package.loading[module] = nil
 			return nil
 		end
