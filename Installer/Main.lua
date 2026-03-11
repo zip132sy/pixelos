@@ -213,18 +213,18 @@ local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- Simple formatTime for early loading (before localization is loaded)
 local function formatTimeEarly(seconds)
-	if not seconds or seconds < 0 then return "0 sec" end
+	if not seconds or seconds < 0 then return "0 秒" end
 	
 	if seconds < 60 then
-		return math.floor(seconds) .. " sec"
+		return math.floor(seconds) .. " 秒"
 	elseif seconds < 3600 then
 		local mins = math.floor(seconds / 60)
 		local secs = math.floor(seconds % 60)
-		return mins .. " min " .. secs .. " sec"
+		return mins .. " 分 " .. secs .. " 秒"
 	else
 		local hours = math.floor(seconds / 3600)
 		local mins = math.floor((seconds % 3600) / 60)
-		return hours .. " hour " .. mins .. " min"
+		return hours .. " 小时 " .. mins .. " 分"
 	end
 end
 
@@ -364,12 +364,6 @@ shutdownMenuItem.onTouch = function()
 	computer.shutdown()
 end
 
-localizationMenuItem = installerMenu:addItem("🌐", "语言")
-localizationMenuItem.onTouch = function()
-	localizationComboBox.show = not localizationComboBox.show
-	workspace:draw()
-end
-
 -- Filesystem selection stage
 local stages = {}
 
@@ -455,11 +449,11 @@ local function updateMenuText()
 end
 
 local function formatTime(seconds)
-	if not seconds or seconds < 0 then return "0 sec" end
+	if not seconds or seconds < 0 then return "0 秒" end
 	
-	local secKey = localization and localization.seconds or "sec"
-	local minKey = localization and localization.minutes or "min"
-	local hourKey = localization and localization.hours or "hour"
+	local secKey = localization and localization.seconds or "秒"
+	local minKey = localization and localization.minutes or "分"
+	local hourKey = localization and localization.hours or "小时"
 	
 	if seconds < 60 then
 		return math.floor(seconds) .. " " .. secKey
@@ -484,15 +478,15 @@ end
 local function updateStatusBar()
 	local batteryText = "电量：--%"
 	
-	-- Get battery info using OpenComputers API
+	-- Get battery info using correct OpenComputers API
 	local battery = component.list("battery")()
 	if battery then
 		local proxy = component.proxy(battery)
 		local energy = 0
-		-- OpenComputers battery API: energy() returns current energy, maxEnergy() returns max
-		if proxy.energy and proxy.maxEnergy then
-			local current = proxy.energy()
-			local max = proxy.maxEnergy()
+		-- OpenComputers battery API: getEnergy() and getMaxEnergy()
+		if proxy.getEnergy and proxy.getMaxEnergy then
+			local current = proxy.getEnergy()
+			local max = proxy.getMaxEnergy()
 			if max > 0 then
 				energy = math.floor((current / max) * 100)
 			end
@@ -500,15 +494,12 @@ local function updateStatusBar()
 		batteryText = "电量：" .. energy .. "%"
 	end
 	
-	-- Get game time using os.date() and convert to Beijing Time (UTC+8)
-	-- os.date("*t") returns table with game time
-	local gameTime = os.date("*t")
+	-- Get game time using computer.uptime() (OpenComputers standard)
+	local uptime = computer.uptime()
+	local hours = math.floor(uptime / 3600) % 24
+	local minutes = math.floor((uptime % 3600) / 60)
 	
-	-- Add 8 hours for Beijing timezone (UTC+8)
-	local beijingHour = (gameTime.hour + 8) % 24
-	local minute = gameTime.min
-	
-	local timeText = string.format("%02d:%02d", beijingHour, minute)
+	local timeText = string.format("%02d:%02d", hours, minutes)
 	
 	-- Format status bar text: battery on right, time in center
 	local sw, sh = component.invoke(GPUAddress, "getResolution")
@@ -933,14 +924,26 @@ addStage(function()
 	local versions, path, id, version, shortcut = {}
 	local downloadedFiles = 0
 	local skippedFiles = 0
+	
+	-- Check total available space once at the beginning
+	local totalAvailableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
+	local estimatedTotalSize = #downloadList * 50 * 1024  -- Estimate 50KB per file average
+	
+	if totalAvailableSpace < estimatedTotalSize then
+		-- Not enough space, but continue anyway with warning
+		cyka.text = text.limit("警告：空间可能不足，但将继续安装", container.width, "center")
+		workspace:draw()
+		os.sleep(1)
+	end
+	
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
-		-- Check available space before downloading
+		-- Check available space before downloading (with smaller threshold)
 		local availableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
-		if availableSpace < 50 * 1024 then  -- Less than 50KB available
+		if availableSpace < 10 * 1024 then  -- Less than 10KB available (in bytes)
 			skippedFiles = skippedFiles + 1
-			cyka.text = text.limit((localization.notEnoughSpace or "Not enough space, skipping:") .. " " .. path, container.width, "center")
+			cyka.text = text.limit((localization.notEnoughSpace or "空间不足，跳过:") .. " " .. path, container.width, "center")
 			workspace:draw()
 			os.sleep(0.5)
 			-- Update progress to account for skipped files

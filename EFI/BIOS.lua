@@ -206,10 +206,6 @@ local function drawStatusBar()
         gpu.setBackground(0x1E1E1E)
         gpu.fill(1,1,sw,1," ")
         
-        -- Menu button (PixelOS text)
-        gpu.setForeground(0x3366CC)
-        gpu.set(2,1,"PixelOS")
-        
         -- Battery - using correct OpenComputers API
         local batteryText = ""
         local battery = c.list("battery")()
@@ -287,69 +283,6 @@ end
 
 local function checkClick(btn,x,y)
     return x>=btn.x and x<btn.x+btn.w and y>=btn.y and y<btn.y+btn.h
-end
-
--- PixelOS Menu
-local function showPixelOSMenu()
-    if not gpu then return end
-    
-    -- Menu dimensions
-    local menuX, menuY = 2, 2
-    local menuWidth, menuHeight = 20, 5
-    
-    -- Draw menu background
-    gpu.setBackground(0xFFFFFF)
-    gpu.fill(menuX, menuY, menuWidth, menuHeight, " ")
-    
-    -- Menu title bar
-    gpu.setForeground(0x3366CC)
-    gpu.set(menuX, menuY, string.rep(" ", menuWidth))
-    gpu.setForeground(0xFFFFFF)
-    gpu.set(menuX + math.floor((menuWidth - 7) / 2), menuY, "PixelOS")
-    
-    -- Menu items
-    local menuItems = {
-        {text = "重启", icon = "↻"},
-        {text = "关机", icon = "⏻"}
-    }
-    
-    -- Draw menu items
-    local y = menuY + 1
-    for i, item in ipairs(menuItems) do
-        gpu.setForeground(0x000000)
-        gpu.set(menuX + 2, y, item.text)
-        y = y + 1
-    end
-    
-    -- Draw border
-    gpu.setForeground(0x878787)
-    gpu.set(menuX, menuY, "┌")
-    gpu.set(menuX + menuWidth - 1, menuY, "┐")
-    gpu.set(menuX, menuY + menuHeight - 1, "└")
-    gpu.set(menuX + menuWidth - 1, menuY + menuHeight - 1, "┘")
-    for i = 1, menuHeight - 2 do
-        gpu.set(menuX, menuY + i, "│")
-        gpu.set(menuX + menuWidth - 1, menuY + i, "│")
-    end
-    
-    -- Wait for click
-    while true do
-        local x, y, btn = waitClick()
-        
-        -- Check if clicked outside menu
-        if x < menuX or x >= menuX + menuWidth or y < menuY or y >= menuY + menuHeight then
-            break
-        end
-        
-        -- Check menu item clicks
-        if y == menuY + 1 and x >= menuX + 2 and x < menuX + menuWidth - 1 then
-            -- Restart
-            c.shutdown(true)
-        elseif y == menuY + 2 and x >= menuX + 2 and x < menuX + menuWidth - 1 then
-            -- Shutdown
-            c.shutdown(false)
-        end
-    end
 end
 
 -- Progress bar drawing function
@@ -432,11 +365,6 @@ local function showWelcome()
 
     while true do
         local x,y=waitClick()
-        -- Check if PixelOS menu button clicked (2,1 with width ~7)
-        if y == 1 and x >= 2 and x <= 9 then
-            showPixelOSMenu()
-            return showWelcome() -- Redraw welcome screen after menu
-        end
         if checkClick(nextBtn,x,y) then
             return 2
         end
@@ -486,12 +414,6 @@ local function showDiskSelect()
 
     while true do
         local x,y=waitClick()
-        
-        -- Check if PixelOS menu button clicked
-        if y == 1 and x >= 2 and x <= 9 then
-            showPixelOSMenu()
-            return showDiskSelect() -- Redraw after menu
-        end
 
         for i,btn in ipairs(buttons)do
             if checkClick(btn,x,y) then
@@ -542,11 +464,6 @@ local function showConfirmErase()
 
     while true do
         local x,y=waitClick()
-        -- Check if PixelOS menu button clicked
-        if y == 1 and x >= 2 and x <= 9 then
-            showPixelOSMenu()
-            return showConfirmErase() -- Redraw after menu
-        end
         if checkClick(noBtn,x,y) then
             return 2
         elseif checkClick(yesBtn,x,y) then
@@ -585,12 +502,6 @@ local function showUserSetup()
 
         if type(x)=="number" and type(y)=="number" then
             -- Touch event
-            -- Check if PixelOS menu button clicked
-            if y == 1 and x >= 2 and x <= 9 then
-                showPixelOSMenu()
-                return showUserSetup() -- Redraw after menu
-            end
-            
             if checkClick(usePassCb,x,y) then
                 installState.usePassword=not installState.usePassword
                 return 3 -- Refresh
@@ -662,11 +573,6 @@ local function showNetworkCheck()
 
     while true do
         local x,y=waitClick()
-        -- Check if PixelOS menu button clicked
-        if y == 1 and x >= 2 and x <= 9 then
-            showPixelOSMenu()
-            return showNetworkCheck() -- Redraw after menu
-        end
         if checkClick(backBtn,x,y) then
             return 3
         elseif checkClick(nextBtn,x,y) then
@@ -762,11 +668,6 @@ local function showInstallation()
 
     while true do
         local x,y=waitClick()
-        -- Check if PixelOS menu button clicked
-        if y == 1 and x >= 2 and x <= 9 then
-            showPixelOSMenu()
-            return showInstallation() -- Redraw after menu
-        end
         if checkClick(rebootBtn,x,y) then
             -- Clean up temporary files
             local targetProxy = c.proxy(installState.targetDisk.address)
