@@ -1,4 +1,4 @@
--- PixelOS BIOS Installer v3.0
+﻿-- PixelOS BIOS Installer v3.0
 -- This code runs from EEPROM after reboot
 -- Graphical installation interface
 
@@ -16,7 +16,30 @@ end
 
 -- Language detection and localization
 local function detectLanguage()
-    -- Try to detect language from system
+    -- Try to read language from system configuration
+    for addr in c.list("filesystem") do
+        local proxy = c.proxy(addr)
+        if proxy.exists("/Settings/UserSettings.cfg") then
+            local handle = proxy.open("/Settings/UserSettings.cfg", "r")
+            if handle then
+                local content = ""
+                local chunk
+                repeat
+                    chunk = proxy.read(handle, 1024)
+                    if chunk then content = content .. chunk end
+                until not chunk
+                proxy.close(handle)
+                
+                -- Try to parse language from config
+                if content:find("ChineseSimplified") then
+                    return "zh_CN"
+                elseif content:find("English") then
+                    return "en_US"
+                end
+            end
+        end
+    end
+    
     -- Default to Chinese Simplified
     return "zh_CN"
 end
@@ -178,13 +201,13 @@ local function drawStatusBar()
         gpu.setBackground(0x1E1E1E)
         gpu.fill(1,1,sw,1," ")
         
-        -- Menu button (PixelOS text only, no icon)
-        gpu.setForeground(0xFFFFFF)
+        -- Menu button (PixelOS text)
+        gpu.setForeground(0x3366CC)
         gpu.set(2,1,"PixelOS")
         
         -- Battery and Time (right aligned)
-        local battery = c.list("battery")()
         local batteryText = ""
+        local battery = c.list("battery")()
         if battery then
             local proxy = c.proxy(battery)
             local energy = 0
@@ -197,10 +220,14 @@ local function drawStatusBar()
                 energy = proxy.energy() or 0
                 maxEnergy = proxy.maxEnergy() or 100
             end
-            local percent = math.floor((energy / maxEnergy) * 100)
-            batteryText = "Power: " .. percent .. "%"
+            if maxEnergy > 0 then
+                local percent = math.floor((energy / maxEnergy) * 100)
+                batteryText = "电量：" .. percent .. "%"
+            else
+                batteryText = "电量：--%"
+            end
         else
-            batteryText = "Power: --%"
+            batteryText = "电量：--%"
         end
         
         -- Use computer uptime for real time (os.date uses in-game time in OpenComputers)
@@ -209,13 +236,12 @@ local function drawStatusBar()
         local minutes = math.floor((uptime % 3600) / 60)
         local timeText = string.format("%02d:%02d", hours, minutes)
         
-        -- Draw battery and time on right side with proper spacing
-        local statusBarText = batteryText .. "     " .. timeText
-        -- Clear the area first to prevent black blocks
-        gpu.setBackground(0x1E1E1E)
-        gpu.fill(sw - #statusBarText, 1, #statusBarText + 2, 1, " ")
+        -- Draw battery on right
         gpu.setForeground(0xFFFFFF)
-        gpu.set(sw - #statusBarText + 1, 1, statusBarText)
+        gpu.set(sw - #batteryText + 1, 1, batteryText)
+        
+        -- Draw time in center
+        gpu.set(math.floor(sw / 2 - #timeText / 2), 1, timeText)
     end
 end
 
@@ -266,6 +292,66 @@ end
 
 local function checkClick(btn,x,y)
     return x>=btn.x and x<btn.x+btn.w and y>=btn.y and y<btn.y+btn.h
+end
+
+-- PixelOS Menu
+local function showPixelOSMenu()
+    if not gpu then return end
+    
+    -- Menu dimensions
+    local menuX, menuY = 2, 2
+    local menuWidth, menuHeight = 20, 5
+    
+    -- Draw menu background
+    gpu.setBackground(0xFFFFFF)
+    gpu.fill(menuX, menuY, menuWidth, menuHeight, " ")
+    gpu.setForeground(0x3366CC)
+    gpu.set(menuX, menuY, string.rep(" ", menuWidth))
+    drawText(menuX + math.floor((menuWidth - 7) / 2), menuY, "PixelOS", 0xFFFFFF, 0x3366CC)
+    
+    -- Menu items
+    local menuItems = {
+        {text = "重启", icon = "↻"},
+        {text = "关机", icon = "⏻"}
+    }
+    
+    -- Draw menu items
+    local y = menuY + 1
+    for i, item in ipairs(menuItems) do
+        gpu.setForeground(0x000000)
+        gpu.set(menuX + 2, y, item.text)
+        y = y + 1
+    end
+    
+    -- Draw border
+    gpu.setForeground(0x878787)
+    gpu.set(menuX, menuY, "┌")
+    gpu.set(menuX + menuWidth - 1, menuY, "┐")
+    gpu.set(menuX, menuY + menuHeight - 1, "└")
+    gpu.set(menuX + menuWidth - 1, menuY + menuHeight - 1, "┘")
+    for i = 1, menuHeight - 2 do
+        gpu.set(menuX, menuY + i, "│")
+        gpu.set(menuX + menuWidth - 1, menuY + i, "│")
+    end
+    
+    -- Wait for click
+    while true do
+        local x, y, btn = waitClick()
+        
+        -- Check if clicked outside menu
+        if x < menuX or x >= menuX + menuWidth or y < menuY or y >= menuY + menuHeight then
+            break
+        end
+        
+        -- Check menu item clicks
+        if y == menuY + 1 and x >= menuX + 2 and x < menuX + menuWidth - 1 then
+            -- Restart
+            c.shutdown(true)
+        elseif y == menuY + 2 and x >= menuX + 2 and x < menuX + menuWidth - 1 then
+            -- Shutdown
+            c.shutdown(false)
+        end
+    end
 end
 
 -- Progress bar drawing function
@@ -348,6 +434,11 @@ local function showWelcome()
 
     while true do
         local x,y=waitClick()
+        -- Check if PixelOS menu button clicked (2,1 with width ~7)
+        if y == 1 and x >= 2 and x <= 9 then
+            showPixelOSMenu()
+            return showWelcome() -- Redraw welcome screen after menu
+        end
         if checkClick(nextBtn,x,y) then
             return 2
         end
@@ -397,6 +488,12 @@ local function showDiskSelect()
 
     while true do
         local x,y=waitClick()
+        
+        -- Check if PixelOS menu button clicked
+        if y == 1 and x >= 2 and x <= 9 then
+            showPixelOSMenu()
+            return showDiskSelect() -- Redraw after menu
+        end
 
         for i,btn in ipairs(buttons)do
             if checkClick(btn,x,y) then
@@ -447,6 +544,11 @@ local function showConfirmErase()
 
     while true do
         local x,y=waitClick()
+        -- Check if PixelOS menu button clicked
+        if y == 1 and x >= 2 and x <= 9 then
+            showPixelOSMenu()
+            return showConfirmErase() -- Redraw after menu
+        end
         if checkClick(noBtn,x,y) then
             return 2
         elseif checkClick(yesBtn,x,y) then
@@ -485,6 +587,12 @@ local function showUserSetup()
 
         if type(x)=="number" and type(y)=="number" then
             -- Touch event
+            -- Check if PixelOS menu button clicked
+            if y == 1 and x >= 2 and x <= 9 then
+                showPixelOSMenu()
+                return showUserSetup() -- Redraw after menu
+            end
+            
             if checkClick(usePassCb,x,y) then
                 installState.usePassword=not installState.usePassword
                 return 3 -- Refresh
@@ -556,6 +664,11 @@ local function showNetworkCheck()
 
     while true do
         local x,y=waitClick()
+        -- Check if PixelOS menu button clicked
+        if y == 1 and x >= 2 and x <= 9 then
+            showPixelOSMenu()
+            return showNetworkCheck() -- Redraw after menu
+        end
         if checkClick(backBtn,x,y) then
             return 3
         elseif checkClick(nextBtn,x,y) then
@@ -612,18 +725,21 @@ local function showInstallation()
             -- Simulated file download with progress
             local totalFiles = 50
             local startTime = os.time()
+            local totalSize = 2048 -- KB
             
             for i = 1, totalFiles do
                 local elapsed = os.time() - startTime
                 local remaining = (totalFiles - i) * (i > 0 and elapsed / i or 0.5)
                 local remainingText = formatTime(remaining)
                 local percent = math.floor((i / totalFiles) * 100)
+                local remainingFiles = totalFiles - i
+                local estimatedSize = math.floor((remainingFiles / totalFiles) * totalSize)
                 
-                -- Draw progress bar
+                -- Draw progress bar with all info
                 drawProgressBar(10, 15, sw - 20, percent, 
                     "正在安装文件：" .. i .. "/" .. totalFiles,
                     "剩余时间：" .. remainingText,
-                    "剩余文件：" .. (totalFiles - i))
+                    "剩余文件：" .. remainingFiles .. "  约需空间：" .. estimatedSize .. "KB")
                 
                 os.sleep(0.1) -- Simulate download time
             end
@@ -648,6 +764,11 @@ local function showInstallation()
 
     while true do
         local x,y=waitClick()
+        -- Check if PixelOS menu button clicked
+        if y == 1 and x >= 2 and x <= 9 then
+            showPixelOSMenu()
+            return showInstallation() -- Redraw after menu
+        end
         if checkClick(rebootBtn,x,y) then
             -- Set EEPROM data to point to new system
             local eeprom=c.list("eeprom")()

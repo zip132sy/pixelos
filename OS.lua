@@ -488,7 +488,6 @@ if not useTabletMode then
             end
         end
     )
-end
 
     -- Screen component attaching/detaching event handler
     if screen then
@@ -544,27 +543,19 @@ end
     end
 else
     -- Tablet mode - use simplified desktop
-    local success, tabletDesktop = pcall(require, "TabletDesktop")
-    if not success then
-        -- Fallback if tablet desktop fails to load
-        local gpu = component.list("gpu")()
-        local screen = component.list("screen")()
-        
-        if gpu and screen then
-            local gpuProxy = component.proxy(gpu)
-            gpuProxy.bind(screen)
-            local width, height = gpuProxy.getResolution()
-            
-            gpuProxy.setBackground(0x2D2D2D)
-            gpuProxy.fill(1, 1, width, height, " ")
-            gpuProxy.setForeground(0xFF0000)
-            gpuProxy.set(2, 3, "Error: Failed to load tablet desktop")
-            gpuProxy.setForeground(0xFFFFFF)
-            gpuProxy.set(2, 5, "Press any key to shutdown...")
-            computer.pullSignal()
-        end
-        computer.shutdown(true)
+    local workspace = GUI.workspace()
+    if workspace then
+        system.setWorkspace(workspace)
     end
+    system.authorize()
+    
+    while true do
+        local success, path, line, traceback = system.call(workspace.start, workspace, 0)
+        if success then
+            break
+        end
+    end
+end
 end
 
 -- Run with error handling
