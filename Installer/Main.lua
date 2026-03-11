@@ -209,7 +209,7 @@ progress(0)
 local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- After that we could download required libraries for installer from it
--- First, show loading screen with progress bar
+-- First, show loading screen with progress bar (MineOS style)
 
 -- Simple formatTime for early loading (before localization is loaded)
 local function formatTimeEarly(seconds)
@@ -228,40 +228,45 @@ local function formatTimeEarly(seconds)
 	end
 end
 
--- Draw beautiful loading screen
-component.invoke(GPUAddress, "setBackground", 0x2D2D2D)
+-- Show simple MineOS-style loading screen with enhanced info
+local function progress(value, label, timeText, filesText)
+	local width = 40
+	local x, y = centrize(width), title() + 2
+	
+	-- Draw progress bar
+	component.invoke(GPUAddress, "setForeground", 0x878787)
+	component.invoke(GPUAddress, "set", x, y, string.rep("─", width))
+	
+	local part = math.ceil(width * value)
+	component.invoke(GPUAddress, "setForeground", 0x3366CC)
+	component.invoke(GPUAddress, "set", x, y, string.rep("─", part))
+	
+	-- Draw label above
+	if label then
+		component.invoke(GPUAddress, "setForeground", 0x666666)
+		component.invoke(GPUAddress, "set", centrize(#label), y - 1, label)
+	end
+	
+	-- Draw time and files info below
+	if timeText or filesText then
+		local infoText = ""
+		if filesText then infoText = infoText .. filesText end
+		if timeText then 
+			if filesText then infoText = infoText .. "  " end
+			infoText = infoText .. timeText 
+		end
+		component.invoke(GPUAddress, "setForeground", 0x878787)
+		component.invoke(GPUAddress, "set", centrize(#infoText), y + 1, infoText)
+	end
+end
+
+-- Clear screen and show title
+component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
 component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 
--- Draw top bar
-component.invoke(GPUAddress, "setBackground", 0x1E1E1E)
-component.invoke(GPUAddress, "fill", 1, 1, screenWidth, 2, " ")
-
--- Draw PixelOS logo text
-component.invoke(GPUAddress, "setForeground", 0x3366CC)
-component.invoke(GPUAddress, "set", 2, 1, "PixelOS")
-component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
-component.invoke(GPUAddress, "set", 12, 1, "v3.0")
-
--- Draw loading title
-component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
 local loadingTitle = "正在加载安装程序..."
-component.invoke(GPUAddress, "set", centrize(#loadingTitle), 6, loadingTitle)
-
--- Create modern progress bar
-local progressBarWidth = 50
-local progressBarX = centrize(progressBarWidth)
-local progressBarY = 9
-
--- Draw progress bar background with gradient effect
-component.invoke(GPUAddress, "setBackground", 0x3D3D3D)
-component.invoke(GPUAddress, "fill", progressBarX, progressBarY, progressBarWidth, 3, " ")
-
--- Draw progress bar border
-component.invoke(GPUAddress, "setForeground", 0x555555)
-component.invoke(GPUAddress, "set", progressBarX, progressBarY, "╔" .. string.rep("═", progressBarWidth - 2) .. "╗")
-component.invoke(GPUAddress, "set", progressBarX, progressBarY + 1, "║")
-component.invoke(GPUAddress, "set", progressBarX + progressBarWidth - 1, progressBarY + 1, "║")
-component.invoke(GPUAddress, "set", progressBarX, progressBarY + 2, "╚" .. string.rep("═", progressBarWidth - 2) .. "╝")
+component.invoke(GPUAddress, "setForeground", 0x666666)
+component.invoke(GPUAddress, "set", centrize(#loadingTitle), title() - 1, loadingTitle)
 
 local installerStartTime = os.time()
 local totalFiles = #files.installerFiles
@@ -269,46 +274,22 @@ local totalFiles = #files.installerFiles
 for i = 1, totalFiles do
 	local elapsed = os.time() - installerStartTime
 	local remaining = (totalFiles - i) * (i > 0 and elapsed / i or 0.5)
-	local percent = math.floor((i / totalFiles) * 100)
-	local filledWidth = math.floor((percent / 100) * (progressBarWidth - 2))
+	local percent = (i / totalFiles)
 	
-	-- Draw progress bar fill with blue gradient
-	component.invoke(GPUAddress, "setBackground", 0x3366CC)
-	component.invoke(GPUAddress, "fill", progressBarX + 1, progressBarY + 1, filledWidth, 1, " ")
-	
-	-- Draw percentage in center
-	component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
-	local percentText = string.format("%d%%", percent)
-	component.invoke(GPUAddress, "set", progressBarX + math.floor((progressBarWidth - #percentText) / 2), progressBarY + 1, percentText)
-	
-	-- Draw file info above progress bar
-	component.invoke(GPUAddress, "setForeground", 0xAAAAAA)
-	local fileInfo = "文件 " .. i .. "/" .. totalFiles
-	component.invoke(GPUAddress, "set", centrize(#fileInfo), progressBarY - 2, fileInfo)
-	
-	-- Draw remaining time below progress bar
-	component.invoke(GPUAddress, "setForeground", 0x888888)
 	local remainingText = formatTimeEarly(remaining)
-	local timeInfo = "预计剩余：" .. remainingText
-	component.invoke(GPUAddress, "set", centrize(#timeInfo), progressBarY + 4, timeInfo)
+	local label = "文件 " .. i .. "/" .. totalFiles
+	local timeText = "预计：" .. remainingText
+	local filesText = "剩余：" .. (totalFiles - i) .. " 个文件"
 	
-	-- Draw current filename
-	component.invoke(GPUAddress, "setForeground", 0x666666)
-	local currentFile = files.installerFiles[i]
-	-- Truncate if too long
-	if #currentFile > 60 then
-		currentFile = "..." .. currentFile:sub(#currentFile - 57)
-	end
-	component.invoke(GPUAddress, "set", centrize(#currentFile), progressBarY + 6, currentFile)
+	progress(percent, label, timeText, filesText)
+	
+	component.invoke(GPUAddress, "setForeground", 0x878787)
+	component.invoke(GPUAddress, "set", centrize(40), title() + 3, "下载：" .. files.installerFiles[i])
 	
 	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
-end
-
--- Fade out effect
-for i = 1, 5 do
-	component.invoke(GPUAddress, "setBackground", 0x2D2D2D + (i * 0x111111))
-	component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
-	os.sleep(0.05)
+	
+	-- Small delay to show progress (use computer API instead of os.sleep)
+	computer.pullSignal(0.05)
 end
 
 -- Now initialize require function and system libraries
@@ -471,8 +452,9 @@ local rebootMenuItem, shutdownMenuItem
 
 local function updateMenuText()
 	if localization and rebootMenuItem and shutdownMenuItem then
-		rebootMenuItem.text = localization.reboot or "Reboot"
-		shutdownMenuItem.text = localization.shutdown or "Shutdown"
+		-- Use localized text or default to Chinese Simplified
+		rebootMenuItem.text = localization.reboot or "重启"
+		shutdownMenuItem.text = localization.shutdown or "关机"
 	end
 end
 
@@ -502,23 +484,40 @@ end
 
 local function updateStatusBar()
 	local batteryText = "Power: --%"
-	-- Use computer uptime for real time (os.date uses in-game time in OpenComputers)
-	local uptime = computer.uptime()
-	local hours = math.floor(uptime / 3600) % 24
-	local minutes = math.floor((uptime % 3600) / 60)
-	local timeText = string.format("%02d:%02d", hours, minutes)
 	
+	-- Get battery info
 	local battery = component.list("battery")()
 	if battery then
 		local proxy = component.proxy(battery)
-		local energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
-		local powerKey = localization and localization.power or "Power"
+		local energy = 0
+		local maxEnergy = 100
+		-- Try different API methods for battery
+		if proxy.getEnergy then
+			energy = math.floor(proxy.getEnergy() / proxy.getMaxEnergy() * 100)
+		elseif proxy.energy then
+			energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
+		end
+		local powerKey = localization and localization.power or "电量"
 		batteryText = powerKey .. ": " .. energy .. "%"
 	end
 	
-	local statusBarText = batteryText .. "          " .. timeText
+	-- Calculate Beijing Time (UTC+8)
+	-- Use computer.uptime() as base and add 8 hours for Beijing timezone
+	local uptime = computer.uptime()
+	-- Add 8 hours (28800 seconds) for Beijing timezone
+	local beijingUptime = uptime + 28800
+	local hours = math.floor(beijingUptime / 3600) % 24
+	local minutes = math.floor((beijingUptime % 3600) / 60)
+	local timeText = string.format("%02d:%02d", hours, minutes)
+	
+	-- Format status bar text: battery on right, time in center
 	local sw, sh = component.invoke(GPUAddress, "getResolution")
-	component.invoke(GPUAddress, "set", sw - #statusBarText + 1, 1, statusBarText)
+	
+	-- Draw battery on right
+	component.invoke(GPUAddress, "set", sw - #batteryText + 1, 1, batteryText)
+	
+	-- Draw time in center
+	component.invoke(GPUAddress, "set", centrize(#timeText), 1, timeText)
 end
 
 for i = 1, #files.localizations do
@@ -995,11 +994,11 @@ addStage(function()
 	local installBiosManager = false
 	local confirmWindow = workspace:addChild(GUI.window(math.floor(workspace.width / 2 - 20), math.floor(workspace.height / 2 - 8), 40, 16))
 	confirmWindow:addChild(GUI.panel(1, 1, confirmWindow.width, confirmWindow.height, 0xE1E1E1))
-	confirmWindow:addChild(GUI.label(1, 2, confirmWindow.width, 1, 0x2D2D2D, localization.installBiosManager or "Install BIOS Manager?")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "Install a macOS-style boot manager with additional features")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	confirmWindow:addChild(GUI.label(1, 2, confirmWindow.width, 1, 0x2D2D2D, localization.installBiosManager or "安装 BIOS 管理器？")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
-	local confirmButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 8, 2, 0, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "Confirm"))
-	local cancelButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 10, 2, 0, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "Cancel"))
+	local confirmButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 8, 2, 0, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
+	local cancelButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 10, 2, 0, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
 	
 	local confirmResult = false
 	
@@ -1026,7 +1025,7 @@ addStage(function()
 	if installBiosManager then
 		layout:removeChildren()
 		addImage(1, 1, "EEPROM")
-		addTitle(0x969696, localization.installingBiosManager or "Installing BIOS Manager...")
+		addTitle(0x969696, localization.installingBiosManager or "正在安装 BIOS 管理器...")
 		workspace:draw()
 		
 		local bootManagerURL = "EFI/BootManager.lua"
@@ -1045,8 +1044,8 @@ addStage(function()
 	-- Done info
 	layout:removeChildren()
 	addImage(1, 1, "Done")
-	addTitle(0x969696, localization.installed)
-	addStageButton(localization.reboot).onTouch = function()
+	addTitle(0x969696, localization.installed or "安装完成")
+	addStageButton(localization.reboot or "重启").onTouch = function()
 		computer.shutdown(true)
 	end
 	workspace:draw()
