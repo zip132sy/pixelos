@@ -198,31 +198,6 @@ end
 -- Initializing simple package system for loading system libraries
 package = {loading = {}, loaded = {}}
 
---------------------------------------------------------------------------------
-
--- Creating main UI workspace
-local workspace = GUI.workspace()
-workspace:addChild(GUI.panel(1, 1, workspace.width, workspace.height, 0x1E1E1E))
-
--- Main installer window
-local window = workspace:addChild(GUI.window(1, 1, 80, 24))
-window.localX, window.localY = math.ceil(workspace.width / 2 - window.width / 2), math.ceil(workspace.height / 2 - window.height / 2)
-window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
-
--- Top menu
-local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
-local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
-
-rebootMenuItem = installerMenu:addItem("🔄", "重启")
-rebootMenuItem.onTouch = function()
-	computer.shutdown(true)
-end
-
-shutdownMenuItem = installerMenu:addItem("⏻", "关机")
-shutdownMenuItem.onTouch = function()
-	computer.shutdown()
-end
-
 -- Main vertical layout
 local layout = window:addChild(GUI.layout(1, 1, window.width, window.height - 2, 1, 1))
 
@@ -356,6 +331,38 @@ screen.setGPUAddress(GPUAddress)
 local GUI = require("GUI")
 local system = require("System")
 local paths = require("Paths")
+
+-- Creating main UI workspace
+local workspace = GUI.workspace()
+workspace:addChild(GUI.panel(1, 1, workspace.width, workspace.height, 0x1E1E1E))
+
+-- Main installer window
+local window = workspace:addChild(GUI.window(1, 1, 80, 24))
+window.localX, window.localY = math.ceil(workspace.width / 2 - window.width / 2), math.ceil(workspace.height / 2 - window.height / 2)
+window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
+
+-- Top menu
+local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
+local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
+
+rebootMenuItem = installerMenu:addItem("🔄", "重启")
+rebootMenuItem.onTouch = function()
+	computer.shutdown(true)
+end
+
+shutdownMenuItem = installerMenu:addItem("🛑", "关机")
+shutdownMenuItem.onTouch = function()
+	computer.shutdown()
+end
+
+localizationMenuItem = installerMenu:addItem("🌐", "语言")
+localizationMenuItem.onTouch = function()
+	localizationComboBox.show = not localizationComboBox.show
+	workspace:draw()
+end
+
+-- Filesystem selection stage
+local stages = {}
 
 local function formatTime(seconds)
 	if not seconds or seconds < 0 then return "0" end
