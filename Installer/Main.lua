@@ -469,40 +469,53 @@ local function formatTime(seconds)
 end
 
 local function updateMenuText()
+	-- Update reboot and shutdown button text with localization
 	if localization and rebootMenuItem and shutdownMenuItem then
-		rebootMenuItem.text = localization.reboot or "Reboot"
-		shutdownMenuItem.text = localization.shutdown or "Shutdown"
+		rebootMenuItem.text = localization.reboot or "重启"
+		shutdownMenuItem.text = localization.shutdown or "关机"
+	end
+	-- Ensure "PixelOS" is always shown in menu title
+	if installerMenu then
+		installerMenu.text = "PixelOS"
 	end
 end
 
 local function updateStatusBar()
 	local batteryText = "电量：--%"
 	
-	-- Get battery info using correct OpenComputers API
+	-- Get battery info using correct OpenComputers API with error handling
 	local battery = component.list("battery")()
 	if battery then
-		local proxy = component.proxy(battery)
-		local energy = 0
-		-- OpenComputers battery API: getEnergy() and getMaxEnergy()
-		if proxy.getEnergy and proxy.getMaxEnergy then
-			local current = proxy.getEnergy()
-			local max = proxy.getMaxEnergy()
-			if max > 0 then
-				energy = math.floor((current / max) * 100)
+		local success, proxy = pcall(component.proxy, battery)
+		if success and proxy then
+			local energy = 0
+			-- OpenComputers battery API: getEnergy() and getMaxEnergy()
+			if proxy.getEnergy and proxy.getMaxEnergy then
+				local current, max
+				local success1, cur = pcall(proxy.getEnergy, proxy)
+				local success2, mx = pcall(proxy.getMaxEnergy, proxy)
+				if success1 and success2 and cur and mx and mx > 0 then
+					current = cur
+					max = mx
+					energy = math.floor((current / max) * 100)
+				end
 			end
+			batteryText = "电量：" .. energy .. "%"
 		end
-		batteryText = "电量：" .. energy .. "%"
 	end
 	
-	-- Get game time using computer.uptime() (OpenComputers standard)
-	local uptime = computer.uptime()
-	local hours = math.floor(uptime / 3600) % 24
-	local minutes = math.floor((uptime % 3600) / 60)
-	
-	local timeText = string.format("%02d:%02d", hours, minutes)
+	-- Get game time using computer.uptime() (OpenComputers standard) with error handling
+	local timeText = "00:00"
+	local success, uptime = pcall(computer.uptime)
+	if success and uptime then
+		local hours = math.floor(uptime / 3600) % 24
+		local minutes = math.floor((uptime % 3600) / 60)
+		timeText = string.format("%02d:%02d", hours, minutes)
+	end
 	
 	-- Format status bar text: battery on right, time in center
 	local sw, sh = component.invoke(GPUAddress, "getResolution")
+	if not sw then sw = 80 end  -- Default width if failed
 	
 	-- Always draw WHITE background for status bar (row 1) - MUST be done FIRST
 	component.invoke(GPUAddress, "setBackground", 0xFFFFFF)
@@ -549,14 +562,18 @@ for i = 1, #files.localizations do
 	end
 end
 
--- Select Chinese Simplified by default
+-- Select Chinese Simplified by default and ensure it loads properly
 local function selectDefaultLanguage()
+	-- First, try to find ChineseSimplified in the combobox
 	for i = 1, 10 do
 		local item = localizationComboBox:getItem(i)
 		if item then
 			if item.text == "ChineseSimplified" then
 				localizationComboBox.selectedItem = i
-				item.onTouch()
+				-- Call the onTouch function to load the localization
+				if item.onTouch then
+					item.onTouch()
+				end
 				return true
 			end
 		else
