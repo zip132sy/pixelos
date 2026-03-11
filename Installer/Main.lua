@@ -141,6 +141,7 @@ local function rawRequest(url, chunkHandler)
 		
 		if internetHandle then
 			local chunk, err
+			local success = true
 			while true do
 				chunk, err = internetHandle.read(math.huge)	
 				
@@ -149,13 +150,16 @@ local function rawRequest(url, chunkHandler)
 				else
 					if err then
 						lastError = err
-						break
+						success = false
 					end
 					internetHandle.close()
-					return true
+					if success then
+						return true
+					else
+						break
+					end
 				end
 			end
-			internetHandle.close()
 		else
 			lastError = reason
 		end
@@ -434,11 +438,14 @@ workspace:addChild(GUI.panel(1, 1, workspace.width, workspace.height, 0x1E1E1E))
 
 -- Top menu (positioned at top of screen)
 local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
+menu.localX, menu.localY = 1, 1
 local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 
 -- Main installer window (positioned below menu)
-local window = workspace:addChild(GUI.window(1, 1, 80, 24))
-window.localX, window.localY = math.ceil(workspace.width / 2 - window.width / 2), math.ceil(workspace.height / 2 - window.height / 2)
+local windowHeight = 24
+local window = workspace:addChild(GUI.window(1, 1, 80, windowHeight))
+window.localX = math.ceil(workspace.width / 2 - window.width / 2)
+window.localY = math.ceil(workspace.height / 2 - windowHeight / 2)
 window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
 
 local statusMenuItem
@@ -743,6 +750,7 @@ addStage(function()
 	diskLayout:setSpacing(1, 1, 1)
 
 	local HDDImage = loadImage("HDD")
+local floppyImage = loadImage("HDD")
 
 	local function select(proxy)
 		selectedFilesystemProxy = proxy
