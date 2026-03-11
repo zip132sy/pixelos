@@ -49,7 +49,6 @@ local function executeString(...)
         end
     end
 end
-end
 
 -- First, check for multiple bootable systems and show selection if needed
 local function checkAndSelectBootSystem()
@@ -470,9 +469,11 @@ if not useTabletMode then
     local workspace = GUI.workspace()
     if workspace then
         system.setWorkspace(workspace)
+    end
 
     -- "double_touch" event handler
-    local doubleTouchInterval, doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = 0.3
+    local doubleTouchInterval = 0.3
+    local doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress
     event.addHandler(
         function(signalType, componentAddress, x, y, button, user)
             if signalType == "touch" then
@@ -487,6 +488,7 @@ if not useTabletMode then
             end
         end
     )
+end
 
     -- Screen component attaching/detaching event handler
     if screen then

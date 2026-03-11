@@ -455,6 +455,9 @@ local function updateMenuText()
 end
 
 local function formatTime(seconds)
+	if not seconds or seconds < 0 then return "0 sec" end
+	
+	local secKey = localization and localization.seconds or "sec"
 	local minKey = localization and localization.minutes or "min"
 	local hourKey = localization and localization.hours or "hour"
 	
@@ -497,16 +500,15 @@ local function updateStatusBar()
 		batteryText = "电量：" .. energy .. "%"
 	end
 	
-	-- Calculate time (base 12:00 + uptime minutes)
-	local baseHours = 12
-	local baseMinutes = 0
-	local uptime = computer.uptime()
+	-- Get game time using os.date() and convert to Beijing Time (UTC+8)
+	-- os.date("*t") returns table with game time
+	local gameTime = os.date("*t")
 	
-	local totalMinutes = baseHours * 60 + baseMinutes + math.floor(uptime / 60)
-	local hours = math.floor(totalMinutes / 60) % 24
-	local minutes = totalMinutes % 60
+	-- Add 8 hours for Beijing timezone (UTC+8)
+	local beijingHour = (gameTime.hour + 8) % 24
+	local minute = gameTime.min
 	
-	local timeText = string.format("%02d:%02d", hours, minutes)
+	local timeText = string.format("%02d:%02d", beijingHour, minute)
 	
 	-- Format status bar text: battery on right, time in center
 	local sw, sh = component.invoke(GPUAddress, "getResolution")
