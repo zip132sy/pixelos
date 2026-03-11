@@ -164,14 +164,11 @@ component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 -- Checking minimum system requirements
 do
 	local function warning(text)
-		centrizedText(title(), 0x878787, text)
-
-		local signal
-		repeat
-			signal = computer.pullSignal()
-		until signal == "key_down" or signal == "touch"
-
-		computer.shutdown()
+		centrizedText(title(), 0xFF9900, "Warning: " .. text)
+		centrizedText(title() + 1, 0x878787, "Continuing anyway...")
+		
+		-- Don't shutdown, just continue after a short delay
+		os.sleep(1)
 	end
 
 	if component.invoke(GPUAddress, "getDepth") ~= 8 then
@@ -208,7 +205,9 @@ function require(module)
 	else
 		package.loading[module] = true
 
-		local handle, reason = temporaryFilesystemProxy.open(installerPath .. "Libraries/" .. module .. ".lua", "rb")
+		local filePath = installerPath .. "Libraries/" .. module .. ".lua"
+		local handle, reason = temporaryFilesystemProxy.open(filePath, "rb")
+		
 		if handle then
 			local data, chunk = "", nil
 			repeat
@@ -218,14 +217,17 @@ function require(module)
 
 			temporaryFilesystemProxy.close(handle)
 			
-			local result, reason = load(data, "=" .. module)
+			local result, loadReason = load(data, "=" .. module)
 			if result then
 				package.loaded[module] = result() or true
 			else
-				error(reason)
+				error("Failed to load " .. module .. ": " .. tostring(loadReason))
 			end
 		else
-			error("File opening failed: " .. tostring(reason))
+			-- File doesn't exist, try to skip or use fallback
+			warning("Module not found: " .. module .. " (path: " .. filePath .. ")")
+			package.loading[module] = nil
+			return nil
 		end
 
 		package.loading[module] = nil
