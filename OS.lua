@@ -49,6 +49,7 @@ local function executeString(...)
         end
     end
 end
+end
 
 -- First, check for multiple bootable systems and show selection if needed
 local function checkAndSelectBootSystem()

@@ -198,78 +198,6 @@ end
 -- Initializing simple package system for loading system libraries
 package = {loading = {}, loaded = {}}
 
-function require(module)
-	if package.loaded[module] then
-		return package.loaded[module]
-	elseif package.loading[module] then
-		error("already loading " .. module .. ": " .. debug.traceback())
-	else
-		package.loading[module] = true
-
-		-- Try multiple paths
-		local pathsToTry = {
-			installerPath .. "Libraries/" .. module .. ".lua",
-			"/Libraries/" .. module .. ".lua",
-			"/PixelOS/Libraries/" .. module .. ".lua"
-		}
-		
-		local handle, reason, filePath
-		for i, path in ipairs(pathsToTry) do
-			handle, reason = temporaryFilesystemProxy.open(path, "rb")
-			if handle then
-				filePath = path
-				break
-			end
-		end
-		
-		if handle then
-			local data, chunk = "", nil
-			repeat
-				chunk = temporaryFilesystemProxy.read(handle, math.huge)
-				data = data .. (chunk or "")
-			until not chunk
-
-			temporaryFilesystemProxy.close(handle)
-			
-			local result, loadReason = load(data, "=" .. module)
-			if result then
-				package.loaded[module] = result() or true
-			else
-				error("Failed to load " .. module .. ": " .. tostring(loadReason))
-			end
-		else
-			-- File doesn't exist, try to skip or use fallback
-			-- Clear the loading state and return nil
-			package.loading[module] = nil
-			return nil
-		end
-
-		package.loading[module] = nil
-
-		return package.loaded[module]
-	end
-end
-
--- Initializing system libraries
-local filesystem = require("Filesystem")
-if filesystem then
-	filesystem.setProxy(temporaryFilesystemProxy)
-else
-	error("Failed to load Filesystem library")
-end
-
-bit32 = bit32 or require("Bit32")
-local image = require("Image")
-local text = require("Text")
-local number = require("Number")
-
-local screen = require("Screen")
-screen.setGPUAddress(GPUAddress)
-
-local GUI = require("GUI")
-local system = require("System")
-local paths = require("Paths")
-
 --------------------------------------------------------------------------------
 
 -- Creating main UI workspace
@@ -376,8 +304,58 @@ for i = 1, #files.installerFiles do
 	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
 end
 
--- Initializing simple package system for loading system libraries
-package = {loading = {}, loaded = {}}
+-- Now initialize require function and system libraries
+function require(module)
+	if package.loaded[module] then
+		return package.loaded[module]
+	elseif package.loading[module] then
+		error("already loading " .. module .. ": " .. debug.traceback())
+	else
+		package.loading[module] = true
+
+		local filePath = installerPath .. "Libraries/" .. module .. ".lua"
+		local handle, reason = temporaryFilesystemProxy.open(filePath, "rb")
+		
+		if handle then
+			local data, chunk = "", nil
+			repeat
+				chunk = temporaryFilesystemProxy.read(handle, math.huge)
+				data = data .. (chunk or "")
+			until not chunk
+
+			temporaryFilesystemProxy.close(handle)
+			
+			local result, loadReason = load(data, "=" .. module)
+			if result then
+				package.loaded[module] = result() or true
+			else
+				error("Failed to load " .. module .. ": " .. tostring(loadReason))
+			end
+		else
+			error("Failed to load " .. module .. ": File not found at " .. filePath)
+		end
+
+		package.loading[module] = nil
+
+		return package.loaded[module]
+	end
+end
+
+-- Initializing system libraries
+local filesystem = require("Filesystem")
+filesystem.setProxy(temporaryFilesystemProxy)
+
+bit32 = bit32 or require("Bit32")
+local image = require("Image")
+local text = require("Text")
+local number = require("Number")
+
+local screen = require("Screen")
+screen.setGPUAddress(GPUAddress)
+
+local GUI = require("GUI")
+local system = require("System")
+local paths = require("Paths")
 
 local function formatTime(seconds)
 	if not seconds or seconds < 0 then return "0" end
