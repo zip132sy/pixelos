@@ -167,7 +167,7 @@ local function warning(text)
 	centrizedText(title() + 1, 0x878787, "Continuing anyway...")
 	
 	-- Don't shutdown, just continue after a short delay
-	os.sleep(1)
+	computer.pullSignal(1)
 end
 
 -- Checking minimum system requirements
@@ -950,7 +950,7 @@ addStage(function()
 		-- Not enough space, but continue anyway with warning
 		cyka.text = text.limit("警告：空间可能不足，但将继续安装", container.width, "center")
 		workspace:draw()
-		os.sleep(1)
+		computer.pullSignal(1)  -- Wait 1 second instead of os.sleep
 	end
 	
 	for i = 1, #downloadList do
@@ -962,7 +962,7 @@ addStage(function()
 			skippedFiles = skippedFiles + 1
 			cyka.text = text.limit((localization.notEnoughSpace or "空间不足，跳过:") .. " " .. path, container.width, "center")
 			workspace:draw()
-			os.sleep(0.5)
+			computer.pullSignal(0.5)  -- Wait 0.5 second instead of os.sleep
 			-- Update progress to account for skipped files
 			progressBar.value = math.floor((downloadedFiles + skippedFiles) / totalFiles * 100)
 			goto continue_download
@@ -1063,7 +1063,7 @@ addStage(function()
 	workspace:draw()
 	
 	while not confirmResult do
-		os.sleep(0.1)
+		computer.pullSignal(0.1)
 	end
 	
 	if installBiosManager then
