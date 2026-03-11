@@ -266,7 +266,7 @@ for i = 1, totalFiles do
 	component.invoke(GPUAddress, "setForeground", 0x666666)
 	local remainingText = formatTimeEarly(remaining)
 	local infoText = "文件：" .. i .. "/" .. totalFiles .. "  剩余时间：" .. remainingText
-	component.invoke(GPUAddress, "set", centrize(infoText), progressBarY + 4, infoText)
+	component.invoke(GPUAddress, "set", centrize(#infoText), progressBarY + 4, infoText)
 	
 	component.invoke(GPUAddress, "setForeground", 0x878787)
 	component.invoke(GPUAddress, "set", centrize(40), title() + 1, "正在下载：" .. files.installerFiles[i])
