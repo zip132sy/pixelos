@@ -844,7 +844,7 @@ addStage(function()
 	-- Get localized license file
 	local selectedLocalization = localizationComboBox:getItem(localizationComboBox.selectedItem).text
 	local licenseFile = getLicenseFile(selectedLocalization)
-	local lines = text.wrap({request("Licenses/" .. licenseFile)}, layout.width - 2)
+	local lines = text.wrap({request(installerURL .. "Licenses/" .. licenseFile)}, layout.width - 2)
 	local textBox = layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 3, 0xF0F0F0, 0x696969, lines, 1, 1, 1))
 
 	layout:addChild(acceptSwitchAndLabel)

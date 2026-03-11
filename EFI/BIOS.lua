@@ -43,9 +43,9 @@ local function drawStatusBar()
         if battery then
             local proxy = c.proxy(battery)
             local energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
-            batteryText = "电量: " .. energy .. "%"
+            batteryText = "??: " .. energy .. "%"
         else
-            batteryText = "电量: --%"
+            batteryText = "??: --%"
         end
         
         local timeText = os.date("%H:%M")
@@ -62,12 +62,12 @@ local function drawBox(x,y,w,h,color,border)
         gpu.fill(x,y,w,h," ")
         if border then
             gpu.setForeground(0x878787)
-            gpu.set(x,y,"┌"..string.rep("─",w-2).."┐")
+            gpu.set(x,y,"+"..string.rep("-",w-2).."+")
             for i=1,h-2 do
-                gpu.set(x,y+i,"│")
-                gpu.set(x+w-1,y+i,"│")
+                gpu.set(x,y+i,"|")
+                gpu.set(x+w-1,y+i,"|")
             end
-            gpu.set(x,y+h-1,"└"..string.rep("─",w-2).."┘")
+            gpu.set(x,y+h-1,"+"..string.rep("-",w-2).."+")
         end
     end
 end
@@ -223,7 +223,7 @@ local function showConfirmErase()
     drawStatusBar()
     drawBox(math.floor(sw/2)-20,math.floor(sh/2)-6,40,12,0xE1E1E1,true)
 
-    drawText(math.floor(sw/2)-8,math.floor(sh/2)-4,"⚠ WARNING",0xFF0000,0xE1E1E1)
+    drawText(math.floor(sw/2)-8,math.floor(sh/2)-4,"? WARNING",0xFF0000,0xE1E1E1)
     drawText(math.floor(sw/2)-15,math.floor(sh/2)-2,"You are about to ERASE all data on:",0x000000,0xE1E1E1)
     drawText(math.floor(sw/2)-10,math.floor(sh/2),installState.targetDisk.label,0x3366CC,0xE1E1E1)
 
@@ -295,14 +295,14 @@ local function showNetworkCheck()
 
     local inet=c.list("internet")()
     if inet then
-        drawText(8,9,"✓ Internet card found",0x00AA00,0xE1E1E1)
+        drawText(8,9,"? Internet card found",0x00AA00,0xE1E1E1)
         drawText(8,10,"  Address: "..inet:sub(1,8).."...",0x666666,0xE1E1E1)
         installState.network=true
 
         drawText(8,13,"Network connectivity:",0x000000,0xE1E1E1)
         drawText(8,14,"  Status: Online",0x00AA00,0xE1E1E1)
     else
-        drawText(8,9,"✗ No Internet card found",0xFF0000,0xE1E1E1)
+        drawText(8,9,"? No Internet card found",0xFF0000,0xE1E1E1)
         drawText(8,10,"  Network features will be unavailable",0x666666,0xE1E1E1)
         installState.network=false
     end
@@ -377,7 +377,7 @@ local function showInstallation()
         os.sleep(0.05)
     end
 
-    drawText(8,18,"✓ Installation complete!",0x00AA00,0xE1E1E1)
+    drawText(8,18,"? Installation complete!",0x00AA00,0xE1E1E1)
 
     local rebootBtn=drawButton(math.floor(sw/2)-5,sh-5,12,3,"Reboot",true)
 
