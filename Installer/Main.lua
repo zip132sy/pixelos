@@ -367,7 +367,11 @@ end
 
 local function updateStatusBar()
 	local batteryText = "Power: --%"
-	local timeText = os.date("%H:%M")
+	-- Use computer uptime for real time (os.date uses in-game time in OpenComputers)
+	local uptime = computer.uptime()
+	local hours = math.floor(uptime / 3600) % 24
+	local minutes = math.floor((uptime % 3600) / 60)
+	local timeText = string.format("%02d:%02d", hours, minutes)
 	
 	local battery = component.list("battery")()
 	if battery then

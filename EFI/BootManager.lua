@@ -364,8 +364,11 @@ local function drawStatusBar()
             batteryText = loc.power .. ": --%"
         end
         
-        -- Use local time
-        local timeText = os.date("%H:%M")
+        -- Use computer uptime for real time (os.date uses in-game time in OpenComputers)
+        local uptime = computer.uptime()
+        local hours = math.floor(uptime / 3600) % 24
+        local minutes = math.floor((uptime % 3600) / 60)
+        local timeText = string.format("%02d:%02d", hours, minutes)
         
         -- Draw battery and time on right side with proper spacing
         local statusBarText = batteryText .. "     " .. timeText
