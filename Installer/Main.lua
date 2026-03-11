@@ -223,9 +223,6 @@ local localization
 local stage = 1
 local stages = {}
 
-local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D2D2, 0xB4B4B4)
-local rebootMenuItem, shutdownMenuItem
-
 -- First, we need a big ass file list with localizations, applications, wallpapers
 progress(0)
 local files = deserialize(request(installerURL .. "Files.cfg"))
@@ -367,9 +364,18 @@ local tabletModeSwitchAndLabel = newSwitchAndLabel(30, 0xFF9933, "平板模式",
 
 local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
+-- Initialize GUI elements
+local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D2D2, 0xB4B4B4)
+local rebootMenuItem, shutdownMenuItem
+
+local function updateMenuText()
+	if localization and rebootMenuItem and shutdownMenuItem then
+		rebootMenuItem.text = localization.reboot or "Reboot"
+		shutdownMenuItem.text = localization.shutdown or "Shutdown"
+	end
+end
+
 local function formatTime(seconds)
-	if not seconds or seconds < 0 then return "0" end
-	local secKey = localization and localization.seconds or "sec"
 	local minKey = localization and localization.minutes or "min"
 	local hourKey = localization and localization.hours or "hour"
 	
