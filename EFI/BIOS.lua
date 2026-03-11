@@ -1,4 +1,4 @@
--- PixelOS BIOS Installer v3.0
+﻿-- PixelOS BIOS Installer v3.0
 -- This code runs from EEPROM after reboot
 -- Graphical installation interface
 
@@ -95,8 +95,8 @@ local function waitClick()
         local e={co.pullSignal()}
         if e[1]=="touch" then
             return e[3],e[4],e[5] -- x,y,button
-        elseif e[1]=="key_down" and e[4]==28 then
-            return -1,-1,0 -- Enter key
+        elseif e[1]=="key_down" then
+            return e[3],e[4],e[2] -- char, keycode, keyboard address
         end
     end
 end
@@ -169,6 +169,7 @@ local function showDiskSelect()
         local status=disk.isReadOnly and "[Read-Only]"or"["..math.floor(disk.space/1024).."KB]"
         local btn=drawButton(10,y,sw-20,2,disk.label.." "..status,i==1)
         btn.disk=disk
+        btn.label=disk.label
         table.insert(buttons,btn)
     end
 
@@ -192,7 +193,8 @@ local function showDiskSelect()
                 installState.targetDisk=btn.disk
                 -- Redraw to show selection
                 for j,btn in ipairs(buttons)do
-                    drawButton(btn.x,btn.y,btn.w,btn.h,btn.text:sub(1,-12)..(btn.disk.isReadOnly and"[Read-Only]"or"["..math.floor(btn.disk.space/1024).."KB]"),j==selected)
+                    local status=btn.disk.isReadOnly and"[Read-Only]"or"["..math.floor(btn.disk.space/1024).."KB]"
+                    drawButton(btn.x,btn.y,btn.w,btn.h,btn.label.." "..status,j==selected)
                 end
             end
         end
@@ -270,15 +272,46 @@ local function showUserSetup()
     while true do
         local x,y,b=waitClick()
 
-        if checkClick(usePassCb,x,y) then
-            installState.usePassword=not installState.usePassword
-            return 3 -- Refresh
-        end
+        if type(x)=="number" and type(y)=="number" then
+            -- Touch event
+            if checkClick(usePassCb,x,y) then
+                installState.usePassword=not installState.usePassword
+                return 3 -- Refresh
+            end
 
-        if checkClick(backBtn,x,y) then
-            return 2
-        elseif checkClick(nextBtn,x,y) then
-            return 4
+            if checkClick(backBtn,x,y) then
+                return 2
+            elseif checkClick(nextBtn,x,y) then
+                return 4
+            end
+        else
+            -- Keyboard event
+            local char, keycode = x, y
+            if keycode == 14 then
+                -- Backspace
+                if installState.usePassword then
+                    installState.password = installState.password:sub(1, -2)
+                else
+                    installState.username = installState.username:sub(1, -2)
+                end
+            elseif keycode == 28 then
+                -- Enter key
+                return 4
+            elseif char and char ~= "" then
+                -- Regular character
+                if installState.usePassword then
+                    installState.password = installState.password .. char
+                else
+                    installState.username = installState.username .. char
+                end
+            end
+            -- Redraw input fields
+            drawBox(20, 6, sw-30, 3, 0xFFFFFF, false)
+            drawText(22, 7, installState.username, 0x000000, 0xFFFFFF)
+            if installState.usePassword then
+                drawBox(20, 13, sw-30, 3, 0xFFFFFF, false)
+                drawText(22, 14, string.rep("*", #installState.password), 0x000000, 0xFFFFFF)
+            end
         end
     end
 end

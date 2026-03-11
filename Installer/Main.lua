@@ -1006,7 +1006,7 @@ addStage(function()
 	workspace:draw()
 	
 	component.invoke(EEPROMAddress, "set", request(EFIURL))
-	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install EFI")
+	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install Bios")
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 
 	-- Saving system versions
