@@ -139,9 +139,12 @@ local function download(url, path)
 		if not success then
 			-- File doesn't exist on server, remove the empty file
 			selectedFilesystemProxy.remove(path)
+			return false
 		end
+		return true
 	else
 		-- Don't error, just skip this file
+		return false
 	end
 end
 
@@ -199,8 +202,15 @@ progress(0)
 local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- After that we could download required libraries for installer from it
+local installerStartTime = os.time()
 for i = 1, #files.installerFiles do
-	progress(i / #files.installerFiles)
+	local elapsed = os.time() - installerStartTime
+	local remaining = (#files.installerFiles - i) * (i > 0 and elapsed / i or 0.5)
+	local remainingText = formatTime(remaining)
+	
+	component.invoke(GPUAddress, "setForeground", 0x666666)
+	component.invoke(GPUAddress, "set", centrize(40), title() + 1, "Downloading installer files: " .. i .. "/" .. #files.installerFiles .. " (" .. remainingText .. ")")
+	
 	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
 end
 
@@ -770,18 +780,36 @@ addStage(function()
 	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}
 	local downloadedFiles = 0
+	local skippedFiles = 0
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
+
+		-- Check available space before downloading
+		local availableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
+		if availableSpace < 50 * 1024 then  -- Less than 50KB available
+			skippedFiles = skippedFiles + 1
+			cyka.text = text.limit((localization.notEnoughSpace or "Not enough space, skipping:") .. " " .. path, container.width, "center")
+			workspace:draw()
+			os.sleep(0.5)
+			-- Update progress to account for skipped files
+			progressBar.value = math.floor((downloadedFiles + skippedFiles) / totalFiles * 100)
+			goto continue_download
+		end
 
 		cyka.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
 		workspace:draw()
 
 		-- Download file
-		download(path, OSPath .. path)
-		downloadedFiles = downloadedFiles + 1
+		local downloadSuccess = download(path, OSPath .. path)
+		
+		if downloadSuccess then
+			downloadedFiles = downloadedFiles + 1
+		else
+			skippedFiles = skippedFiles + 1
+		end
 
 		-- Adding system versions data
-		if id then
+		if id and downloadSuccess then
 			versions[id] = {
 				path = OSPath .. path,
 				version = version or 1,
@@ -789,7 +817,7 @@ addStage(function()
 		end
 
 		-- Create shortcut if possible
-		if shortcut then
+		if shortcut and downloadSuccess then
 			switchProxy(function()
 				system.createShortcut(
 					userPaths.desktop .. filesystem.hideExtension(filesystem.name(filesystem.path(path))),
@@ -798,10 +826,10 @@ addStage(function()
 			end)
 		end
 
-		progressBar.value = math.floor(downloadedFiles / totalFiles * 100)
+		progressBar.value = math.floor((downloadedFiles + skippedFiles) / totalFiles * 100)
 		
 		-- Update progress info
-		local remainingFiles = totalFiles - downloadedFiles
+		local remainingFiles = totalFiles - downloadedFiles - skippedFiles
 		local elapsedTime = os.time() - startTime
 		local avgTimePerFile = downloadedFiles > 0 and elapsedTime / downloadedFiles or 0
 		local remainingTime = remainingFiles * avgTimePerFile
@@ -815,6 +843,8 @@ addStage(function()
 		
 		cyka.text = text.limit(fileInfo .. timeInfo .. sizeInfo, container.width, "center")
 		workspace:draw()
+		
+		::continue_download::
 	end
 
 	-- Flashing EEPROM

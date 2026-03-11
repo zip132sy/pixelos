@@ -204,6 +204,10 @@ local function drawStatusBar()
         
         -- Draw battery and time on right side with proper spacing
         local statusBarText = batteryText .. "     " .. timeText
+        -- Clear the area first to prevent black blocks
+        gpu.setBackground(0x1E1E1E)
+        gpu.fill(sw - #statusBarText, 1, #statusBarText + 2, 1, " ")
+        gpu.setForeground(0xFFFFFF)
         gpu.set(sw - #statusBarText + 1, 1, statusBarText)
     end
 end
