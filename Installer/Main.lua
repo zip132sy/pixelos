@@ -197,23 +197,6 @@ do
 	end
 end
 
--- First, we need a big ass file list with localizations, applications, wallpapers
-progress(0)
-local files = deserialize(request(installerURL .. "Files.cfg"))
-
--- After that we could download required libraries for installer from it
-local installerStartTime = os.time()
-for i = 1, #files.installerFiles do
-	local elapsed = os.time() - installerStartTime
-	local remaining = (#files.installerFiles - i) * (i > 0 and elapsed / i or 0.5)
-	local remainingText = formatTime(remaining)
-	
-	component.invoke(GPUAddress, "setForeground", 0x666666)
-	component.invoke(GPUAddress, "set", centrize(40), title() + 1, "Downloading installer files: " .. i .. "/" .. #files.installerFiles .. " (" .. remainingText .. ")")
-	
-	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
-end
-
 -- Initializing simple package system for loading system libraries
 package = {loading = {}, loaded = {}}
 
