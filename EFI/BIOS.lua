@@ -43,9 +43,9 @@ local function drawStatusBar()
         if battery then
             local proxy = c.proxy(battery)
             local energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
-            batteryText = "??: " .. energy .. "%"
+            batteryText = "Power: " .. energy .. "%"
         else
-            batteryText = "??: --%"
+            batteryText = "Power: --%"
         end
         
         local timeText = os.date("%H:%M")

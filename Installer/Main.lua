@@ -432,14 +432,14 @@ local paths = require("Paths")
 local workspace = GUI.workspace()
 workspace:addChild(GUI.panel(1, 1, workspace.width, workspace.height, 0x1E1E1E))
 
--- Main installer window
+-- Top menu (positioned at top of screen)
+local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
+local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
+
+-- Main installer window (positioned below menu)
 local window = workspace:addChild(GUI.window(1, 1, 80, 24))
 window.localX, window.localY = math.ceil(workspace.width / 2 - window.width / 2), math.ceil(workspace.height / 2 - window.height / 2)
 window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
-
--- Top menu
-local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
-local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 
 local statusMenuItem
 local rebootMenuItem
@@ -451,6 +451,9 @@ local function updateStatusMenuItem()
 		local powerText = localization.power or "Power"
 		local timeStr = formatTime()
 		statusMenuItem.text = " " .. timeStr .. " | " .. battery .. "% " .. powerText
+		if workspace and workspace.draw then
+			workspace:draw()
+		end
 	end
 end
 
