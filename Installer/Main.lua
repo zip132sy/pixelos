@@ -374,16 +374,6 @@ localizationMenuItem.onTouch = function()
 	workspace:draw()
 end
 
--- Initialize status bar and update it periodically
-updateStatusBar()
-
--- Override workspace:draw to update status bar
-local originalDraw = workspace.draw
-workspace.draw = function()
-	updateStatusBar()
-	return originalDraw(workspace)
-end
-
 -- Filesystem selection stage
 local stages = {}
 
@@ -533,6 +523,16 @@ local function updateStatusBar()
 	
 	-- Draw time in center
 	component.invoke(GPUAddress, "set", centrize(#timeText), 1, timeText)
+end
+
+-- Initialize status bar after function is defined
+updateStatusBar()
+
+-- Override workspace:draw to update status bar
+local originalDraw = workspace.draw
+workspace.draw = function()
+	updateStatusBar()
+	return originalDraw(workspace)
 end
 
 for i = 1, #files.localizations do
