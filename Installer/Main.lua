@@ -198,25 +198,6 @@ end
 -- Initializing simple package system for loading system libraries
 package = {loading = {}, loaded = {}}
 
-local function newSwitchAndLabel(width, color, text, state)
-	return GUI.switchAndLabel(1, 1, width, 6, color, 0xD2D2D2, 0xF0F0F0, 0xA5A5A5, text .. ":", state)
-end
-
-local function addTitle(color, text)
-	return layout:addChild(GUI.text(1, 1, color, text))
-end
-
-local function addImage(before, after, name)
-	if before > 0 then
-		layout:addChild(GUI.object(1, 1, 1, before))
-	end
-
-	local picture = layout:addChild(GUI.image(1, 1, loadImage(name)))
-	picture.height = picture.height + after
-
-	return picture
-end
-
 
 
 local localization
@@ -330,6 +311,31 @@ local layout = window:addChild(GUI.layout(1, 1, window.width, window.height - 2,
 local stageButtonsLayout = window:addChild(GUI.layout(1, window.height - 1, window.width, 1, 1, 1))
 stageButtonsLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
 stageButtonsLayout:setSpacing(1, 1, 3)
+
+-- Helper functions that depend on GUI and layout
+local function newSwitchAndLabel(width, color, text, state)
+	return GUI.switchAndLabel(1, 1, width, 6, color, 0xD2D2D2, 0xF0F0F0, 0xA5A5A5, text .. ":", state)
+end
+
+local function addTitle(color, text)
+	return layout:addChild(GUI.text(1, 1, color, text))
+end
+
+local function addImage(before, after, name)
+	if before > 0 then
+		layout:addChild(GUI.object(1, 1, 1, before))
+	end
+
+	local picture = layout:addChild(GUI.image(1, 1, loadImage(name)))
+
+	if after > 0 then
+		layout:addChild(GUI.object(1, 1, 1, after))
+	end
+
+	picture.height = picture.height + after
+
+	return picture
+end
 
 local function addStageButton(text)
 	local button = stageButtonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0x878787, 0xA5A5A5, 0x696969, text))
