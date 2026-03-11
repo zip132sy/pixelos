@@ -210,6 +210,24 @@ local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- After that we could download required libraries for installer from it
 -- First, show loading screen with progress bar
+
+-- Simple formatTime for early loading (before localization is loaded)
+local function formatTimeEarly(seconds)
+	if not seconds or seconds < 0 then return "0 sec" end
+	
+	if seconds < 60 then
+		return math.floor(seconds) .. " sec"
+	elseif seconds < 3600 then
+		local mins = math.floor(seconds / 60)
+		local secs = math.floor(seconds % 60)
+		return mins .. " min " .. secs .. " sec"
+	else
+		local hours = math.floor(seconds / 3600)
+		local mins = math.floor((seconds % 3600) / 60)
+		return hours .. " hour " .. mins .. " min"
+	end
+end
+
 component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
 component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 
@@ -246,7 +264,7 @@ for i = 1, totalFiles do
 	
 	-- Draw file info and time
 	component.invoke(GPUAddress, "setForeground", 0x666666)
-	local remainingText = formatTime(remaining)
+	local remainingText = formatTimeEarly(remaining)
 	local infoText = "文件：" .. i .. "/" .. totalFiles .. "  剩余时间：" .. remainingText
 	component.invoke(GPUAddress, "set", centrize(infoText), progressBarY + 4, infoText)
 	
