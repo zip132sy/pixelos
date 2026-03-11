@@ -206,8 +206,21 @@ function require(module)
 	else
 		package.loading[module] = true
 
-		local filePath = installerPath .. "Libraries/" .. module .. ".lua"
-		local handle, reason = temporaryFilesystemProxy.open(filePath, "rb")
+		-- Try multiple paths
+		local pathsToTry = {
+			installerPath .. "Libraries/" .. module .. ".lua",
+			"/Libraries/" .. module .. ".lua",
+			"/PixelOS/Libraries/" .. module .. ".lua"
+		}
+		
+		local handle, reason, filePath
+		for i, path in ipairs(pathsToTry) do
+			handle, reason = temporaryFilesystemProxy.open(path, "rb")
+			if handle then
+				filePath = path
+				break
+			end
+		end
 		
 		if handle then
 			local data, chunk = "", nil
@@ -239,7 +252,11 @@ end
 
 -- Initializing system libraries
 local filesystem = require("Filesystem")
-filesystem.setProxy(temporaryFilesystemProxy)
+if filesystem then
+	filesystem.setProxy(temporaryFilesystemProxy)
+else
+	error("Failed to load Filesystem library")
+end
 
 bit32 = bit32 or require("Bit32")
 local image = require("Image")
