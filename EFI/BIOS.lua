@@ -47,6 +47,11 @@ end
 local function getLocalization()
     local lang = detectLanguage()
     
+    -- Always use Chinese Simplified as default
+    if lang ~= "zh_CN" and lang ~= "en_US" then
+        lang = "zh_CN"
+    end
+    
     local zh_CN = {
         welcome = "欢迎使用 PixelOS v3.0",
         biosInstallation = "BIOS 安装程序",
@@ -205,24 +210,16 @@ local function drawStatusBar()
         gpu.setForeground(0x3366CC)
         gpu.set(2,1,"PixelOS")
         
-        -- Battery and Time (right aligned)
+        -- Battery - using correct OpenComputers API
         local batteryText = ""
         local battery = c.list("battery")()
         if battery then
             local proxy = c.proxy(battery)
-            local energy = 0
-            local maxEnergy = 100
-            -- Try different API methods for battery
-            if proxy.getEnergy then
-                energy = proxy.getEnergy() or 0
-                maxEnergy = proxy.getMaxEnergy() or 100
-            elseif proxy.energy then
-                energy = proxy.energy() or 0
-                maxEnergy = proxy.maxEnergy() or 100
-            end
+            local energy = proxy.getEnergy() or 0
+            local maxEnergy = proxy.getMaxEnergy() or 100
             if maxEnergy > 0 then
                 local percent = math.floor((energy / maxEnergy) * 100)
-                batteryText = "电量：" .. percent .. "%"
+                batteryText = "电量："..percent.."%"
             else
                 batteryText = "电量：--%"
             end
@@ -230,18 +227,16 @@ local function drawStatusBar()
             batteryText = "电量：--%"
         end
         
-        -- Use computer uptime for real time (os.date uses in-game time in OpenComputers)
+        -- Time - using computer.uptime() (game time in OpenComputers)
         local uptime = computer.uptime()
         local hours = math.floor(uptime / 3600) % 24
         local minutes = math.floor((uptime % 3600) / 60)
         local timeText = string.format("%02d:%02d", hours, minutes)
         
-        -- Draw battery on right
+        -- Draw all text in white
         gpu.setForeground(0xFFFFFF)
-        gpu.set(sw - #batteryText + 1, 1, batteryText)
-        
-        -- Draw time in center
-        gpu.set(math.floor(sw / 2 - #timeText / 2), 1, timeText)
+        gpu.set(sw - #batteryText + 1, 1, batteryText)  -- Right
+        gpu.set(math.floor(sw / 2 - #timeText / 2), 1, timeText)  -- Center
     end
 end
 
@@ -305,9 +300,12 @@ local function showPixelOSMenu()
     -- Draw menu background
     gpu.setBackground(0xFFFFFF)
     gpu.fill(menuX, menuY, menuWidth, menuHeight, " ")
+    
+    -- Menu title bar
     gpu.setForeground(0x3366CC)
     gpu.set(menuX, menuY, string.rep(" ", menuWidth))
-    drawText(menuX + math.floor((menuWidth - 7) / 2), menuY, "PixelOS", 0xFFFFFF, 0x3366CC)
+    gpu.setForeground(0xFFFFFF)
+    gpu.set(menuX + math.floor((menuWidth - 7) / 2), menuY, "PixelOS")
     
     -- Menu items
     local menuItems = {
@@ -387,18 +385,18 @@ end
 
 -- Format time function for BIOS
 local function formatTime(seconds)
-    if not seconds or seconds < 0 then return "0 sec" end
+    if not seconds or seconds < 0 then return "0 秒" end
     
     if seconds < 60 then
-        return math.floor(seconds) .. " sec"
+        return math.floor(seconds) .. " 秒"
     elseif seconds < 3600 then
         local mins = math.floor(seconds / 60)
         local secs = math.floor(seconds % 60)
-        return mins .. " min " .. secs .. " sec"
+        return mins .. " 分 " .. secs .. " 秒"
     else
         local hours = math.floor(seconds / 3600)
         local mins = math.floor((seconds % 3600) / 60)
-        return hours .. " hour " .. mins .. " min"
+        return hours .. " 小时 " .. mins .. " 分"
     end
 end
 
@@ -770,6 +768,22 @@ local function showInstallation()
             return showInstallation() -- Redraw after menu
         end
         if checkClick(rebootBtn,x,y) then
+            -- Clean up temporary files
+            local targetProxy = c.proxy(installState.targetDisk.address)
+            if targetProxy then
+                -- Remove installer temporary files
+                if targetProxy.exists("/Installer") then
+                    local items = targetProxy.list("/Installer")
+                    if items then
+                        for _,item in ipairs(items) do
+                            if item ~= "." and item ~= ".." then
+                                targetProxy.remove("/Installer/"..item)
+                            end
+                        end
+                    end
+                end
+            end
+            
             -- Set EEPROM data to point to new system
             local eeprom=c.list("eeprom")()
             if eeprom then
