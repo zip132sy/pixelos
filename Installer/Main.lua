@@ -217,16 +217,7 @@ local function addImage(before, after, name)
 	return picture
 end
 
-local function addStageButton(text)
-	local button = stageButtonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0x878787, 0xA5A5A5, 0x696969, text))
-	button.colors.disabled.background = 0xD2D2D2
-	button.colors.disabled.text = 0xB4B4B4
 
-	return button
-end
-
-local prevButton = addStageButton("<")
-local nextButton = addStageButton(">")
 
 local localization
 local stage = 1
@@ -355,6 +346,17 @@ local layout = window:addChild(GUI.layout(1, 1, window.width, window.height - 2,
 local stageButtonsLayout = window:addChild(GUI.layout(1, window.height - 1, window.width, 1, 1, 1))
 stageButtonsLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
 stageButtonsLayout:setSpacing(1, 1, 3)
+
+local function addStageButton(text)
+	local button = stageButtonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0x878787, 0xA5A5A5, 0x696969, text))
+	button.colors.disabled.background = 0xD2D2D2
+	button.colors.disabled.text = 0xB4B4B4
+
+	return button
+end
+
+local prevButton = addStageButton("<")
+local nextButton = addStageButton(">")
 
 local function loadImage(name)
 	return image.load(installerPicturesPath .. name .. ".pic")
