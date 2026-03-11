@@ -350,6 +350,7 @@ local withoutPasswordSwitchAndLabel = newSwitchAndLabel(30, 0x66DB80, "", false)
 local wallpapersSwitchAndLabel = newSwitchAndLabel(30, 0xFF4980, "", true)
 local applicationsSwitchAndLabel = newSwitchAndLabel(30, 0x33DB80, "", true)
 local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
+local tabletModeSwitchAndLabel = newSwitchAndLabel(30, 0xFF9933, "平板模式", true)
 
 local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
@@ -637,6 +638,7 @@ addStage(function()
 	layout:addChild(wallpapersSwitchAndLabel)
 	layout:addChild(applicationsSwitchAndLabel)
 	layout:addChild(localizationsSwitchAndLabel)
+	layout:addChild(tabletModeSwitchAndLabel)
 end)
 
 -- License acception stage
@@ -710,6 +712,16 @@ addStage(function()
 			not withoutPasswordSwitchAndLabel.switch.state and passwordInput.text or nil,
 			wallpapersSwitchAndLabel.switch.state
 		)
+		
+		-- Save tablet mode preference
+		local config = {
+			tabletMode = tabletModeSwitchAndLabel.switch.state
+		}
+		local handle = selectedFilesystemProxy.open("/Settings/UserSettings.cfg", "wb")
+		if handle then
+			selectedFilesystemProxy.write(handle, "return " .. text.serialize(config))
+			selectedFilesystemProxy.close(handle)
+		end
 	end)
 
 	-- Downloading files

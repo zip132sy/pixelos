@@ -417,10 +417,58 @@ if not GUI or not system or not event then
     return
 end
 
+-- Check if tablet mode is enabled and screen is small
+local useTabletMode = false
+
+-- Try to read user configuration for tablet mode preference
+local userSettingsPath = "/Settings/UserSettings.cfg"
+local fs = component.list("filesystem")()
+if fs then
+    local proxy = component.proxy(fs)
+    if proxy.exists(userSettingsPath) then
+        local handle = proxy.open(userSettingsPath, "rb")
+        if handle then
+            local config = {}
+            local success, result = pcall(function()
+                local data = ""
+                local chunk
+                repeat
+                    chunk = proxy.read(handle, math.huge)
+                    data = data .. (chunk or "")
+                until not chunk
+                config = load("return " .. data)()
+            end)
+            proxy.close(handle)
+            
+            if success and config.tabletMode ~= nil then
+                useTabletMode = config.tabletMode
+            else
+                -- Default: check screen size
+                if GPUAddress and screen then
+                    local gpuProxy = component.proxy(GPUAddress)
+                    gpuProxy.bind(screen)
+                    local screenWidth, screenHeight = gpuProxy.getResolution()
+                    useTabletMode = (screenWidth <= 60 or screenHeight <= 20)
+                end
+            end
+        end
+    else
+        -- No config file, use screen size detection
+        if GPUAddress and screen then
+            local gpuProxy = component.proxy(GPUAddress)
+            gpuProxy.bind(screen)
+            local screenWidth, screenHeight = gpuProxy.getResolution()
+            useTabletMode = (screenWidth <= 60 or screenHeight <= 20)
+        end
+    end
+end
+
 -- Creating OS workspace, which contains every window/menu/etc.
-local workspace = GUI.workspace()
-if workspace then
-    system.setWorkspace(workspace)
+if not useTabletMode then
+    -- Traditional desktop mode
+    local workspace = GUI.workspace()
+    if workspace then
+        system.setWorkspace(workspace)
 
     -- "double_touch" event handler
     local doubleTouchInterval, doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = 0.3
@@ -492,25 +540,28 @@ if workspace then
         end
     end
 else
-    -- Fallback if workspace creation fails
-    local gpu = component.list("gpu")()
-    local screen = component.list("screen")()
-    
-    if gpu and screen then
-        local gpuProxy = component.proxy(gpu)
-        gpuProxy.bind(screen)
-        local width, height = gpuProxy.getResolution()
+    -- Tablet mode - use simplified desktop
+    local success, tabletDesktop = pcall(require, "TabletDesktop")
+    if not success then
+        -- Fallback if tablet desktop fails to load
+        local gpu = component.list("gpu")()
+        local screen = component.list("screen")()
         
-        gpuProxy.setBackground(0x2D2D2D)
-        gpuProxy.fill(1, 1, width, height, " ")
-        gpuProxy.setForeground(0xFF0000)
-        gpuProxy.set(2, 3, "Error: Failed to create workspace")
-        gpuProxy.setForeground(0xFFFFFF)
-        gpuProxy.set(2, 5, "Press any key to shutdown...")
-        computer.pullSignal()
+        if gpu and screen then
+            local gpuProxy = component.proxy(gpu)
+            gpuProxy.bind(screen)
+            local width, height = gpuProxy.getResolution()
+            
+            gpuProxy.setBackground(0x2D2D2D)
+            gpuProxy.fill(1, 1, width, height, " ")
+            gpuProxy.setForeground(0xFF0000)
+            gpuProxy.set(2, 3, "Error: Failed to load tablet desktop")
+            gpuProxy.setForeground(0xFFFFFF)
+            gpuProxy.set(2, 5, "Press any key to shutdown...")
+            computer.pullSignal()
+        end
+        computer.shutdown(true)
     end
-    computer.shutdown(true)
-end
 end
 
 -- Run with error handling

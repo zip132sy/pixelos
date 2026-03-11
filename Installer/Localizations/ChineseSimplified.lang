@@ -31,4 +31,5 @@
 	KB = "KB",
 	MB = "MB",
 	power = "电量",
+	tabletMode = "平板模式",
 }
