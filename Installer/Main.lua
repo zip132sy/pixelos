@@ -374,6 +374,16 @@ localizationMenuItem.onTouch = function()
 	workspace:draw()
 end
 
+-- Initialize status bar and update it periodically
+updateStatusBar()
+
+-- Override workspace:draw to update status bar
+local originalDraw = workspace.draw
+workspace.draw = function()
+	updateStatusBar()
+	return originalDraw(workspace)
+end
+
 -- Filesystem selection stage
 local stages = {}
 
@@ -502,12 +512,17 @@ local function updateStatusBar()
 	end
 	
 	-- Calculate Beijing Time (UTC+8)
-	-- Use computer.uptime() as base and add 8 hours for Beijing timezone
+	-- Since OpenComputers doesn't have real time, we use uptime + offset
+	-- For a more realistic time, we can use a base time + uptime
+	local baseHours = 12  -- Base time: 12:00
+	local baseMinutes = 0
 	local uptime = computer.uptime()
-	-- Add 8 hours (28800 seconds) for Beijing timezone
-	local beijingUptime = uptime + 28800
-	local hours = math.floor(beijingUptime / 3600) % 24
-	local minutes = math.floor((beijingUptime % 3600) / 60)
+	
+	-- Add uptime to base time
+	local totalMinutes = baseHours * 60 + baseMinutes + math.floor(uptime / 60)
+	local hours = math.floor(totalMinutes / 60) % 24
+	local minutes = totalMinutes % 60
+	
 	local timeText = string.format("%02d:%02d", hours, minutes)
 	
 	-- Format status bar text: battery on right, time in center
@@ -549,14 +564,24 @@ local function selectDefaultLanguage()
 			if item.text == "ChineseSimplified" then
 				localizationComboBox.selectedItem = i
 				item.onTouch()
-				break
+				return true
 			end
 		else
 			break
 		end
 	end
+	return false
 end
-selectDefaultLanguage()
+
+-- Try to select default language after populating combobox
+if not selectDefaultLanguage() then
+	-- If Chinese Simplified not found, select first item
+	localizationComboBox.selectedItem = 1
+	local firstItem = localizationComboBox:getItem(1)
+	if firstItem and firstItem.onTouch then
+		firstItem.onTouch()
+	end
+end
 
 local function addStage(onTouch)
 	table.insert(stages, function()
@@ -640,9 +665,6 @@ addStage(function()
 	addImage(0, 1, "Languages")
 	layout:addChild(localizationComboBox)
 
-	-- Set default language to Chinese Simplified immediately
-	selectDefaultLanguage()
-	
 	workspace:draw()
 end)
 
@@ -682,7 +704,7 @@ addStage(function()
 
 			disk:addChild(GUI.panel(1, 1, disk.width, disk.height, 0xD2D2D2))
 
-			disk:addChild(GUI.button(1, disk.height, disk.width, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.erase)).onTouch = function()
+			disk:addChild(GUI.button(1, disk.height, disk.width, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization and localization.erase or "擦除")).onTouch = function()
 				local list, path = proxy.list("/")
 				for i = 1, #list do
 					path = "/" .. list[i]
