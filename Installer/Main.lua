@@ -260,13 +260,9 @@ local function progress(value, label, timeText, filesText)
 	end
 end
 
--- Clear screen and show title
+-- Clear screen and show title (without loading text)
 component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
 component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
-
-local loadingTitle = "正在加载安装程序..."
-component.invoke(GPUAddress, "setForeground", 0x666666)
-component.invoke(GPUAddress, "set", centrize(#loadingTitle), title() - 1, loadingTitle)
 
 local installerStartTime = os.time()
 local totalFiles = #files.installerFiles
@@ -483,32 +479,29 @@ local function updateMenuText()
 end
 
 local function updateStatusBar()
-	local batteryText = "Power: --%"
+	local batteryText = "电量：--%"
 	
-	-- Get battery info
+	-- Get battery info using OpenComputers API
 	local battery = component.list("battery")()
 	if battery then
 		local proxy = component.proxy(battery)
 		local energy = 0
-		local maxEnergy = 100
-		-- Try different API methods for battery
-		if proxy.getEnergy then
-			energy = math.floor(proxy.getEnergy() / proxy.getMaxEnergy() * 100)
-		elseif proxy.energy then
-			energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
+		-- OpenComputers battery API: energy() returns current energy, maxEnergy() returns max
+		if proxy.energy and proxy.maxEnergy then
+			local current = proxy.energy()
+			local max = proxy.maxEnergy()
+			if max > 0 then
+				energy = math.floor((current / max) * 100)
+			end
 		end
-		local powerKey = localization and localization.power or "电量"
-		batteryText = powerKey .. ": " .. energy .. "%"
+		batteryText = "电量：" .. energy .. "%"
 	end
 	
-	-- Calculate Beijing Time (UTC+8)
-	-- Since OpenComputers doesn't have real time, we use uptime + offset
-	-- For a more realistic time, we can use a base time + uptime
-	local baseHours = 12  -- Base time: 12:00
+	-- Calculate time (base 12:00 + uptime minutes)
+	local baseHours = 12
 	local baseMinutes = 0
 	local uptime = computer.uptime()
 	
-	-- Add uptime to base time
 	local totalMinutes = baseHours * 60 + baseMinutes + math.floor(uptime / 60)
 	local hours = math.floor(totalMinutes / 60) % 24
 	local minutes = totalMinutes % 60
@@ -517,6 +510,13 @@ local function updateStatusBar()
 	
 	-- Format status bar text: battery on right, time in center
 	local sw, sh = component.invoke(GPUAddress, "getResolution")
+	
+	-- Always draw WHITE background for status bar (row 1) - MUST be done FIRST
+	component.invoke(GPUAddress, "setBackground", 0xFFFFFF)
+	component.invoke(GPUAddress, "fill", 1, 1, sw, 1, " ")
+	
+	-- Set BLACK text color for all status bar text
+	component.invoke(GPUAddress, "setForeground", 0x000000)
 	
 	-- Draw battery on right
 	component.invoke(GPUAddress, "set", sw - #batteryText + 1, 1, batteryText)
