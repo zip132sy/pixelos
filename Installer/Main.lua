@@ -228,22 +228,40 @@ local function formatTimeEarly(seconds)
 	end
 end
 
-component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
+-- Draw beautiful loading screen
+component.invoke(GPUAddress, "setBackground", 0x2D2D2D)
 component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 
--- Draw title
+-- Draw top bar
+component.invoke(GPUAddress, "setBackground", 0x1E1E1E)
+component.invoke(GPUAddress, "fill", 1, 1, screenWidth, 2, " ")
+
+-- Draw PixelOS logo text
 component.invoke(GPUAddress, "setForeground", 0x3366CC)
-component.invoke(GPUAddress, "set", centrize(40), title(), "PixelOS 安装程序 - 加载必要文件")
+component.invoke(GPUAddress, "set", 2, 1, "PixelOS")
+component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
+component.invoke(GPUAddress, "set", 12, 1, "v3.0")
 
--- Create simple progress bar
-local progressBarWidth = 60
+-- Draw loading title
+component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
+local loadingTitle = "正在加载安装程序..."
+component.invoke(GPUAddress, "set", centrize(#loadingTitle), 6, loadingTitle)
+
+-- Create modern progress bar
+local progressBarWidth = 50
 local progressBarX = centrize(progressBarWidth)
-local progressBarY = title() + 2
+local progressBarY = 9
 
-component.invoke(GPUAddress, "setForeground", 0xD2D2D2)
-component.invoke(GPUAddress, "set", progressBarX, progressBarY, "┌" .. string.rep("─", progressBarWidth - 2) .. "┐")
-component.invoke(GPUAddress, "set", progressBarX, progressBarY + 1, "│" .. string.rep(" ", progressBarWidth - 2) .. "│")
-component.invoke(GPUAddress, "set", progressBarX, progressBarY + 2, "└" .. string.rep("─", progressBarWidth - 2) .. "┘")
+-- Draw progress bar background with gradient effect
+component.invoke(GPUAddress, "setBackground", 0x3D3D3D)
+component.invoke(GPUAddress, "fill", progressBarX, progressBarY, progressBarWidth, 3, " ")
+
+-- Draw progress bar border
+component.invoke(GPUAddress, "setForeground", 0x555555)
+component.invoke(GPUAddress, "set", progressBarX, progressBarY, "╔" .. string.rep("═", progressBarWidth - 2) .. "╗")
+component.invoke(GPUAddress, "set", progressBarX, progressBarY + 1, "║")
+component.invoke(GPUAddress, "set", progressBarX + progressBarWidth - 1, progressBarY + 1, "║")
+component.invoke(GPUAddress, "set", progressBarX, progressBarY + 2, "╚" .. string.rep("═", progressBarWidth - 2) .. "╝")
 
 local installerStartTime = os.time()
 local totalFiles = #files.installerFiles
@@ -254,29 +272,44 @@ for i = 1, totalFiles do
 	local percent = math.floor((i / totalFiles) * 100)
 	local filledWidth = math.floor((percent / 100) * (progressBarWidth - 2))
 	
-	-- Draw progress bar fill
+	-- Draw progress bar fill with blue gradient
 	component.invoke(GPUAddress, "setBackground", 0x3366CC)
 	component.invoke(GPUAddress, "fill", progressBarX + 1, progressBarY + 1, filledWidth, 1, " ")
 	
-	-- Draw percentage
+	-- Draw percentage in center
 	component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
-	component.invoke(GPUAddress, "set", progressBarX + math.floor((progressBarWidth - 4) / 2), progressBarY + 1, string.format("%d%%", percent))
+	local percentText = string.format("%d%%", percent)
+	component.invoke(GPUAddress, "set", progressBarX + math.floor((progressBarWidth - #percentText) / 2), progressBarY + 1, percentText)
 	
-	-- Draw file info and time
-	component.invoke(GPUAddress, "setForeground", 0x666666)
+	-- Draw file info above progress bar
+	component.invoke(GPUAddress, "setForeground", 0xAAAAAA)
+	local fileInfo = "文件 " .. i .. "/" .. totalFiles
+	component.invoke(GPUAddress, "set", centrize(#fileInfo), progressBarY - 2, fileInfo)
+	
+	-- Draw remaining time below progress bar
+	component.invoke(GPUAddress, "setForeground", 0x888888)
 	local remainingText = formatTimeEarly(remaining)
-	local infoText = "文件：" .. i .. "/" .. totalFiles .. "  剩余时间：" .. remainingText
-	component.invoke(GPUAddress, "set", centrize(#infoText), progressBarY + 4, infoText)
+	local timeInfo = "预计剩余：" .. remainingText
+	component.invoke(GPUAddress, "set", centrize(#timeInfo), progressBarY + 4, timeInfo)
 	
-	component.invoke(GPUAddress, "setForeground", 0x878787)
-	component.invoke(GPUAddress, "set", centrize(40), title() + 1, "正在下载：" .. files.installerFiles[i])
+	-- Draw current filename
+	component.invoke(GPUAddress, "setForeground", 0x666666)
+	local currentFile = files.installerFiles[i]
+	-- Truncate if too long
+	if #currentFile > 60 then
+		currentFile = "..." .. currentFile:sub(#currentFile - 57)
+	end
+	component.invoke(GPUAddress, "set", centrize(#currentFile), progressBarY + 6, currentFile)
 	
 	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
 end
 
--- Clear screen and continue
-component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
-component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
+-- Fade out effect
+for i = 1, 5 do
+	component.invoke(GPUAddress, "setBackground", 0x2D2D2D + (i * 0x111111))
+	component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
+	os.sleep(0.05)
+end
 
 -- Now initialize require function and system libraries
 function require(module)
@@ -620,7 +653,7 @@ addStage(function()
 	nextButton.disabled = false
 
 	layout:addChild(GUI.object(1, 1, 1, 1))
-	addTitle(0x696969, localization.select)
+	addTitle(0x696969, localization and localization.select or "Select Filesystem")
 
 	local diskLayout = layout:addChild(GUI.layout(1, 1, layout.width, 11, 1, 1))
 	diskLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
