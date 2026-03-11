@@ -198,7 +198,31 @@ local localization = {
         confirmSetDefault = "确认设为默认",
         noDefaultBoot = "没有默认启动项",
         setDefaultBoot = "设置默认启动项",
-        power = "电量"
+        power = "电量",
+        -- New features
+        diskBoot = "磁盘启动",
+        networkBoot = "网络启动",
+        renameBios = "重命名BIOS",
+        biosName = "BIOS名称",
+        biosNamePrompt = "输入新的BIOS名称",
+        addFromDisk = "从磁盘添加",
+        addFromNetwork = "从网络添加",
+        autoScan = "自动扫描",
+        scanDisks = "扫描磁盘",
+        bootFromSelected = "从选定启动项启动",
+        moveUp = "上移",
+        moveDown = "下移",
+        default = "默认",
+        selected = "已选择",
+        diskBootManager = "磁盘启动管理",
+        noDisksFound = "未找到可启动磁盘",
+        diskAdded = "磁盘已添加",
+        networkBootNotAvailable = "网络启动不可用",
+        networkBootSetup = "网络启动设置",
+        advancedSettings = "高级设置",
+        about = "关于",
+        version = "版本",
+        copyright = "版权所有"
     },
     English = {
         bootManager = "PixelOS Boot Manager",
@@ -270,7 +294,31 @@ local localization = {
         noDefaultBoot = "No Default Boot Item",
         setDefaultBoot = "Set Default Boot Item",
         diskStatus = "Disk Status",
-        power = "Power"
+        power = "Power",
+        -- New features
+        diskBoot = "Disk Boot",
+        networkBoot = "Network Boot",
+        renameBios = "Rename BIOS",
+        biosName = "BIOS Name",
+        biosNamePrompt = "Enter new BIOS name",
+        addFromDisk = "Add from Disk",
+        addFromNetwork = "Add from Network",
+        autoScan = "Auto Scan",
+        scanDisks = "Scan Disks",
+        bootFromSelected = "Boot from Selected",
+        moveUp = "Move Up",
+        moveDown = "Move Down",
+        default = "Default",
+        selected = "Selected",
+        diskBootManager = "Disk Boot Manager",
+        noDisksFound = "No bootable disks found",
+        diskAdded = "Disk added",
+        networkBootNotAvailable = "Network boot not available",
+        networkBootSetup = "Network Boot Setup",
+        advancedSettings = "Advanced Settings",
+        about = "About",
+        version = "Version",
+        copyright = "Copyright"
     }
 }
 
@@ -400,35 +448,66 @@ local function drawBootManager()
     clear(0x2D2D2D)
     drawStatusBar()
     
-    -- Title
-    drawText(2,3,loc.bootManager,0xFFFFFF,0x2D2D2D)
+    -- Title with BIOS name
+    local biosTitle = biosConfig.biosName or "PixelOS"
+    drawText(2, 3, biosTitle, 0xFFFFFF, 0x2D2D2D)
     
     -- Boot items
     if bootState.screen=="main" then
-        drawText(2,5,loc.bootItems,0x3366CC,0x2D2D2D)
+        drawText(2, 5, loc.bootItems, 0x3366CC, 0x2D2D2D)
         
         if #biosConfig.bootItems==0 then
-            drawText(2,7,loc.noBootItems,0x666666,0x2D2D2D)
+            drawText(2, 7, loc.noBootItems, 0x666666, 0x2D2D2D)
         else
-            for i,bootItem in ipairs(biosConfig.bootItems) do
-                local y=9+(i-1)*3
-                local selected = bootState.selectedBootItem==i
+            for i, bootItem in ipairs(biosConfig.bootItems) do
+                local y = 9 + (i-1) * 2
+                if y > sh - 6 then break end
+                
+                local selected = bootState.selectedBootItem == i
                 local prefix = selected and "▶ " or "  "
-                local itemText = prefix .. bootItem.name
-                drawText(4, y, itemText, selected and 0xFFFFFF or 0x000000, 0x2D2D2D)
+                local defaultMark = bootItem.isDefault and " ★" or ""
+                local itemText = prefix .. bootItem.name .. defaultMark
+                drawText(4, y, itemText, selected and 0xFFFFFF or 0xCCCCCC, 0x2D2D2D)
+                
+                -- Show item type
+                local itemType = bootItem.type or "disk"
+                local typeText = "[" .. itemType .. "]"
+                drawText(4 + #itemText + 1, y, typeText, 0x666666, 0x2D2D2D)
             end
         end
         
-        -- Bottom buttons
-        local btnY=sh-3
-        local addBtn=drawButton(4,btnY,10,3,loc.add,false)
-        local editBtn=drawButton(16,btnY,10,3,loc.edit,false)
-        local deleteBtn=drawButton(28,btnY,10,3,loc.delete,false)
-        local settingsBtn=drawButton(40,btnY,10,3,loc.settings,false)
-        local rebootBtn=drawButton(52,btnY,10,3,loc.reboot,true)
-        local shutdownBtn=drawButton(64,btnY,10,3,loc.shutdown,false)
+        -- Show available disks at bottom
+        local disks = getDisks()
+        if #disks > 0 then
+            drawText(2, sh - 10, loc.diskInfo .. ":", 0x3366CC, 0x2D2D2D)
+            for i, disk in ipairs(disks) do
+                local y = sh - 8 + i
+                if y < sh - 3 then
+                    local diskText = disk.label .. " (" .. math.floor(disk.space/1024) .. "KB)"
+                    drawText(4, y, diskText, 0x888888, 0x2D2D2D)
+                end
+            end
+        end
         
-        return {add=addBtn,edit=editBtn,delete=deleteBtn,settings=settingsBtn,reboot=rebootBtn,shutdown=shutdownBtn}
+        -- Bottom buttons - enhanced with more options
+        local btnY = sh - 3
+        local addBtn = drawButton(2, btnY, 8, 3, loc.addFromDisk, false)
+        local bootBtn = drawButton(12, btnY, 10, 3, loc.bootFromSelected, bootState.selectedBootItem ~= nil)
+        local settingsBtn = drawButton(24, btnY, 8, 3, loc.settings, false)
+        local advancedBtn = drawButton(34, btnY, 8, 3, loc.advancedSettings, false)
+        local aboutBtn = drawButton(44, btnY, 8, 3, loc.about, false)
+        local rebootBtn = drawButton(54, btnY, 8, 3, loc.reboot, false)
+        local shutdownBtn = drawButton(64, btnY, 8, 3, loc.shutdown, false)
+        
+        return {
+            add = addBtn, 
+            boot = bootBtn,
+            settings = settingsBtn, 
+            advanced = advancedBtn,
+            about = aboutBtn,
+            reboot = rebootBtn, 
+            shutdown = shutdownBtn
+        }
     end
     
     -- Settings screen
@@ -532,6 +611,103 @@ local function drawBootManager()
         local backBtn=drawButton(28,btnY,10,3,"< Back",false)
         
         return {nameInput=nameInput,pathInput=pathInput,delayInput=delayInput,save=saveBtn,cancel=cancelBtn,back=backBtn}
+    end
+    
+    -- Advanced settings screen
+    if bootState.screen == "advanced" then
+        drawText(2, 5, loc.advancedSettings, 0x3366CC, 0x2D2D2D)
+        
+        -- BIOS rename
+        drawText(4, 7, loc.renameBios, 0x000000, 0x2D2D2D)
+        local renameBtn = drawButton(4, 8, 20, 1, biosConfig.biosName or "PixelOS", false)
+        
+        -- Disk boot management
+        drawText(4, 11, loc.diskBootManager, 0x000000, 0x2D2D2D)
+        local scanDisksBtn = drawButton(4, 12, 20, 1, loc.scanDisks, false)
+        
+        -- Network boot (if available)
+        local hasNetwork = c.list("internet")()
+        drawText(4, 15, loc.networkBoot, 0x000000, 0x2D2D2D)
+        local networkBtn = drawButton(4, 16, 20, 1, hasNetwork and loc.networkBootSetup or loc.networkBootNotAvailable, not hasNetwork)
+        
+        -- Boot order management
+        drawText(4, 19, loc.bootOrder, 0x000000, 0x2D2D2D)
+        local moveUpBtn = drawButton(4, 20, 10, 1, loc.moveUp, false)
+        local moveDownBtn = drawButton(16, 20, 10, 1, loc.moveDown, false)
+        
+        local btnY = sh - 3
+        local backBtn = drawButton(4, btnY, 10, 3, "< Back", false)
+        
+        return {
+            renameBtn = renameBtn,
+            scanDisksBtn = scanDisksBtn,
+            networkBtn = networkBtn,
+            moveUpBtn = moveUpBtn,
+            moveDownBtn = moveDownBtn,
+            back = backBtn
+        }
+    end
+    
+    -- About screen
+    if bootState.screen == "about" then
+        drawText(2, 5, loc.about, 0x3366CC, 0x2D2D2D)
+        
+        local centerX = math.floor(sw / 2)
+        
+        drawText(centerX - 8, 8, "PixelOS", 0x3366CC, 0x2D2D2D)
+        drawText(centerX - 10, 10, "Boot Manager", 0xCCCCCC, 0x2D2D2D)
+        drawText(centerX - 5, 12, "v3.0.0", 0x666666, 0x2D2D2D)
+        
+        drawText(4, 15, loc.copyright, 0x888888, 0x2D2D2D)
+        drawText(4, 16, "Based on MineOS by IgorTimofeev", 0x666666, 0x2D2D2D)
+        drawText(4, 17, "Modified for PixelOS", 0x666666, 0x2D2D2D)
+        
+        local btnY = sh - 3
+        local backBtn = drawButton(math.floor(sw/2) - 5, btnY, 10, 3, "< Back", false)
+        
+        return {back = backBtn}
+    end
+    
+    -- Rename BIOS screen
+    if bootState.screen == "renameBios" then
+        drawText(2, 5, loc.renameBios, 0x3366CC, 0x2D2D2D)
+        
+        drawText(4, 7, loc.biosName, 0x000000, 0x2D2D2D)
+        local nameInput = drawButton(4, 8, 30, 1, biosConfig.biosName or "PixelOS", false)
+        
+        local btnY = sh - 3
+        local saveBtn = drawButton(4, btnY, 10, 3, loc.saveSettings, false)
+        local cancelBtn = drawButton(16, btnY, 10, 3, loc.cancel, false)
+        local backBtn = drawButton(28, btnY, 10, 3, "< Back", false)
+        
+        return {nameInput = nameInput, save = saveBtn, cancel = cancelBtn, back = backBtn}
+    end
+    
+    -- Disk scan screen
+    if bootState.screen == "diskScan" then
+        drawText(2, 5, loc.scanDisks, 0x3366CC, 0x2D2D2D)
+        
+        local disks = getDisks()
+        local diskButtons = {}
+        
+        for i, disk in ipairs(disks) do
+            local y = 7 + (i - 1) * 3
+            local diskText = disk.label .. " (" .. math.floor(disk.space/1024) .. "KB)"
+            local btn = drawButton(4, y, 40, 2, diskText, false)
+            btn.disk = disk
+            table.insert(diskButtons, btn)
+            
+            drawText(45, y + 1, "[+]", 0x00AA00, 0x2D2D2D)
+        end
+        
+        if #disks == 0 then
+            drawText(4, 7, loc.noDisksFound, 0xFF6666, 0x2D2D2D)
+        end
+        
+        local btnY = sh - 3
+        local backBtn = drawButton(4, btnY, 10, 3, "< Back", false)
+        
+        return {disks = diskButtons, back = backBtn}
     end
 end
 
@@ -695,8 +871,8 @@ local function bootManagerLoop()
             -- Check for boot item clicks
             if #biosConfig.bootItems>0 then
                 for i,bootItem in ipairs(biosConfig.bootItems) do
-                    local itemY=9+(i-1)*3
-                    if x>=4 and x<4+#bootItem.name+2 and y>=itemY and y<itemY+1 then
+                    local itemY = 9 + (i-1) * 2
+                    if x>=4 and x<4+#bootItem.name+10 and y>=itemY and y<itemY+1 then
                         bootState.selectedBootItem = i
                         break
                     end
@@ -704,26 +880,24 @@ local function bootManagerLoop()
             end
             
             -- Handle button clicks
-            if buttons.add and checkClick(buttons.add,x,y) then
-                bootState.screen = "addBootItem"
-                bootState.editingValue = ""
-                bootState.editingValuePath = ""
-                bootState.editingValueDelay = 0
-            elseif buttons.edit and checkClick(buttons.edit,x,y) and bootState.selectedBootItem then
-                bootState.screen = "editBootItem"
+            if buttons.add and checkClick(buttons.add, x, y) then
+                -- Add boot item from disk
+                bootState.screen = "diskScan"
+            elseif buttons.boot and buttons.boot.w > 0 and checkClick(buttons.boot, x, y) and bootState.selectedBootItem then
+                -- Boot from selected item
                 local item = biosConfig.bootItems[bootState.selectedBootItem]
-                bootState.editingValue = item.name
-                bootState.editingValuePath = item.path or ""
-                bootState.editingValueDelay = item.delay or 0
-            elseif buttons.delete and checkClick(buttons.delete,x,y) and bootState.selectedBootItem then
-                table.remove(biosConfig.bootItems, bootState.selectedBootItem)
-                bootState.selectedBootItem = nil
-                saveConfig()
-            elseif buttons.settings and checkClick(buttons.settings,x,y) then
+                if item then
+                    bootFromItem(item)
+                end
+            elseif buttons.settings and checkClick(buttons.settings, x, y) then
                 bootState.screen = "settings"
-            elseif buttons.reboot and checkClick(buttons.reboot,x,y) then
+            elseif buttons.advanced and checkClick(buttons.advanced, x, y) then
+                bootState.screen = "advanced"
+            elseif buttons.about and checkClick(buttons.about, x, y) then
+                bootState.screen = "about"
+            elseif buttons.reboot and checkClick(buttons.reboot, x, y) then
                 co.shutdown(true)
-            elseif buttons.shutdown and checkClick(buttons.shutdown,x,y) then
+            elseif buttons.shutdown and checkClick(buttons.shutdown, x, y) then
                 co.shutdown()
             end
             
@@ -733,6 +907,61 @@ local function bootManagerLoop()
             handlePasswordClick(buttons,x,y)
         elseif bootState.screen=="editBootItem" or bootState.screen=="addBootItem" then
             handleBootItemEditClick(buttons,x,y)
+        elseif bootState.screen == "advanced" then
+            if buttons.renameBtn and checkClick(buttons.renameBtn, x, y) then
+                bootState.screen = "renameBios"
+            elseif buttons.scanDisksBtn and checkClick(buttons.scanDisksBtn, x, y) then
+                bootState.screen = "diskScan"
+            elseif buttons.moveUpBtn and checkClick(buttons.moveUpBtn, x, y) and bootState.selectedBootItem and bootState.selectedBootItem > 1 then
+                -- Move boot item up
+                local idx = bootState.selectedBootItem
+                biosConfig.bootItems[idx], biosConfig.bootItems[idx-1] = biosConfig.bootItems[idx-1], biosConfig.bootItems[idx]
+                bootState.selectedBootItem = idx - 1
+                saveConfig()
+            elseif buttons.moveDownBtn and checkClick(buttons.moveDownBtn, x, y) and bootState.selectedBootItem and bootState.selectedBootItem < #biosConfig.bootItems then
+                -- Move boot item down
+                local idx = bootState.selectedBootItem
+                biosConfig.bootItems[idx], biosConfig.bootItems[idx+1] = biosConfig.bootItems[idx+1], biosConfig.bootItems[idx]
+                bootState.selectedBootItem = idx + 1
+                saveConfig()
+            elseif buttons.back and checkClick(buttons.back, x, y) then
+                bootState.screen = "main"
+            end
+        elseif bootState.screen == "about" then
+            if buttons.back and checkClick(buttons.back, x, y) then
+                bootState.screen = "main"
+            end
+        elseif bootState.screen == "renameBios" then
+            if buttons.nameInput and checkClick(buttons.nameInput, x, y) then
+                bootState.editingField = "biosName"
+            elseif buttons.save and checkClick(buttons.save, x, y) then
+                biosConfig.biosName = bootState.editingValue or "PixelOS"
+                saveConfig()
+                bootState.screen = "advanced"
+            elseif buttons.cancel and checkClick(buttons.cancel, x, y) then
+                bootState.screen = "advanced"
+            elseif buttons.back and checkClick(buttons.back, x, y) then
+                bootState.screen = "advanced"
+            end
+        elseif bootState.screen == "diskScan" then
+            if buttons.disks then
+                for i, btn in ipairs(buttons.disks) do
+                    if checkClick(btn, x, y) and btn.disk then
+                        -- Add disk as boot item
+                        local newItem = {
+                            name = btn.disk.label or "Disk",
+                            path = btn.disk.address,
+                            type = "disk",
+                            isDefault = #biosConfig.bootItems == 0
+                        }
+                        table.insert(biosConfig.bootItems, newItem)
+                        saveConfig()
+                    end
+                end
+            end
+            if buttons.back and checkClick(buttons.back, x, y) then
+                bootState.screen = "main"
+            end
         end
     end
 end

@@ -265,11 +265,13 @@ window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
 local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
 local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 
-installerMenu:addItem("🔄", "Reboot").onTouch = function()
+rebootMenuItem = installerMenu:addItem("🔄", "重启")
+rebootMenuItem.onTouch = function()
 	computer.shutdown(true)
 end
 
-installerMenu:addItem("⏻", "Shutdown").onTouch = function()
+shutdownMenuItem = installerMenu:addItem("⏻", "关机")
+shutdownMenuItem.onTouch = function()
 	computer.shutdown()
 end
 
@@ -335,6 +337,51 @@ local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
 local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
 local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D2D2, 0xB4B4B4)
+local rebootMenuItem, shutdownMenuItem
+
+local function formatTime(seconds)
+	if not seconds or seconds < 0 then return "0" end
+	local secKey = localization and localization.seconds or "sec"
+	local minKey = localization and localization.minutes or "min"
+	local hourKey = localization and localization.hours or "hour"
+	
+	if seconds < 60 then
+		return math.floor(seconds) .. " " .. secKey
+	elseif seconds < 3600 then
+		local mins = math.floor(seconds / 60)
+		local secs = math.floor(seconds % 60)
+		return mins .. " " .. minKey .. " " .. secs .. " " .. secKey
+	else
+		local hours = math.floor(seconds / 3600)
+		local mins = math.floor((seconds % 3600) / 60)
+		return hours .. " " .. hourKey .. " " .. mins .. " " .. minKey
+	end
+end
+
+local function updateMenuText()
+	if localization and rebootMenuItem and shutdownMenuItem then
+		rebootMenuItem.text = localization.reboot or "Reboot"
+		shutdownMenuItem.text = localization.shutdown or "Shutdown"
+	end
+end
+
+local function updateStatusBar()
+	local batteryText = "Power: --%"
+	local timeText = os.date("%H:%M")
+	
+	local battery = component.list("battery")()
+	if battery then
+		local proxy = component.proxy(battery)
+		local energy = math.floor(proxy.energy() / proxy.maxEnergy() * 100)
+		local powerKey = localization and localization.power or "Power"
+		batteryText = powerKey .. ": " .. energy .. "%"
+	end
+	
+	local statusBarText = batteryText .. "          " .. timeText
+	local sw, sh = component.invoke(GPUAddress, "getResolution")
+	component.invoke(GPUAddress, "set", sw - #statusBarText + 1, 1, statusBarText)
+end
+
 for i = 1, #files.localizations do
 	localizationComboBox:addItem(filesystemHideExtension(filesystemName(files.localizations[i]))).onTouch = function()
 		-- Obtaining localization table
@@ -350,7 +397,18 @@ for i = 1, #files.localizations do
 			applicationsSwitchAndLabel.label.text = localization.applications
 			localizationsSwitchAndLabel.label.text = localization.languages
 			acceptSwitchAndLabel.label.text = localization.accept
+			updateMenuText()
+			updateStatusBar()
 		end
+	end
+end
+
+-- Select Chinese Simplified by default
+for i = 1, localizationComboBox.itemCount do
+	if localizationComboBox:getItem(i).text == "ChineseSimplified" then
+		localizationComboBox.selectedItem = i
+		localizationComboBox:getItem(i).onTouch()
+		break
 	end
 end
 
@@ -554,7 +612,29 @@ end)
 addStage(function()
 	checkLicense()
 
-	local lines = text.wrap({request("Licenses/LICENSE_en_US")}, layout.width - 2)
+	local selectedLang = localizationComboBox:getItem(localizationComboBox.selectedItem).text
+	local langCode = "en_US"
+	if selectedLang == "ChineseSimplified" then
+		langCode = "zh_CN"
+	elseif selectedLang == "ChineseTraditional" then
+		langCode = "zh_TW"
+	elseif selectedLang == "English" then
+		langCode = "en_US"
+	else
+		langCode = selectedLang
+	end
+	
+	local licenseURL = "Licenses/LICENSE_" .. langCode
+	local licenseContent
+	local success, err = pcall(function()
+		licenseContent = request(licenseURL)
+	end)
+	
+	if not success or not licenseContent or licenseContent == "" then
+		licenseContent = request("Licenses/LICENSE_en_US")
+	end
+	
+	local lines = text.wrap({licenseContent}, layout.width - 2)
 	local textBox = layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 3, 0xF0F0F0, 0x696969, lines, 1, 1, 1))
 
 	layout:addChild(acceptSwitchAndLabel)
@@ -645,8 +725,22 @@ addStage(function()
 	addToList(applicationsSwitchAndLabel.switch.state, "optional")
 	addToList(wallpapersSwitchAndLabel.switch.state, "optionalWallpapers")
 
+	-- Calculate total size for progress
+	local totalFiles = #downloadList
+	local function getFileSize(path)
+		local size = 0
+		local data = ""
+		rawRequest(path, function(chunk)
+			data = data .. chunk
+		end)
+		return #data
+	end
+	
+	local startTime = os.time()
+
 	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}
+	local downloadedFiles = 0
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
@@ -655,6 +749,7 @@ addStage(function()
 
 		-- Download file
 		download(path, OSPath .. path)
+		downloadedFiles = downloadedFiles + 1
 
 		-- Adding system versions data
 		if id then
@@ -674,7 +769,22 @@ addStage(function()
 			end)
 		end
 
-		progressBar.value = math.floor(i / #downloadList * 100)
+		progressBar.value = math.floor(downloadedFiles / totalFiles * 100)
+		
+		-- Update progress info
+		local remainingFiles = totalFiles - downloadedFiles
+		local elapsedTime = os.time() - startTime
+		local avgTimePerFile = downloadedFiles > 0 and elapsedTime / downloadedFiles or 0
+		local remainingTime = remainingFiles * avgTimePerFile
+		
+		local sizeUsed = selectedFilesystemProxy.spaceUsed()
+		local sizeTotal = selectedFilesystemProxy.spaceTotal()
+		
+		local fileInfo = (localization.remainingFiles or "Remaining:") .. " " .. remainingFiles .. "  "
+		local timeInfo = (localization.remainingTime or "Time:") .. " " .. formatTime(remainingTime) .. "  "
+		local sizeInfo = (localization.spaceUsed or "Space:") .. " " .. math.floor(sizeUsed / 1024) .. "KB / " .. math.floor(sizeTotal / 1024) .. "KB"
+		
+		cyka.text = text.limit(fileInfo .. timeInfo .. sizeInfo, container.width, "center")
 		workspace:draw()
 	end
 
@@ -687,6 +797,51 @@ addStage(function()
 	component.invoke(EEPROMAddress, "set", request(EFIURL))
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install Bios")
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
+
+	-- Ask user if they want to install BIOS Manager
+	local installBiosManager = false
+	local confirmWindow = workspace:addChild(GUI.window(math.floor(workspace.width / 2 - 20), math.floor(workspace.height / 2 - 8), 40, 16))
+	confirmWindow:addChild(GUI.panel(1, 1, confirmWindow.width, confirmWindow.height, 0xE1E1E1))
+	confirmWindow:addChild(GUI.label(1, 2, confirmWindow.width, 1, 0x2D2D2D, localization.installBiosManager or "Install BIOS Manager?")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "Install a macOS-style boot manager with additional features")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	
+	local confirmButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 8, 2, 0, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "Confirm"))
+	local cancelButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 10, 2, 0, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "Cancel"))
+	
+	local confirmResult = false
+	
+	confirmButton.onTouch = function()
+		installBiosManager = true
+		confirmWindow:remove()
+		workspace:draw()
+		confirmResult = true
+	end
+	
+	cancelButton.onTouch = function()
+		installBiosManager = false
+		confirmWindow:remove()
+		workspace:draw()
+		confirmResult = true
+	end
+	
+	workspace:draw()
+	
+	while not confirmResult do
+		os.sleep(0.1)
+	end
+	
+	if installBiosManager then
+		layout:removeChildren()
+		addImage(1, 1, "EEPROM")
+		addTitle(0x969696, localization.installingBiosManager or "Installing BIOS Manager...")
+		workspace:draw()
+		
+		local bootManagerURL = "EFI/BootManager.lua"
+		local bootManagerCode = request(bootManagerURL)
+		
+		component.invoke(EEPROMAddress, "set", bootManagerCode)
+		component.invoke(EEPROMAddress, "setLabel", "PixelOS Bios Manager")
+	end
 
 
 	-- Saving system versions
