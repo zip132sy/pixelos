@@ -223,19 +223,6 @@ local localization
 local stage = 1
 local stages = {}
 
-local usernameInput = newInput(30, "")
-local passwordInput = newInput(30, "", false, "•")
-local passwordSubmitInput = newInput(30, "", false, "•")
-local usernamePasswordText = GUI.text(1, 1, 0xCC0040, "")
-local withoutPasswordSwitchAndLabel = newSwitchAndLabel(30, 0x66DB80, "", false)
-
-local wallpapersSwitchAndLabel = newSwitchAndLabel(30, 0xFF4980, "", true)
-local applicationsSwitchAndLabel = newSwitchAndLabel(30, 0x33DB80, "", true)
-local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
-local tabletModeSwitchAndLabel = newSwitchAndLabel(30, 0xFF9933, "平板模式", true)
-
-local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
-
 local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D2D2, 0xB4B4B4)
 local rebootMenuItem, shutdownMenuItem
 
@@ -365,6 +352,20 @@ end
 local function newInput(width, ...)
 	return GUI.input(1, 1, width, 1, 0xF0F0F0, 0x787878, 0xC3C3C3, 0xF0F0F0, 0x878787, "", ...)
 end
+
+-- Initialize UI elements that depend on helper functions
+local usernameInput = newInput(30, "")
+local passwordInput = newInput(30, "", false, "•")
+local passwordSubmitInput = newInput(30, "", false, "•")
+local usernamePasswordText = GUI.text(1, 1, 0xCC0040, "")
+local withoutPasswordSwitchAndLabel = newSwitchAndLabel(30, 0x66DB80, "", false)
+
+local wallpapersSwitchAndLabel = newSwitchAndLabel(30, 0xFF4980, "", true)
+local applicationsSwitchAndLabel = newSwitchAndLabel(30, 0x33DB80, "", true)
+local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
+local tabletModeSwitchAndLabel = newSwitchAndLabel(30, 0xFF9933, "平板模式", true)
+
+local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
 local function formatTime(seconds)
 	if not seconds or seconds < 0 then return "0" end
