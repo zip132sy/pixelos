@@ -404,13 +404,21 @@ for i = 1, #files.localizations do
 end
 
 -- Select Chinese Simplified by default
-for i = 1, localizationComboBox.itemCount do
-	if localizationComboBox:getItem(i).text == "ChineseSimplified" then
-		localizationComboBox.selectedItem = i
-		localizationComboBox:getItem(i).onTouch()
-		break
+local function selectDefaultLanguage()
+	for i = 1, 10 do
+		local item = localizationComboBox:getItem(i)
+		if item then
+			if item.text == "ChineseSimplified" then
+				localizationComboBox.selectedItem = i
+				item.onTouch()
+				break
+			end
+		else
+			break
+		end
 	end
 end
+selectDefaultLanguage()
 
 local function addStage(onTouch)
 	table.insert(stages, function()
