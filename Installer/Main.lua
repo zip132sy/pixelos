@@ -357,6 +357,25 @@ local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D2D2, 0xB4B4B4)
 local rebootMenuItem, shutdownMenuItem
 
+-- First, we need a big ass file list with localizations, applications, wallpapers
+progress(0)
+local files = deserialize(request(installerURL .. "Files.cfg"))
+
+-- After that we could download required libraries for installer from it
+local installerStartTime = os.time()
+for i = 1, #files.installerFiles do
+	local elapsed = os.time() - installerStartTime
+	local remaining = (#files.installerFiles - i) * (i > 0 and elapsed / i or 0.5)
+	
+	component.invoke(GPUAddress, "setForeground", 0x666666)
+	component.invoke(GPUAddress, "set", centrize(40), title() + 1, "Downloading installer files: " .. i .. "/" .. #files.installerFiles)
+	
+	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
+end
+
+-- Initializing simple package system for loading system libraries
+package = {loading = {}, loaded = {}}
+
 local function formatTime(seconds)
 	if not seconds or seconds < 0 then return "0" end
 	local secKey = localization and localization.seconds or "sec"
@@ -849,9 +868,14 @@ addStage(function()
 		local sizeUsed = selectedFilesystemProxy.spaceUsed()
 		local sizeTotal = selectedFilesystemProxy.spaceTotal()
 		
-		local fileInfo = (localization.remainingFiles or "Remaining:") .. " " .. remainingFiles .. "  "
-		local timeInfo = (localization.remainingTime or "Time:") .. " " .. formatTime(remainingTime) .. "  "
-		local sizeInfo = (localization.spaceUsed or "Space:") .. " " .. math.floor(sizeUsed / 1024) .. "KB / " .. math.floor(sizeTotal / 1024) .. "KB"
+		-- Use localization if available, otherwise use English defaults
+		local remainingFilesText = localization and localization.remainingFiles or "Remaining:"
+		local remainingTimeText = localization and localization.remainingTime or "Time:"
+		local spaceUsedText = localization and localization.spaceUsed or "Space:"
+		
+		local fileInfo = remainingFilesText .. " " .. remainingFiles .. "  "
+		local timeInfo = remainingTimeText .. " " .. formatTime(remainingTime) .. "  "
+		local sizeInfo = spaceUsedText .. " " .. math.floor(sizeUsed / 1024) .. "KB / " .. math.floor(sizeTotal / 1024) .. "KB"
 		
 		cyka.text = text.limit(fileInfo .. timeInfo .. sizeInfo, container.width, "center")
 		workspace:draw()
