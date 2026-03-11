@@ -1,4 +1,3 @@
-
 -- Feature: Multiple repository URLs with fallback
 local repositoryURLs = {
 	"https://gitee.com/zip132sy/pixelos/raw/master/",
@@ -12,62 +11,12 @@ local installerPath = "/PixelOS installer/"
 local installerPicturesPath = installerPath .. "Installer/Pictures/"
 local OSPath = "/"
 
--- Logging function (after installerPath is defined)
-local logFilePath = installerPath .. "installer.log"
-local logBuffer = {}
-
-local function toString(value)
-	if type(value) == "nil" then
-		return "nil"
-	elseif type(value) == "table" then
-		return "table"
-	else
-		return tostring(value)
-	end
-end
-
-local function flushLog()
-	if temporaryFilesystemProxy then
-		local content = table.concat(logBuffer, "\n") .. "\n"
-		local ok, handle = pcall(temporaryFilesystemProxy.open, temporaryFilesystemProxy, logFilePath, "a")
-		if ok and handle then
-			temporaryFilesystemProxy.write(handle, content)
-			temporaryFilesystemProxy.close(handle)
-			logBuffer = {}
-		end
-	end
-end
-
-local function log(...)
-	local args = {...}
-	local parts = {}
-	for i = 1, #args do
-		parts[i] = toString(args[i])
-	end
-	local message = os.date("%H:%M:%S") .. " " .. table.concat(parts, "\t")
-	
-	table.insert(logBuffer, message)
-	
-	-- Always flush on error or every 5 messages
-	if #logBuffer >= 5 then
-		flushLog()
-	end
-	
-	computer.pushSignal("log", message)
-end
-
--- Error logging
-local function logError(message)
-	log("ERROR:", message)
-	flushLog()
-end
-
 -- Checking for required components
 local function getComponentAddress(name)
 	return component.list(name)() or error("Required " .. name .. " component is missing")
 end
 
-local EEPROMAddress, internetAddress, GPUAddress = 
+local EEPROMAddress, internetAddress, GPUAddress =
 	getComponentAddress("eeprom"),
 	getComponentAddress("internet"),
 	getComponentAddress("gpu")
@@ -75,8 +24,6 @@ local EEPROMAddress, internetAddress, GPUAddress =
 -- Binding GPU to screen in case it's not done yet
 component.invoke(GPUAddress, "bind", getComponentAddress("screen"))
 local screenWidth, screenHeight = component.invoke(GPUAddress, "getResolution")
-
-log("Installer started")
 
 local temporaryFilesystemProxy, selectedFilesystemProxy
 
@@ -100,7 +47,6 @@ local function title()
 	return y + 2
 end
 
--- Feature #1 & #3: Progress with time estimation
 local function progress(value, text)
 	local width = 26
 	local x, y, part = centrize(width), title(), math.ceil(width * value)
@@ -143,8 +89,7 @@ local function rawRequest(url, chunkHandler)
 			local chunk, err
 			local success = true
 			while true do
-				chunk, err = internetHandle.read(math.huge)	
-				
+				chunk, err = internetHandle.read(math.huge) 
 				if chunk then
 					chunkHandler(chunk)
 				else
@@ -164,135 +109,25 @@ local function rawRequest(url, chunkHandler)
 			lastError = reason
 		end
 	end
-	
+
 	error("Connection failed for all URLs: " .. tostring(lastError))
 end
 
--- Load SHA-256 library for file verification
-local sha256
-pcall(function()
-	sha256 = require("SHA-256")
-end)
-
--- Load file hashes for verification
-local fileHashes
-pcall(function()
-	fileHashes = dofile(installerPath .. "FileHashes.lua")
-end)
-
--- Cache directory for downloaded files
-local cacheDir = "/PixelOS cache/"
-
--- Function to verify file hash
-local function verifyHash(data, expectedHash)
-	if not sha256 or not expectedHash then
-		return true
-	end
-	local actualHash = sha256(data)
-	return actualHash == expectedHash
-end
-
--- Function to check if cached file exists and is valid
-local function getCachedFile(url)
-	if not temporaryFilesystemProxy then
-		return nil
-	end
-	
-	local cachePath = cacheDir .. url:gsub("/", "_")
-	
-	if not temporaryFilesystemProxy.exists(cachePath) then
-		return nil
-	end
-	
-	local fileHandle = temporaryFilesystemProxy.open(cachePath, "rb")
-	if not fileHandle then
-		return nil
-	end
-	
-	local data = ""
-	local chunk
-	repeat
-		chunk = temporaryFilesystemProxy.read(fileHandle, math.huge)
-		data = data .. (chunk or "")
-	until not chunk
-	
-	temporaryFilesystemProxy.close(fileHandle)
-	
-	-- Verify hash if available
-	local expectedHash = fileHashes and fileHashes[url]
-	if expectedHash and not verifyHash(data, expectedHash) then
-		-- Hash mismatch, remove invalid cache
-		temporaryFilesystemProxy.remove(cachePath)
-		return nil
-	end
-	
-	return data
-end
-
--- Function to save file to cache
-local function saveToCache(url, data)
-	if not temporaryFilesystemProxy then
-		return
-	end
-	
-	temporaryFilesystemProxy.makeDirectory(cacheDir)
-	
-	local cachePath = cacheDir .. url:gsub("/", "_")
-	local fileHandle = temporaryFilesystemProxy.open(cachePath, "wb")
-	
-	if fileHandle then
-		temporaryFilesystemProxy.write(fileHandle, data)
-		temporaryFilesystemProxy.close(fileHandle)
-	end
-end
-
 local function request(url)
-	-- Check cache first
-	local cachedData = getCachedFile(url)
-	if cachedData then
-		return cachedData
-	end
-	
-	-- Download from network
 	local data = ""
-	
+
 	rawRequest(url, function(chunk)
 		data = data .. chunk
 	end)
-
-	-- Save to cache
-	saveToCache(url, data)
 
 	return data
 end
 
 local function download(url, path)
-	-- Check if file already exists and is valid
-	if selectedFilesystemProxy.exists(path) then
-		local fileHandle = selectedFilesystemProxy.open(path, "rb")
-		if fileHandle then
-			local data = ""
-			local chunk
-			repeat
-				chunk = selectedFilesystemProxy.read(fileHandle, math.huge)
-				data = data .. (chunk or "")
-			until not chunk
-			selectedFilesystemProxy.close(fileHandle)
-			
-			-- Verify hash if available
-			local expectedHash = fileHashes and fileHashes[url]
-			if expectedHash and verifyHash(data, expectedHash) then
-				-- File exists and is valid, skip download
-				return
-			end
-		end
-	end
-	
-	-- Download file
 	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
 
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
-	if fileHandle then	
+	if fileHandle then
 		rawRequest(url, function(chunk)
 			selectedFilesystemProxy.write(fileHandle, chunk)
 		end)
@@ -352,27 +187,13 @@ do
 	end
 end
 
--- Feature #1: Download installer files with progress and time estimation
+-- First, we need a big ass file list with localizations, applications, wallpapers
+progress(0)
 local files = deserialize(request(installerURL .. "Files.cfg"))
-local totalInstallerFiles = #files.installerFiles
-local installerStartTime = computer.uptime()
 
-for i = 1, totalInstallerFiles do
-	-- Calculate ETA
-	local elapsed = computer.uptime() - installerStartTime
-	local remaining = totalInstallerFiles - i
-	local eta = (elapsed / i) * remaining
-	
-	local timeText
-	if eta < 60 then
-		timeText = string.format("~%ds", math.floor(eta))
-	else
-		timeText = string.format("~%dm", math.floor(eta / 60))
-	end
-	
-	local progressText = string.format("%d/%d | %s", i, totalInstallerFiles, timeText)
-	progress(i / totalInstallerFiles, progressText)
-	
+-- After that we could download required libraries for installer from it
+for i = 1, #files.installerFiles do
+	progress(i / #files.installerFiles)
 	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
 end
 
@@ -389,8 +210,7 @@ function require(module)
 
 		local handle, reason = temporaryFilesystemProxy.open(installerPath .. "Libraries/" .. module .. ".lua", "rb")
 		if handle then
-			local data = ""
-			local chunk
+			local data, chunk = "", nil
 			repeat
 				chunk = temporaryFilesystemProxy.read(handle, math.huge)
 				data = data .. (chunk or "")
@@ -436,85 +256,20 @@ local paths = require("Paths")
 local workspace = GUI.workspace()
 workspace:addChild(GUI.panel(1, 1, workspace.width, workspace.height, 0x1E1E1E))
 
--- Top menu (positioned at top of screen)
-local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
-menu.localX, menu.localY = 1, 1
-local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
-
--- Main installer window (positioned below menu)
-local windowHeight = 24
-local window = workspace:addChild(GUI.window(1, 1, 80, windowHeight))
-window.localX = math.ceil(workspace.width / 2 - window.width / 2)
-window.localY = math.ceil(workspace.height / 2 - windowHeight / 2)
+-- Main installer window
+local window = workspace:addChild(GUI.window(1, 1, 80, 24))
+window.localX, window.localY = math.ceil(workspace.width / 2 - window.width / 2), math.ceil(workspace.height / 2 - window.height / 2)
 window:addChild(GUI.panel(1, 1, window.width, window.height, 0xE1E1E1))
 
-local statusMenuItem
-local rebootMenuItem
-local shutdownMenuItem
+-- Top menu
+local menu = workspace:addChild(GUI.menu(1, 1, workspace.width, 0xF0F0F0, 0x787878, 0x3366CC, 0xE1E1E1))
+local installerMenu = menu:addContextMenuItem("PixelOS", 0x2D2D2D)
 
-local function updateStatusMenuItem()
-	if statusMenuItem and localization then
-		local battery = getBatteryInfo() or 0
-		local powerText = localization.power or "Power"
-		local timeStr = formatTime()
-		statusMenuItem.text = " " .. timeStr .. " | " .. battery .. "% " .. powerText
-		if workspace and workspace.draw then
-			workspace:draw()
-		end
-	end
-end
-
-local function updateMenuItems()
-	if statusMenuItem then
-		updateStatusMenuItem()
-	end
-	
-	if rebootMenuItem and localization then
-		rebootMenuItem.text = localization.reboot or "Reboot"
-	end
-	
-	if shutdownMenuItem and localization then
-		shutdownMenuItem.text = localization.shutdown or "Shutdown"
-	end
-end
-
-local function getBatteryInfo()
-	local ok, energy = pcall(computer.energy)
-	local ok2, maxEnergy = pcall(computer.maxEnergy)
-	if ok and ok2 and maxEnergy and maxEnergy > 0 then
-		local percent = math.floor((energy / maxEnergy) * 100)
-		return percent
-	end
-	return nil
-end
-
-local function formatTime()
-	local zone = 8
-	if localization and localization.settings_timeZone then
-		zone = tonumber(localization.settings_timeZone) or 8
-	end
-	local localTime = os.time() + zone * 3600
-	return os.date("%H:%M", localTime)
-end
-
-statusMenuItem = installerMenu:addItem("")
-statusMenuItem.onTouch = function()
-	log("statusMenuItem.onTouch called", "workspace:", workspace, "workspace.draw:", workspace and workspace.draw)
-	if workspace and workspace.draw then
-		updateStatusMenuItem()
-		workspace:draw()
-	end
-end
-
-rebootMenuItem = installerMenu:addItem("")
-rebootMenuItem.onTouch = function()
-	log("Reboot clicked")
+installerMenu:addItem("🔄", "Reboot").onTouch = function()
 	computer.shutdown(true)
 end
 
-shutdownMenuItem = installerMenu:addItem("")
-shutdownMenuItem.onTouch = function()
-	log("Shutdown clicked")
+installerMenu:addItem("⏻", "Shutdown").onTouch = function()
 	computer.shutdown()
 end
 
@@ -563,19 +318,7 @@ end
 local prevButton = addStageButton("<")
 local nextButton = addStageButton(">")
 
--- Feature #2: Load ChineseSimplified localization by default BEFORE creating UI
 local localization
-local defaultLocalizationIndex = 1
-for i = 1, #files.localizations do
-	if filesystemHideExtension(filesystemName(files.localizations[i])) == "ChineseSimplified" then
-		defaultLocalizationIndex = i
-		break
-	end
-end
--- Load default localization immediately
-localization = deserialize(request(installerURL .. files.localizations[defaultLocalizationIndex]))
-updateMenuItems()
-
 local stage = 1
 local stages = {}
 
@@ -591,49 +334,23 @@ local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
 
 local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
--- Feature #4: License file mapping
-local function getLicenseFile(localizationName)
-	local licenseMap = {
-		ChineseSimplified = "LICENSE_zh_CN",
-		ChineseTraditional = "LICENSE_zh_TW",
-		Russian = "LICENSE_ru_RU",
-		German = "LICENSE_de_DE",
-		French = "LICENSE_fr_FR",
-		Spanish = "LICENSE_es_ES",
-		Japanese = "LICENSE_ja_JP",
-		Korean = "LICENSE_ko_KR",
-		Italian = "LICENSE_it_IT",
-		Finnish = "LICENSE_fi_FI",
-		Dutch = "LICENSE_nl_NL",
-		Ukrainian = "LICENSE_uk_UA",
-		Belarusian = "LICENSE_be_BY",
-		Bulgarian = "LICENSE_bg_BG",
-		Slovak = "LICENSE_sk_SK",
-		Arabic = "LICENSE_ar_SA",
-		Bengali = "LICENSE_bn_BD",
-		Hindi = "LICENSE_hi_IN",
-		Portuguese = "LICENSE_pt_PT",
-		Polish = "LICENSE_pl_PL",
-	}
-	return licenseMap[localizationName] or "LICENSE_en_US"
-end
-
 local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D2D2, 0xB4B4B4)
 for i = 1, #files.localizations do
 	localizationComboBox:addItem(filesystemHideExtension(filesystemName(files.localizations[i]))).onTouch = function()
 		-- Obtaining localization table
 		localization = deserialize(request(installerURL .. files.localizations[i]))
-		updateMenuItems()
 
 		-- Filling widgets with selected localization data
-		usernameInput.placeholderText = localization.username
-		passwordInput.placeholderText = localization.password
-		passwordSubmitInput.placeholderText = localization.submitPassword
-		withoutPasswordSwitchAndLabel.label.text = localization.withoutPassword
-		wallpapersSwitchAndLabel.label.text = localization.wallpapers
-		applicationsSwitchAndLabel.label.text = localization.applications
-		localizationsSwitchAndLabel.label.text = localization.languages
-		acceptSwitchAndLabel.label.text = localization.accept
+		if localization then
+			usernameInput.placeholderText = localization.username
+			passwordInput.placeholderText = localization.password
+			passwordSubmitInput.placeholderText = localization.submitPassword
+			withoutPasswordSwitchAndLabel.label.text = localization.withoutPassword
+			wallpapersSwitchAndLabel.label.text = localization.wallpapers
+			applicationsSwitchAndLabel.label.text = localization.applications
+			localizationsSwitchAndLabel.label.text = localization.languages
+			acceptSwitchAndLabel.label.text = localization.accept
+		end
 	end
 end
 
@@ -641,11 +358,7 @@ local function addStage(onTouch)
 	table.insert(stages, function()
 		layout:removeChildren()
 		onTouch()
-		if workspace and workspace.draw then
-			workspace:draw()
-		else
-			log("ERROR: workspace.draw is nil in addStage")
-		end
+		workspace:draw()
 	end)
 end
 
@@ -661,7 +374,7 @@ end
 
 local function checkUserInputs()
 	local nameEmpty = #usernameInput.text == 0
-	local nameVaild = usernameInput.text:match("^%w[%w%s_]+$")
+	local nameVaild = usernameInput.text:match("^%w[%w%s_]+")
 	local passValid = withoutPasswordSwitchAndLabel.switch.state or (#passwordInput.text > 0 and #passwordSubmitInput.text > 0 and passwordInput.text == passwordSubmitInput.text)
 
 	if (nameEmpty or nameVaild) and passValid then
@@ -716,7 +429,7 @@ end
 passwordInput.onInputFinished = usernameInput.onInputFinished
 passwordSubmitInput.onInputFinished = usernameInput.onInputFinished
 
--- Feature #2: Localization selection stage with ChineseSimplified default
+-- Localization selection stage
 addStage(function()
 	prevButton.disabled = true
 
@@ -724,17 +437,7 @@ addStage(function()
 	layout:addChild(localizationComboBox)
 
 	workspace:draw()
-	
-	-- Set default to ChineseSimplified
-	local defaultIndex = 1
-	for i = 1, #files.localizations do
-		if filesystemHideExtension(filesystemName(files.localizations[i])) == "ChineseSimplified" then
-			defaultIndex = i
-			break
-		end
-	end
-	localizationComboBox.selectedItem = defaultIndex
-	localizationComboBox:getItem(defaultIndex).onTouch()
+	localizationComboBox:getItem(1).onTouch()
 end)
 
 -- Filesystem selection stage
@@ -744,13 +447,12 @@ addStage(function()
 
 	layout:addChild(GUI.object(1, 1, 1, 1))
 	addTitle(0x696969, localization.select)
-	
+
 	local diskLayout = layout:addChild(GUI.layout(1, 1, layout.width, 11, 1, 1))
 	diskLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
 	diskLayout:setSpacing(1, 1, 1)
 
 	local HDDImage = loadImage("HDD")
-local floppyImage = loadImage("HDD")
 
 	local function select(proxy)
 		selectedFilesystemProxy = proxy
@@ -774,7 +476,7 @@ local floppyImage = loadImage("HDD")
 
 			disk:addChild(GUI.panel(1, 1, disk.width, disk.height, 0xD2D2D2))
 
-			disk:addChild(GUI.roundedButton(1, disk.height, disk.width, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.erase)).onTouch = function()
+			disk:addChild(GUI.button(1, disk.height, disk.width, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.erase)).onTouch = function()
 				local list, path = proxy.list("/")
 				for i = 1, #list do
 					path = "/" .. list[i]
@@ -801,13 +503,13 @@ local floppyImage = loadImage("HDD")
 		end
 
 		diskLayout:removeChildren()
-		
+
 		for address in component.list("filesystem") do
 			local proxy = component.proxy(address)
 			if proxy.spaceTotal() >= 1 * 1024 * 1024 then
 				addDisk(
 					proxy,
-					proxy.spaceTotal() < 1 * 1024 * 1024 and floppyImage or HDDImage,
+					proxy.spaceTotal() < 1 * 1024 * 1024 and HDDImage or HDDImage,
 					proxy.isReadOnly() or proxy.spaceTotal() < 2 * 1024 * 1024
 				)
 			end
@@ -815,7 +517,7 @@ local floppyImage = loadImage("HDD")
 
 		select(selectedFilesystemProxy)
 	end
-	
+
 	updateDisks()
 end)
 
@@ -832,7 +534,7 @@ addStage(function()
 	layout:addChild(passwordSubmitInput)
 	layout:addChild(usernamePasswordText)
 	layout:addChild(withoutPasswordSwitchAndLabel)
-	
+
 	checkUserInputs()
 end)
 
@@ -848,20 +550,17 @@ addStage(function()
 	layout:addChild(localizationsSwitchAndLabel)
 end)
 
--- Feature #4: License acception stage with localized license
+-- License acception stage
 addStage(function()
 	checkLicense()
 
-	-- Get localized license file
-	local selectedLocalization = localizationComboBox:getItem(localizationComboBox.selectedItem).text
-	local licenseFile = getLicenseFile(selectedLocalization)
-	local lines = text.wrap({request(installerURL .. "Licenses/" .. licenseFile)}, layout.width - 2)
+	local lines = text.wrap({request("Licenses/LICENSE_en_US")}, layout.width - 2)
 	local textBox = layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 3, 0xF0F0F0, 0x696969, lines, 1, 1, 1))
 
 	layout:addChild(acceptSwitchAndLabel)
 end)
 
--- Feature #3: Downloading stage with time estimation
+-- Downloading stage
 addStage(function()
 	stageButtonsLayout:removeChildren()
 	
@@ -873,7 +572,7 @@ addStage(function()
 
 	-- Renaming if possible
 	if not selectedFilesystemProxy.getLabel() then
-		selectedFilesystemProxy.setLabel("PixelOS Install")
+		selectedFilesystemProxy.setLabel("PixelOS HDD")
 	end
 
 	local function switchProxy(runnable)
@@ -898,10 +597,9 @@ addStage(function()
 	layout:removeChildren()
 	addImage(3, 2, "Downloading")
 
-	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 3))
+	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 2))
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
-	local currentFileLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	local progressInfoLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x666666, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local cyka = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -916,11 +614,7 @@ addStage(function()
 
 	local function addToList(state, key)
 		if state then
-			local selectedItem = localizationComboBox:getItem(localizationComboBox.selectedItem)
-			local selectedLocalization, path, localizationName
-			if selectedItem and selectedItem.text then
-				selectedLocalization = selectedItem.text
-			end
+			local selectedLocalization, path, localizationName = localizationComboBox:getItem(localizationComboBox.selectedItem).text
 			
 			for i = 1, #files[key] do
 				path = getData(files[key][i])
@@ -951,27 +645,12 @@ addStage(function()
 	addToList(applicationsSwitchAndLabel.switch.state, "optional")
 	addToList(wallpapersSwitchAndLabel.switch.state, "optionalWallpapers")
 
-	-- Feature #3: Downloading files with time estimation
+	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}
-	local downloadStartTime = computer.uptime()
-	
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
-		-- Calculate ETA
-		local elapsed = computer.uptime() - downloadStartTime
-		local remaining = #downloadList - i
-		local eta = (elapsed / i) * remaining
-		
-		local timeText
-		if eta < 60 then
-			timeText = string.format("~%ds", math.floor(eta))
-		else
-			timeText = string.format("~%dm", math.floor(eta / 60))
-		end
-		
-		currentFileLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
-		progressInfoLabel.text = string.format("%d/%d | %s", i, #downloadList, timeText)
+		cyka.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
 		workspace:draw()
 
 		-- Download file
@@ -1009,6 +688,7 @@ addStage(function()
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install Bios")
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 
+
 	-- Saving system versions
 	switchProxy(function()
 		filesystem.writeTable(paths.system.versions, versions, true)
@@ -1030,48 +710,4 @@ end)
 --------------------------------------------------------------------------------
 
 loadStage()
-
-local event = require("Event")
-local statusUpdateHandler = event.addHandler(function()
-	log("statusUpdateHandler called", "workspace:", workspace, "workspace.draw:", workspace and workspace.draw)
-	if workspace and workspace.draw then
-		updateStatusMenuItem()
-		workspace:draw()
-	end
-end, 1)
-
-flushLog()
-
--- Error handling with detailed logging
-local function handleErrors()
-	local success, err = pcall(function()
-		workspace:start()
-	end)
-	if not success then
-		logError("Fatal error: " .. tostring(err))
-		
-		-- Log workspace state
-		logError("workspace: " .. tostring(workspace))
-		logError("workspace.draw: " .. tostring(workspace and workspace.draw))
-		logError("workspace.children: " .. tostring(workspace and #workspace.children))
-		
-		if workspace and workspace.children then
-			for i = 1, #workspace.children do
-				local child = workspace.children[i]
-				logError("Child " .. i .. ": " .. tostring(child) .. ", draw: " .. tostring(child.draw))
-			end
-		end
-		
-		flushLog()
-		
-		-- Display error on screen
-		component.invoke(GPUAddress, "setBackground", 0x000000)
-		component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
-		component.invoke(GPUAddress, "setForeground", 0xFFFFFF)
-		component.invoke(GPUAddress, "set", 1, 1, "Error: " .. err)
-		component.invoke(GPUAddress, "set", 1, 3, "Check log at: " .. logFilePath)
-		error(err)
-	end
-end
-
-handleErrors()
+workspace:start()
