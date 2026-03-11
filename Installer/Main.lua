@@ -128,13 +128,20 @@ local function download(url, path)
 
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
 	if fileHandle then
-		rawRequest(url, function(chunk)
-			selectedFilesystemProxy.write(fileHandle, chunk)
+		local success, err = pcall(function()
+			rawRequest(url, function(chunk)
+				selectedFilesystemProxy.write(fileHandle, chunk)
+			end)
 		end)
-
+		
 		selectedFilesystemProxy.close(fileHandle)
+		
+		if not success then
+			-- File doesn't exist on server, remove the empty file
+			selectedFilesystemProxy.remove(path)
+		end
 	else
-		error("File opening failed: " .. tostring(reason))
+		-- Don't error, just skip this file
 	end
 end
 
@@ -638,7 +645,7 @@ addStage(function()
 		langCode = selectedLang
 	end
 	
-	local licenseURL = "Licenses/LICENSE_" .. langCode
+	local licenseURL = "Installer/Licenses/LICENSE_" .. langCode
 	local licenseContent
 	local success, err = pcall(function()
 		licenseContent = request(licenseURL)
@@ -647,7 +654,7 @@ addStage(function()
 	if not success or not licenseContent or licenseContent == "" then
 		-- Try fallback to English if specific language not found
 		success, err = pcall(function()
-			licenseContent = request("Licenses/LICENSE_en_US")
+			licenseContent = request("Installer/Licenses/LICENSE_en_US")
 		end)
 	end
 	
