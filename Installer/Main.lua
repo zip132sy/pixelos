@@ -475,56 +475,62 @@ local function updateStatusBar()
 	local batteryText = "电量：--%"
 	
 	-- Get battery info using correct OpenComputers API with error handling
-	local battery = nil
+	local batteryFound = false
 	for address in component.list("battery") do
-		battery = address
-		break
-	end
-	if battery then
-		local success, proxy = pcall(component.proxy, battery)
+		local success, proxy = pcall(component.proxy, address)
 		if success and proxy then
 			local energy = 0
+			local cur, mx
+			
 			-- Try different battery API methods
-			if proxy.getEnergy and proxy.getMaxEnergy then
+			local apiType = "unknown"
+			if type(proxy.getEnergy) == "function" and type(proxy.getMaxEnergy) == "function" then
 				-- Newer OpenComputers API
-				local success1, cur = pcall(proxy.getEnergy, proxy)
-				local success2, mx = pcall(proxy.getMaxEnergy, proxy)
-				if success1 and success2 and cur and mx and mx > 0 then
-					energy = math.floor((cur / mx) * 100)
-					batteryText = "电量：" .. energy .. "%"
+				local success1, value1 = pcall(proxy.getEnergy, proxy)
+				local success2, value2 = pcall(proxy.getMaxEnergy, proxy)
+				if success1 and success2 and value1 and value2 and value2 > 0 then
+					cur, mx = value1, value2
+					apiType = "new"
 				end
-			elseif proxy.energy and proxy.maxEnergy then
+			elseif proxy.energy ~= nil and proxy.maxEnergy ~= nil then
 				-- Older OpenComputers API
-				local success1, cur = pcall(function() return proxy.energy end)
-				local success2, mx = pcall(function() return proxy.maxEnergy end)
-				if success1 and success2 and cur and mx and mx > 0 then
-					energy = math.floor((cur / mx) * 100)
-					batteryText = "电量：" .. energy .. "%"
+				local success1, value1 = pcall(function() return proxy.energy end)
+				local success2, value2 = pcall(function() return proxy.maxEnergy end)
+				if success1 and success2 and value1 and value2 and value2 > 0 then
+					cur, mx = value1, value2
+					apiType = "old"
 				end
+			end
+			
+			if cur and mx and mx > 0 then
+				energy = math.floor((cur / mx) * 100)
+				batteryText = "电量：" .. energy .. "%"
+				batteryFound = true
+				break
 			end
 		end
 	end
 	
-	-- Get real time using computer.getTime() or fallback to uptime
+	-- Get real time using os.time() which should return real world time
 	local timeText = "00:00"
-	local success, realTime = pcall(computer.getTime)
-	if success and realTime then
+	local success, currentTime = pcall(os.time)
+	if success and currentTime then
 		-- Use os.date to format the time
-		local success2, dateTable = pcall(os.date, "*t", realTime)
+		local success2, dateTable = pcall(os.date, "*t", currentTime)
 		if success2 and dateTable and dateTable.hour and dateTable.min then
 			timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
 		else
 			-- Fallback to simple time formatting
-			local hours = math.floor(realTime / 3600) % 24
-			local minutes = math.floor((realTime % 3600) / 60)
+			local hours = math.floor(currentTime / 3600) % 24
+			local minutes = math.floor((currentTime % 3600) / 60)
 			timeText = string.format("%02d:%02d", hours, minutes)
 		end
 	else
-		-- Fallback to uptime if getTime fails
-		local success3, uptime = pcall(computer.uptime)
-		if success3 and uptime then
-			local hours = math.floor(uptime / 3600) % 24
-			local minutes = math.floor((uptime % 3600) / 60)
+		-- Fallback to computer.getTime() if os.time() fails
+		local success3, realTime = pcall(computer.getTime)
+		if success3 and realTime then
+			local hours = math.floor(realTime / 3600) % 24
+			local minutes = math.floor((realTime % 3600) / 60)
 			timeText = string.format("%02d:%02d", hours, minutes)
 		end
 	end
