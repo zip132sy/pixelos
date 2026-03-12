@@ -561,7 +561,22 @@ end
 -- Run with error handling
 local success, err = pcall(boot)
 if not success then
-    executeString('print("Critical error during boot: ' .. tostring(err) .. '")')
+    -- Display error using GPU directly (safer than print() during early boot)
+    local gpu = component.gpu
+    if gpu then
+        gpu.setForeground(0xFF0000)
+        gpu.setBackground(0x000000)
+        gpu.fill(1, 1, gpu.getResolution())
+        local screenWidth, screenHeight = gpu.getResolution()
+        local errorMsg = "Critical error during boot: " .. tostring(err)
+        local x = math.floor(screenWidth / 2 - #errorMsg / 2)
+        local y = math.floor(screenHeight / 2)
+        gpu.set(x, y, errorMsg)
+    end
+    
+    -- Wait for user input before continuing
+    computer.pullSignal()
+    
     -- Try to boot from any available filesystem
     for address in component.list("filesystem") do
         local proxy = component.proxy(address)
