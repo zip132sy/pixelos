@@ -384,7 +384,9 @@ local function newSwitchAndLabel(width, color, text, state)
 end
 
 local function addTitle(color, text)
-	return layout:addChild(GUI.label(1, 1, layout.width, 1, color, text))
+	local label = layout:addChild(GUI.label(1, 1, layout.width, 1, color, text))
+	label:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	return label
 end
 
 local function addImage(before, after, name)
@@ -484,21 +486,32 @@ local function updateStatusBar()
 			
 			-- Try different battery API methods
 			local apiType = "unknown"
+			
+			-- Method 1: Newer OpenComputers API (getEnergy/getMaxEnergy)
 			if type(proxy.getEnergy) == "function" and type(proxy.getMaxEnergy) == "function" then
-				-- Newer OpenComputers API
 				local success1, value1 = pcall(proxy.getEnergy, proxy)
 				local success2, value2 = pcall(proxy.getMaxEnergy, proxy)
 				if success1 and success2 and value1 and value2 and value2 > 0 then
 					cur, mx = value1, value2
 					apiType = "new"
 				end
-			elseif proxy.energy ~= nil and proxy.maxEnergy ~= nil then
-				-- Older OpenComputers API
+			end
+			
+			-- Method 2: Older OpenComputers API (energy/maxEnergy)
+			if not cur and proxy.energy ~= nil and proxy.maxEnergy ~= nil then
 				local success1, value1 = pcall(function() return proxy.energy end)
 				local success2, value2 = pcall(function() return proxy.maxEnergy end)
 				if success1 and success2 and value1 and value2 and value2 > 0 then
 					cur, mx = value1, value2
 					apiType = "old"
+				end
+			end
+			
+			-- Method 3: Try direct access without pcall (for some implementations)
+			if not cur and proxy.energy and proxy.maxEnergy then
+				if proxy.maxEnergy > 0 then
+					cur, mx = proxy.energy, proxy.maxEnergy
+					apiType = "direct"
 				end
 			end
 			
@@ -1093,7 +1106,22 @@ addStage(function()
 	
 	-- Check total available space once at the beginning
 	local totalAvailableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
-	local estimatedTotalSize = #downloadList * 50 * 1024  -- Estimate 50KB per file average
+	-- More accurate space estimation based on actual file types
+	local estimatedTotalSize = 0
+	for i = 1, #downloadList do
+		local path = getData(downloadList[i])
+		if filesystem.extension(path) == ".lua" then
+			estimatedTotalSize = estimatedTotalSize + 10 * 1024  -- 10KB per Lua file
+		elseif filesystem.extension(path) == ".pic" then
+			estimatedTotalSize = estimatedTotalSize + 50 * 1024  -- 50KB per image
+		elseif filesystem.extension(path) == ".lang" then
+			estimatedTotalSize = estimatedTotalSize + 2 * 1024  -- 2KB per localization
+		else
+			estimatedTotalSize = estimatedTotalSize + 20 * 1024  -- 20KB for other files
+		end
+	end
+	-- Add 20% buffer for file system overhead
+	estimatedTotalSize = estimatedTotalSize * 1.2
 	
 	if totalAvailableSpace < estimatedTotalSize then
 		-- Not enough space, but continue anyway with warning
