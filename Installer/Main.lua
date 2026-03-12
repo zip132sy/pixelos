@@ -532,7 +532,8 @@ local function updateStatusBar()
 	if internetComponent then
 		local success, internet = pcall(component.proxy, internetComponent)
 		if success and internet then
-			local success2, handle = pcall(internet.request, "http://worldtimeapi.org/api/ip")
+			-- Use uapis.cn API with city parameter set to Asia/Shanghai (Beijing)
+			local success2, handle = pcall(internet.request, "https://uapis.cn/api/v1/misc/worldtime?city=Asia/Shanghai")
 			if success2 and handle then
 				local success3, result = pcall(handle.read)
 				if success3 and result then
@@ -542,30 +543,23 @@ local function updateStatusBar()
 						json = json:gsub("^{" , ""):gsub("}$", "")
 						-- Split into key-value pairs
 						local pairs = {}
-						-- Extract datetime directly
-						local datetime = json:match('"datetime":"([^"]+)"')
-						if datetime then
-							return {datetime = datetime}
+						-- Extract time directly
+						local hour = json:match('"hour":(%d+)')
+						local minute = json:match('"minute":(%d+)')
+						if hour and minute then
+							return {hour = hour, minute = minute}
 						end
 						return {}
 					end
 					
 					local data = parseJSON(result)
-					if data and data.datetime then
-						-- Extract time from datetime string (format: 2024-03-12T12:34:56+08:00)
-						local hour, min = data.datetime:match("T(%d%d):(%d%d):")
-						if hour and min then
-							timeText = string.format("%02d:%02d", tonumber(hour), tonumber(min))
-							-- Update bootRealTime for future calculations
-							local year, month, day = data.datetime:match("(%d%d%d%d)%-(%d%d)%-(%d%d)T")
-							if year and month and day then
-								-- Calculate timestamp from date components
-								local success4, timestamp = pcall(os.time, {year=tonumber(year), month=tonumber(month), day=tonumber(day), hour=tonumber(hour), min=tonumber(min), sec=0})
-								if success4 and timestamp then
-									bootRealTime = timestamp
-									timeTimezone = 0 -- Use timezone from API
-								end
-							end
+					if data and data.hour and data.minute then
+						timeText = string.format("%02d:%02d", tonumber(data.hour), tonumber(data.minute))
+						-- Update bootRealTime for future calculations
+						local success4, timestamp = pcall(os.time)
+						if success4 and timestamp then
+							bootRealTime = timestamp
+							timeTimezone = 8 * 3600 -- UTC+8 for Beijing
 						end
 					end
 				end
