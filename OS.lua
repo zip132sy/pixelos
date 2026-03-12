@@ -561,17 +561,44 @@ end
 -- Run with error handling
 local success, err = pcall(boot)
 if not success then
-    -- Display error using GPU directly (safer than print() during early boot)
+    -- Display error using GPU directly with multi-line support
     local gpu = component.gpu
     if gpu then
         gpu.setForeground(0xFF0000)
         gpu.setBackground(0x000000)
         gpu.fill(1, 1, gpu.getResolution())
+        
         local screenWidth, screenHeight = gpu.getResolution()
         local errorMsg = "Critical error during boot: " .. tostring(err)
-        local x = math.floor(screenWidth / 2 - #errorMsg / 2)
-        local y = math.floor(screenHeight / 2)
-        gpu.set(x, y, errorMsg)
+        
+        -- Split error message into multiple lines (max 60 chars per line)
+        local maxLineLength = math.floor(screenWidth * 0.8)
+        local lines = {}
+        
+        for i = 1, math.ceil(#errorMsg / maxLineLength) do
+            local startIdx = (i - 1) * maxLineLength + 1
+            local endIdx = math.min(i * maxLineLength, #errorMsg)
+            table.insert(lines, errorMsg:sub(startIdx, endIdx))
+        end
+        
+        -- Display title
+        local title = "Boot Error"
+        local titleX = math.floor(screenWidth / 2 - #title / 2)
+        gpu.set(titleX, 2, 0xFFFFFF, title)
+        
+        -- Display error lines (centered)
+        local startY = math.floor(screenHeight / 2 - #lines / 2)
+        for i, line in ipairs(lines) do
+            local x = math.floor(screenWidth / 2 - #line / 2)
+            gpu.set(x, startY + i, 0xFF0000, line)
+        end
+        
+        -- Display scroll instructions if needed
+        if #lines > screenHeight - 10 then
+            local instruction = "Press any key to continue"
+            local instX = math.floor(screenWidth / 2 - #instruction / 2)
+            gpu.set(instX, screenHeight - 2, 0x878787, instruction)
+        end
     end
     
     -- Wait for user input before continuing

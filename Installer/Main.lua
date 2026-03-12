@@ -1357,11 +1357,73 @@ addStage(function()
 		layout:removeChildren()
 		addImage(1, 1, "Error")
 		addTitle(0xFF0000, "EEPROM 烧录失败")
-		local info = string.format("错误：%s", tostring(result))
-		workspace:addChild(GUI.label(1, title() + 2, workspace.width - 2, 1, 0x696969, info)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-		workspace:addChild(GUI.label(1, title() + 3, workspace.width - 2, 1, 0x696969, "EEPROM 空间不足或写入失败")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-		workspace:draw()
-		computer.pullSignal(5)
+		
+		-- Display error message with word wrapping and scroll support
+		local errorMessage = tostring(result)
+		local lines = {}
+		
+		-- Split error message into lines (word wrap at 60 characters)
+		local maxLineLength = 60
+		for i = 1, math.ceil(#errorMessage / maxLineLength) do
+			local startIdx = (i - 1) * maxLineLength + 1
+			local endIdx = math.min(i * maxLineLength, #errorMessage)
+			table.insert(lines, errorMessage:sub(startIdx, endIdx))
+		end
+		
+		-- Add error details
+		table.insert(lines, 1, "错误信息:")
+		table.insert(lines, "EEPROM 空间不足或写入失败")
+		
+		-- Create scrollable text area
+		local startY = title() + 2
+		local lineHeight = 1
+		local maxVisibleLines = math.floor((workspace.height - startY - 2) / lineHeight)
+		
+		local scrollOffset = 0
+		local function updateErrorDisplay()
+			layout:removeChildren()
+			addImage(1, 1, "Error")
+			addTitle(0xFF0000, "EEPROM 烧录失败")
+			
+			for i = 1, math.min(maxVisibleLines, #lines - scrollOffset) do
+				local lineIdx = scrollOffset + i
+				if lineIdx <= #lines then
+					local label = workspace:addChild(GUI.label(1, startY + i - 1, workspace.width - 2, 1, 0x696969, lines[lineIdx]))
+					label:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+				end
+			end
+			
+			-- Add scroll indicator if needed
+			if #lines > maxVisibleLines then
+				local scrollInfo = string.format("滚动：%d/%d", scrollOffset + 1, #lines)
+				workspace:addChild(GUI.label(1, workspace.height - 1, workspace.width - 2, 1, 0x878787, scrollInfo)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_BOTTOM)
+			end
+			
+			workspace:draw()
+		end
+		
+		updateErrorDisplay()
+		
+		-- Handle scroll input (keyboard only, ignore mouse scroll)
+		local deadline = computer.uptime() + 5
+		while computer.uptime() < deadline do
+			local event = {computer.pullSignal()}
+			-- Only respond to key_down events, ignore mouse/touch events
+			if event[1] == "key_down" then
+				local key = event[3]
+				if key == 200 and scrollOffset > 0 then  -- Up arrow
+					scrollOffset = scrollOffset - 1
+					updateErrorDisplay()
+				elseif key == 208 and scrollOffset < #lines - maxVisibleLines then  -- Down arrow
+					scrollOffset = scrollOffset + 1
+					updateErrorDisplay()
+				elseif key == 28 then  -- Enter
+					break
+				end
+			end
+			-- Ignore all other events (mouse, touch, scroll, etc.)
+		end
+		
 		computer.shutdown()
 		return
 	end
@@ -1373,12 +1435,22 @@ addStage(function()
 	-- Ask user if they want to install BIOS Manager
 	local installBiosManager = false
 	local confirmWindow = workspace:addChild(GUI.window(math.floor(workspace.width / 2 - 20), math.floor(workspace.height / 2 - 8), 40, 16))
-	confirmWindow:addChild(GUI.panel(1, 1, confirmWindow.width, confirmWindow.height, 0xE1E1E1))
+	confirmWindow.backgroundPanel = confirmWindow:addChild(GUI.panel(1, 1, confirmWindow.width, confirmWindow.height, 0xE1E1E1))
+	
+	-- Title
 	confirmWindow:addChild(GUI.label(1, 2, confirmWindow.width, 1, 0x2D2D2D, localization.installBiosManager or "安装 BIOS 管理器？")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	
+	-- Description
 	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
-	local confirmButton = confirmWindow:addChild(GUI.button(math.floor(confirmWindow.width / 2 - 10), 8, 18, 3, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
-	local cancelButton = confirmWindow:addChild(GUI.button(math.floor(confirmWindow.width / 2 + 2), 8, 18, 3, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
+	-- Buttons (properly spaced)
+	local buttonWidth = 12
+	local spacing = 2
+	local totalWidth = buttonWidth * 2 + spacing
+	local startX = math.floor((confirmWindow.width - totalWidth) / 2) + 1
+	
+	local confirmButton = confirmWindow:addChild(GUI.button(startX, 10, buttonWidth, 3, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
+	local cancelButton = confirmWindow:addChild(GUI.button(startX + buttonWidth + spacing, 10, buttonWidth, 3, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
 	
 	local confirmResult = false
 	
@@ -1398,25 +1470,29 @@ addStage(function()
 	
 	workspace:draw()
 	
-	-- Wait for user input using simple event loop (no workspace:start dependency)
+	-- Wait for user input using simple event loop
 	while not confirmResult do
 		local event = {computer.pullSignal()}
 		if event[1] == "touch" then
-			-- Manually check if touch is on any button
-			-- Convert event coordinates to numbers (they might be strings)
 			local touchX, touchY = tonumber(event[2]), tonumber(event[3])
 			
-			for _, child in ipairs(confirmWindow.children) do
-				if child.onTouch and touchX and touchY then
-					local childX, childY = tonumber(child.x), tonumber(child.y)
-					local childWidth, childHeight = tonumber(child.width), tonumber(child.height)
-					
-					if childX and childY and childWidth and childHeight and
-					   touchX >= childX and touchX < childX + childWidth and
-					   touchY >= childY and touchY < childY + childHeight then
-						child.onTouch()
-						break
-					end
+			-- Check confirm button
+			if touchX and touchY then
+				local cX, cY = tonumber(confirmButton.x), tonumber(confirmButton.y)
+				local cW, cH = tonumber(confirmButton.width), tonumber(confirmButton.height)
+				if cX and cY and cW and cH and
+				   touchX >= cX and touchX < cX + cW and
+				   touchY >= cY and touchY < cY + cH then
+					confirmButton.onTouch()
+				end
+				
+				-- Check cancel button
+				local nX, nY = tonumber(cancelButton.x), tonumber(cancelButton.y)
+				local nW, nH = tonumber(cancelButton.width), tonumber(cancelButton.height)
+				if nX and nY and nW and nH and
+				   touchX >= nX and touchX < nX + nW and
+				   touchY >= nY and touchY < nY + nH then
+					cancelButton.onTouch()
 				end
 			end
 		end
