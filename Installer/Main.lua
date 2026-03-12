@@ -5,7 +5,7 @@ local repositoryURLs = {
 }
 local repositoryURL = repositoryURLs[1]
 local installerURL = "Installer/"
-local EFIURL = "EFI/BIOS.lua"
+local EFIURL = "EFI/Minified.lua"  -- 使用精简版 EFI，兼容更好的 EEPROM
 
 local installerPath = "/PixelOS installer/"
 local installerPicturesPath = installerPath .. "Installer/Pictures/"
