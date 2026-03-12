@@ -1377,8 +1377,8 @@ addStage(function()
 	confirmWindow:addChild(GUI.label(1, 2, confirmWindow.width, 1, 0x2D2D2D, localization.installBiosManager or "安装 BIOS 管理器？")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
-	local confirmButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 8, 2, 0, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
-	local cancelButton = confirmWindow:addChild(GUI.adaptiveRoundedButton(1, 10, 2, 0, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
+	local confirmButton = confirmWindow:addChild(GUI.button(math.floor(confirmWindow.width / 2 - 10), 8, 18, 3, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
+	local cancelButton = confirmWindow:addChild(GUI.button(math.floor(confirmWindow.width / 2 + 2), 8, 18, 3, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
 	
 	local confirmResult = false
 	
@@ -1399,7 +1399,10 @@ addStage(function()
 	workspace:draw()
 	
 	while not confirmResult do
-		computer.pullSignal(0.1)
+		local event = {computer.pullSignal()}
+		if event[1] == "touch" then
+			workspace:eventHandler(event)
+		end
 	end
 	
 	if installBiosManager then
@@ -1411,9 +1414,10 @@ addStage(function()
 		local bootManagerURL = "EFI/BootManager.lua"
 		local bootManagerCode = request(bootManagerURL)
 		
-		-- Check EEPROM space for BIOS Manager
-		local eepromTotal = component.invoke(EEPROMAddress, "getSize")()
-		if #bootManagerCode > eepromTotal then
+		-- Try to write BIOS Manager to EEPROM
+		local success, result = pcall(component.invoke, EEPROMAddress, "set", bootManagerCode)
+		
+		if not success then
 			layout:removeChildren()
 			addImage(1, 1, "Warning")
 			addTitle(0xFF9900, "BIOS 管理器安装失败")
@@ -1422,7 +1426,6 @@ addStage(function()
 			workspace:draw()
 			computer.pullSignal(2)
 		else
-			component.invoke(EEPROMAddress, "set", bootManagerCode)
 			component.invoke(EEPROMAddress, "setLabel", "PixelOS Bios Manager")
 		end
 	end

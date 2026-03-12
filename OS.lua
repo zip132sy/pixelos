@@ -561,7 +561,7 @@ end
 -- Run with error handling
 local success, err = pcall(boot)
 if not success then
-    executeString([[print("Critical error during boot: "]] .. tostring(err) .. [[")]])
+    executeString('print("Critical error during boot: ' .. tostring(err) .. '")')
     -- Try to boot from any available filesystem
     for address in component.list("filesystem") do
         local proxy = component.proxy(address)
