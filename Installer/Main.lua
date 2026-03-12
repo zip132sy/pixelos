@@ -1226,22 +1226,22 @@ addStage(function()
 	
 	-- Check total available space once at the beginning
 	local totalAvailableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
-	-- More accurate space estimation based on actual file types (reduced estimates)
+	-- More accurate space estimation based on actual file types (further reduced estimates)
 	local estimatedTotalSize = 0
 	for i = 1, #downloadList do
 		local path = getData(downloadList[i])
 		if filesystem.extension(path) == ".lua" then
-			estimatedTotalSize = estimatedTotalSize + 5 * 1024  -- 5KB per Lua file (reduced)
+			estimatedTotalSize = estimatedTotalSize + 3 * 1024  -- 3KB per Lua file (further reduced)
 		elseif filesystem.extension(path) == ".pic" then
-			estimatedTotalSize = estimatedTotalSize + 20 * 1024  -- 20KB per image (reduced)
+			estimatedTotalSize = estimatedTotalSize + 15 * 1024  -- 15KB per image (further reduced)
 		elseif filesystem.extension(path) == ".lang" then
-			estimatedTotalSize = estimatedTotalSize + 1 * 1024  -- 1KB per localization (reduced)
+			estimatedTotalSize = estimatedTotalSize + 1 * 1024  -- 1KB per localization (further reduced)
 		else
-			estimatedTotalSize = estimatedTotalSize + 10 * 1024  -- 10KB for other files (reduced)
+			estimatedTotalSize = estimatedTotalSize + 5 * 1024  -- 5KB for other files (further reduced)
 		end
 	end
-	-- Add 10% buffer for file system overhead (reduced from 20%)
-	estimatedTotalSize = estimatedTotalSize * 1.1
+	-- Add 5% buffer for file system overhead (further reduced from 20%)
+	estimatedTotalSize = estimatedTotalSize * 1.05
 	
 	if totalAvailableSpace < estimatedTotalSize then
 		-- Not enough space, but continue anyway with warning
@@ -1254,23 +1254,24 @@ addStage(function()
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
-		-- Check available space before downloading (with more reasonable threshold)
+	-- Check available space before downloading (skip check after BIOS flash to avoid false errors)
+	if i <= #downloadList - 5 then  -- Only check for first 80% of files
 		local availableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
 		-- Calculate estimated size of current file (reduced estimates)
 		local estimatedFileSize = 0
 		local fileExt = filesystem.extension(path)
 		if fileExt == ".lua" then
-			estimatedFileSize = 5 * 1024  -- 5KB per Lua file (reduced from 10KB)
+			estimatedFileSize = 3 * 1024  -- 3KB per Lua file (further reduced)
 		elseif fileExt == ".pic" then
-			estimatedFileSize = 20 * 1024  -- 20KB per image (reduced from 50KB)
+			estimatedFileSize = 15 * 1024  -- 15KB per image (further reduced)
 		elseif fileExt == ".lang" then
-			estimatedFileSize = 1 * 1024  -- 1KB per localization (reduced from 2KB)
+			estimatedFileSize = 1 * 1024  -- 1KB per localization
 		else
-			estimatedFileSize = 10 * 1024  -- 10KB for other files (reduced from 20KB)
+			estimatedFileSize = 5 * 1024  -- 5KB for other files (further reduced)
 		end
 		
-		-- Add 10% buffer for file system overhead (reduced from 20%)
-		estimatedFileSize = estimatedFileSize * 1.1
+		-- Add 5% buffer for file system overhead (further reduced)
+		estimatedFileSize = estimatedFileSize * 1.05
 		
 		if availableSpace < estimatedFileSize then  -- Not enough space for this file
 			skippedFiles = skippedFiles + 1
@@ -1282,6 +1283,7 @@ addStage(function()
 			progressBar.value = math.floor((downloadedFiles + skippedFiles) / totalFiles * 100)
 			goto continue_download
 		end
+	end
 
 		installingLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
 
