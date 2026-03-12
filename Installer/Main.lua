@@ -484,18 +484,24 @@ local function updateStatusBar()
 		local success, proxy = pcall(component.proxy, battery)
 		if success and proxy then
 			local energy = 0
-			-- OpenComputers battery API: getEnergy() and getMaxEnergy()
+			-- Try different battery API methods
 			if proxy.getEnergy and proxy.getMaxEnergy then
-				local current, max
+				-- Newer OpenComputers API
 				local success1, cur = pcall(proxy.getEnergy, proxy)
 				local success2, mx = pcall(proxy.getMaxEnergy, proxy)
 				if success1 and success2 and cur and mx and mx > 0 then
-					current = cur
-					max = mx
-					energy = math.floor((current / max) * 100)
+					energy = math.floor((cur / mx) * 100)
+					batteryText = "电量：" .. energy .. "%"
+				end
+			elseif proxy.energy and proxy.maxEnergy then
+				-- Older OpenComputers API
+				local success1, cur = pcall(function() return proxy.energy end)
+				local success2, mx = pcall(function() return proxy.maxEnergy end)
+				if success1 and success2 and cur and mx and mx > 0 then
+					energy = math.floor((cur / mx) * 100)
+					batteryText = "电量：" .. energy .. "%"
 				end
 			end
-			batteryText = "电量：" .. energy .. "%"
 		end
 	end
 	
@@ -507,6 +513,11 @@ local function updateStatusBar()
 		local success2, dateTable = pcall(os.date, "*t", realTime)
 		if success2 and dateTable and dateTable.hour and dateTable.min then
 			timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
+		else
+			-- Fallback to simple time formatting
+			local hours = math.floor(realTime / 3600) % 24
+			local minutes = math.floor((realTime % 3600) / 60)
+			timeText = string.format("%02d:%02d", hours, minutes)
 		end
 	else
 		-- Fallback to uptime if getTime fails
@@ -519,22 +530,22 @@ local function updateStatusBar()
 	end
 	
 	-- Format status bar text: battery on right, time in center
-local sw, sh = component.invoke(GPUAddress, "getResolution")
-if not sw then sw = 80 end  -- Default width if failed
+	local sw, sh = component.invoke(GPUAddress, "getResolution")
+	if not sw then sw = 80 end  -- Default width if failed
 
--- Set BLACK text color for all status bar text
-component.invoke(GPUAddress, "setForeground", 0x000000)
+	-- Set BLACK text color for all status bar text
+	component.invoke(GPUAddress, "setForeground", 0x000000)
 
--- Draw battery on right (without clearing entire line to avoid covering menu)
-component.invoke(GPUAddress, "setBackground", 0xFFFFFF)
-local batteryStart = sw - #batteryText + 1
-component.invoke(GPUAddress, "fill", batteryStart, 1, #batteryText, 1, " ")
-component.invoke(GPUAddress, "set", batteryStart, 1, batteryText)
+	-- Draw battery on right (without clearing entire line to avoid covering menu)
+	component.invoke(GPUAddress, "setBackground", 0xFFFFFF)
+	local batteryStart = sw - #batteryText + 1
+	component.invoke(GPUAddress, "fill", batteryStart, 1, #batteryText, 1, " ")
+	component.invoke(GPUAddress, "set", batteryStart, 1, batteryText)
 
--- Draw time in center (without clearing entire line)
-local timeStart = centrize(#timeText)
-component.invoke(GPUAddress, "fill", timeStart, 1, #timeText, 1, " ")
-component.invoke(GPUAddress, "set", timeStart, 1, timeText)
+	-- Draw time in center (without clearing entire line)
+	local timeStart = centrize(#timeText)
+	component.invoke(GPUAddress, "fill", timeStart, 1, #timeText, 1, " ")
+	component.invoke(GPUAddress, "set", timeStart, 1, timeText)
 end
 
 -- Initialize status bar after function is defined
@@ -797,6 +808,40 @@ addStage(function()
 	layout:addChild(applicationsSwitchAndLabel)
 	layout:addChild(localizationsSwitchAndLabel)
 	layout:addChild(tabletModeSwitchAndLabel)
+
+	-- Add space usage estimation
+	local spaceLabel = layout:addChild(GUI.text(1, 1, 0x696969, "预计空间使用: 计算中..."))
+	spaceLabel:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+
+	-- Calculate estimated space usage
+	local function calculateSpace()
+		local baseSize = 1024 * 1024  -- 1MB base system
+		local wallpapersSize = wallpapersSwitchAndLabel.switch.state and 512 * 1024 or 0
+		local applicationsSize = applicationsSwitchAndLabel.switch.state and 1024 * 1024 or 0
+		local localizationsSize = localizationsSwitchAndLabel.switch.state and 256 * 1024 or 0
+		local totalSize = baseSize + wallpapersSize + applicationsSize + localizationsSize
+		return totalSize
+	end
+
+	-- Update space label
+	local function updateSpaceLabel()
+		local totalSize = calculateSpace()
+		local sizeText = string.format("预计空间使用: %.2f MB", totalSize / (1024 * 1024))
+		spaceLabel.text = sizeText
+		workspace:draw()
+	end
+
+	-- Initial update
+	updateSpaceLabel()
+
+	-- Update space label when switches change
+	local function onSwitchChange()
+		updateSpaceLabel()
+	end
+
+	wallpapersSwitchAndLabel.switch.onStateChanged = onSwitchChange
+	applicationsSwitchAndLabel.switch.onStateChanged = onSwitchChange
+	localizationsSwitchAndLabel.switch.onStateChanged = onSwitchChange
 end)
 
 -- License acception stage
