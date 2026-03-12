@@ -1426,8 +1426,11 @@ addStage(function()
 			workspace:draw()
 			computer.pullSignal(2)
 		else
-			component.invoke(EEPROMAddress, "setLabel", "PixelOS Bios Manager")
+			component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
 		end
+	else
+		-- If BIOS Manager is not installed, set the label to "PixelOS EFI"
+		component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
 	end
 
 
