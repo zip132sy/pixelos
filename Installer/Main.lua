@@ -74,22 +74,39 @@ local function filesystemHideExtension(path)
 	return path:match("(.+)%..+") or path
 end
 
--- Feature: Multiple repository URL fallback
-local function rawRequest(url, chunkHandler)
+-- Feature: Multiple repository URL fallback with timeout
+local function rawRequest(url, chunkHandler, showSource)
 	local lastError = nil
 	
+	-- Try each repository URL in order (Gitee first, then GitHub)
 	for i, repoURL in ipairs(repositoryURLs) do
 		local fullURL = repoURL .. url:gsub("([^%w%-%_%.%~])", function(char)
 			return string.format("%%%02X", string.byte(char))
 		end)
 		
+		-- Show which source is being used (optional)
+		if showSource then
+			if i == 1 then
+				centrizedText(title() + 1, 0x3366CC, "正在连接：Gitee 源")
+			else
+				centrizedText(title() + 1, 0x3366CC, "正在连接：GitHub 源 (Gitee 失败)")
+			end
+			workspace:draw()
+		end
+		
+		-- Try to connect with timeout
 		local internetHandle, reason = component.invoke(internetAddress, "request", fullURL)
 		
 		if internetHandle then
 			local chunk, err
 			local success = true
+			local readTimeout = 5  -- 5 seconds timeout per read operation
+			
 			while true do
-				chunk, err = internetHandle.read(math.huge) 
+				-- Set up a timeout for reading
+				local startTime = computer.uptime()
+				chunk, err = internetHandle.read(math.huge)
+				
 				if chunk then
 					chunkHandler(chunk)
 				else
@@ -101,12 +118,21 @@ local function rawRequest(url, chunkHandler)
 					if success then
 						return true
 					else
+						-- This URL failed, try next one
 						break
 					end
+				end
+				
+				-- Check if we've exceeded timeout
+				if computer.uptime() - startTime > readTimeout then
+					lastError = "Timeout reading from " .. repoURL
+					internetHandle.close()
+					break
 				end
 			end
 		else
 			lastError = reason
+			-- This URL failed to connect, try next one
 		end
 	end
 
@@ -118,7 +144,7 @@ local function request(url)
 
 	rawRequest(url, function(chunk)
 		data = data .. chunk
-	end)
+	end, true)  -- Show source on first connection
 
 	return data
 end
@@ -131,7 +157,7 @@ local function download(url, path)
 		local success, err = pcall(function()
 			rawRequest(url, function(chunk)
 				selectedFilesystemProxy.write(fileHandle, chunk)
-			end)
+			end, false)  -- Don't show source during downloads
 		end)
 		
 		selectedFilesystemProxy.close(fileHandle)
@@ -984,13 +1010,41 @@ addStage(function()
 	local spaceLabel = layout:addChild(GUI.label(1, 1, layout.width, 1, 0x696969, "预计空间使用: 计算中..."))
 	spaceLabel:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
-	-- Calculate estimated space usage
+	-- Calculate estimated space usage (including required files)
 	local function calculateSpace()
-		local baseSize = 1024 * 1024  -- 1MB base system
+		-- Base system (required files only)
+		local baseSize = 0
+		-- Count required files size
+		for i = 1, #files.required do
+			local path = files.required[i].path or files.required[i]
+			local ext = filesystem.extension(path)
+			if ext == ".lua" then
+				baseSize = baseSize + 10 * 1024
+			elseif ext == ".pic" then
+				baseSize = baseSize + 50 * 1024
+			elseif ext == ".lang" then
+				baseSize = baseSize + 2 * 1024
+			else
+				baseSize = baseSize + 20 * 1024
+			end
+		end
+		
+		-- Add optional components
 		local wallpapersSize = wallpapersSwitchAndLabel.switch.state and 512 * 1024 or 0
 		local applicationsSize = applicationsSwitchAndLabel.switch.state and 1024 * 1024 or 0
 		local localizationsSize = localizationsSwitchAndLabel.switch.state and 256 * 1024 or 0
+		
+		-- Add required localizations (always at least 2: selected + English)
+		baseSize = baseSize + 2 * 2 * 1024  -- 2 language files, 2KB each
+		
+		-- Add required wallpapers
+		baseSize = baseSize + 100 * 1024  -- Required wallpapers
+		
 		local totalSize = baseSize + wallpapersSize + applicationsSize + localizationsSize
+		
+		-- Add 20% buffer for file system overhead
+		totalSize = totalSize * 1.2
+		
 		return totalSize
 	end
 
@@ -1171,22 +1225,22 @@ addStage(function()
 	
 	-- Check total available space once at the beginning
 	local totalAvailableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
-	-- More accurate space estimation based on actual file types
+	-- More accurate space estimation based on actual file types (reduced estimates)
 	local estimatedTotalSize = 0
 	for i = 1, #downloadList do
 		local path = getData(downloadList[i])
 		if filesystem.extension(path) == ".lua" then
-			estimatedTotalSize = estimatedTotalSize + 10 * 1024  -- 10KB per Lua file
+			estimatedTotalSize = estimatedTotalSize + 5 * 1024  -- 5KB per Lua file (reduced)
 		elseif filesystem.extension(path) == ".pic" then
-			estimatedTotalSize = estimatedTotalSize + 50 * 1024  -- 50KB per image
+			estimatedTotalSize = estimatedTotalSize + 20 * 1024  -- 20KB per image (reduced)
 		elseif filesystem.extension(path) == ".lang" then
-			estimatedTotalSize = estimatedTotalSize + 2 * 1024  -- 2KB per localization
+			estimatedTotalSize = estimatedTotalSize + 1 * 1024  -- 1KB per localization (reduced)
 		else
-			estimatedTotalSize = estimatedTotalSize + 20 * 1024  -- 20KB for other files
+			estimatedTotalSize = estimatedTotalSize + 10 * 1024  -- 10KB for other files (reduced)
 		end
 	end
-	-- Add 20% buffer for file system overhead
-	estimatedTotalSize = estimatedTotalSize * 1.2
+	-- Add 10% buffer for file system overhead (reduced from 20%)
+	estimatedTotalSize = estimatedTotalSize * 1.1
 	
 	if totalAvailableSpace < estimatedTotalSize then
 		-- Not enough space, but continue anyway with warning
@@ -1201,21 +1255,21 @@ addStage(function()
 
 		-- Check available space before downloading (with more reasonable threshold)
 		local availableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
-		-- Calculate estimated size of current file
+		-- Calculate estimated size of current file (reduced estimates)
 		local estimatedFileSize = 0
 		local fileExt = filesystem.extension(path)
 		if fileExt == ".lua" then
-			estimatedFileSize = 10 * 1024  -- 10KB per Lua file
+			estimatedFileSize = 5 * 1024  -- 5KB per Lua file (reduced from 10KB)
 		elseif fileExt == ".pic" then
-			estimatedFileSize = 50 * 1024  -- 50KB per image
+			estimatedFileSize = 20 * 1024  -- 20KB per image (reduced from 50KB)
 		elseif fileExt == ".lang" then
-			estimatedFileSize = 2 * 1024  -- 2KB per localization
+			estimatedFileSize = 1 * 1024  -- 1KB per localization (reduced from 2KB)
 		else
-			estimatedFileSize = 20 * 1024  -- 20KB for other files
+			estimatedFileSize = 10 * 1024  -- 10KB for other files (reduced from 20KB)
 		end
 		
-		-- Add 20% buffer for file system overhead
-		estimatedFileSize = estimatedFileSize * 1.2
+		-- Add 10% buffer for file system overhead (reduced from 20%)
+		estimatedFileSize = estimatedFileSize * 1.1
 		
 		if availableSpace < estimatedFileSize then  -- Not enough space for this file
 			skippedFiles = skippedFiles + 1
