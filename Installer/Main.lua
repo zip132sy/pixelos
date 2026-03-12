@@ -5,7 +5,7 @@ local repositoryURLs = {
 }
 local repositoryURL = repositoryURLs[1]
 local installerURL = "Installer/"
-local EFIURL = "EFI/Minified.lua"
+local EFIURL = "EFI/BIOS.lua"
 
 local installerPath = "/PixelOS installer/"
 local installerPicturesPath = installerPath .. "Installer/Pictures/"
@@ -1345,7 +1345,25 @@ addStage(function()
 	addTitle(0x969696, localization.flashing)
 	workspace:draw()
 	
-	component.invoke(EEPROMAddress, "set", request(EFIURL))
+	-- Download EFI code
+	local efiCode = request(EFIURL)
+	
+	-- Check EEPROM space before flashing
+	local eepromTotal = component.invoke(EEPROMAddress, "getSize")()
+	if #efiCode > eepromTotal then
+		layout:removeChildren()
+		addImage(1, 1, "Error")
+		addTitle(0xFF0000, "EEPROM 空间不足")
+		local info = string.format("需要：%d 字节，可用：%d 字节", #efiCode, eepromTotal)
+		workspace:addChild(GUI.label(1, title() + 2, workspace.width - 2, 1, 0x696969, info)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		workspace:addChild(GUI.label(1, title() + 3, workspace.width - 2, 1, 0x696969, "请更换更大的 EEPROM (Tier 2 或 Tier 3)")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		workspace:draw()
+		computer.pullSignal(5)
+		computer.shutdown()
+		return
+	end
+	
+	component.invoke(EEPROMAddress, "set", efiCode)
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install Bios")
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 
@@ -1390,8 +1408,20 @@ addStage(function()
 		local bootManagerURL = "EFI/BootManager.lua"
 		local bootManagerCode = request(bootManagerURL)
 		
-		component.invoke(EEPROMAddress, "set", bootManagerCode)
-		component.invoke(EEPROMAddress, "setLabel", "PixelOS Bios Manager")
+		-- Check EEPROM space for BIOS Manager
+		local eepromTotal = component.invoke(EEPROMAddress, "getSize")()
+		if #bootManagerCode > eepromTotal then
+			layout:removeChildren()
+			addImage(1, 1, "Warning")
+			addTitle(0xFF9900, "BIOS 管理器安装失败")
+			local info = string.format("EEPROM 空间不足，跳过 BIOS 管理器安装")
+			workspace:addChild(GUI.label(1, title() + 2, workspace.width - 2, 1, 0x696969, info)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+			workspace:draw()
+			computer.pullSignal(2)
+		else
+			component.invoke(EEPROMAddress, "set", bootManagerCode)
+			component.invoke(EEPROMAddress, "setLabel", "PixelOS Bios Manager")
+		end
 	end
 
 
