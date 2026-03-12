@@ -432,21 +432,12 @@ local withoutPasswordSwitchAndLabel = newSwitchAndLabel(30, 0x66DB80, "", false)
 local wallpapersSwitchAndLabel = newSwitchAndLabel(30, 0xFF4980, "", true)
 local applicationsSwitchAndLabel = newSwitchAndLabel(30, 0x33DB80, "", true)
 local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
-local tabletModeSwitchAndLabel = newSwitchAndLabel(30, 0xFF9933, "平板模式", true)
+local tabletModeSwitchAndLabel = newSwitchAndLabel(30, 0xFF9933, "", true)
 
 local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
 -- Initialize GUI elements
 local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D2D2, 0xB4B4B4)
-local rebootMenuItem, shutdownMenuItem
-
-local function updateMenuText()
-	if localization and rebootMenuItem and shutdownMenuItem then
-		-- Use localized text or default to Chinese Simplified
-		rebootMenuItem.text = localization.reboot or "重启"
-		shutdownMenuItem.text = localization.shutdown or "关机"
-	end
-end
 
 local function formatTime(seconds)
 	if not seconds or seconds < 0 then return "0 秒" end
@@ -484,7 +475,11 @@ local function updateStatusBar()
 	local batteryText = "电量：--%"
 	
 	-- Get battery info using correct OpenComputers API with error handling
-	local battery = component.list("battery")()
+	local battery = nil
+	for address in component.list("battery") do
+		battery = address
+		break
+	end
 	if battery then
 		local success, proxy = pcall(component.proxy, battery)
 		if success and proxy then
@@ -504,35 +499,49 @@ local function updateStatusBar()
 		end
 	end
 	
-	-- Get game time using computer.uptime() (OpenComputers standard) with error handling
+	-- Get real time using computer.getTime() or fallback to uptime
 	local timeText = "00:00"
-	local success, uptime = pcall(computer.uptime)
-	if success and uptime then
-		local hours = math.floor(uptime / 3600) % 24
-		local minutes = math.floor((uptime % 3600) / 60)
-		timeText = string.format("%02d:%02d", hours, minutes)
+	local success, realTime = pcall(computer.getTime)
+	if success and realTime then
+		-- Use os.date to format the time
+		local success2, dateTable = pcall(os.date, "*t", realTime)
+		if success2 and dateTable and dateTable.hour and dateTable.min then
+			timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
+		end
+	else
+		-- Fallback to uptime if getTime fails
+		local success3, uptime = pcall(computer.uptime)
+		if success3 and uptime then
+			local hours = math.floor(uptime / 3600) % 24
+			local minutes = math.floor((uptime % 3600) / 60)
+			timeText = string.format("%02d:%02d", hours, minutes)
+		end
 	end
 	
 	-- Format status bar text: battery on right, time in center
-	local sw, sh = component.invoke(GPUAddress, "getResolution")
-	if not sw then sw = 80 end  -- Default width if failed
-	
-	-- Always draw WHITE background for status bar (row 1) - MUST be done FIRST
-	component.invoke(GPUAddress, "setBackground", 0xFFFFFF)
-	component.invoke(GPUAddress, "fill", 1, 1, sw, 1, " ")
-	
-	-- Set BLACK text color for all status bar text
-	component.invoke(GPUAddress, "setForeground", 0x000000)
-	
-	-- Draw battery on right
-	component.invoke(GPUAddress, "set", sw - #batteryText + 1, 1, batteryText)
-	
-	-- Draw time in center
-	component.invoke(GPUAddress, "set", centrize(#timeText), 1, timeText)
+local sw, sh = component.invoke(GPUAddress, "getResolution")
+if not sw then sw = 80 end  -- Default width if failed
+
+-- Set BLACK text color for all status bar text
+component.invoke(GPUAddress, "setForeground", 0x000000)
+
+-- Draw battery on right (without clearing entire line to avoid covering menu)
+component.invoke(GPUAddress, "setBackground", 0xFFFFFF)
+local batteryStart = sw - #batteryText + 1
+component.invoke(GPUAddress, "fill", batteryStart, 1, #batteryText, 1, " ")
+component.invoke(GPUAddress, "set", batteryStart, 1, batteryText)
+
+-- Draw time in center (without clearing entire line)
+local timeStart = centrize(#timeText)
+component.invoke(GPUAddress, "fill", timeStart, 1, #timeText, 1, " ")
+component.invoke(GPUAddress, "set", timeStart, 1, timeText)
 end
 
 -- Initialize status bar after function is defined
 updateStatusBar()
+
+-- Initialize menu text
+updateMenuText()
 
 -- Override workspace:draw to update status bar
 local originalDraw = workspace.draw
@@ -555,6 +564,7 @@ for i = 1, #files.localizations do
 			wallpapersSwitchAndLabel.label.text = localization.wallpapers
 			applicationsSwitchAndLabel.label.text = localization.applications
 			localizationsSwitchAndLabel.label.text = localization.languages
+			tabletModeSwitchAndLabel.label.text = localization.tabletMode or "平板模式"
 			acceptSwitchAndLabel.label.text = localization.accept
 			updateMenuText()
 			updateStatusBar()

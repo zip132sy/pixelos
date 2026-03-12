@@ -208,14 +208,22 @@ local function drawStatusBar()
         
         -- Battery - using correct OpenComputers API
         local batteryText = ""
-        local battery = c.list("battery")()
+        local battery = nil
+        for addr in c.list("battery") do
+            battery = addr
+            break
+        end
         if battery then
             local proxy = c.proxy(battery)
-            local energy = proxy.getEnergy() or 0
-            local maxEnergy = proxy.getMaxEnergy() or 100
-            if maxEnergy > 0 then
-                local percent = math.floor((energy / maxEnergy) * 100)
-                batteryText = "电量："..percent.."%"
+            if proxy and proxy.getEnergy and proxy.getMaxEnergy then
+                local energy = proxy.getEnergy() or 0
+                local maxEnergy = proxy.getMaxEnergy() or 100
+                if maxEnergy > 0 then
+                    local percent = math.floor((energy / maxEnergy) * 100)
+                    batteryText = "电量："..percent.."%"
+                else
+                    batteryText = "电量：--%"
+                end
             else
                 batteryText = "电量：--%"
             end
@@ -223,16 +231,20 @@ local function drawStatusBar()
             batteryText = "电量：--%"
         end
         
-        -- Time - using computer.uptime() (game time in OpenComputers)
-        local uptime = computer.uptime()
-        local hours = math.floor(uptime / 3600) % 24
-        local minutes = math.floor((uptime % 3600) / 60)
+        -- Time - using computer.getTime() (real world time)
+        local realTime = computer.getTime()
+        local dateTable = os.date("*t", realTime)
+        local hours = dateTable.hour
+        local minutes = dateTable.min
         local timeText = string.format("%02d:%02d", hours, minutes)
         
         -- Draw all text in white
         gpu.setForeground(0xFFFFFF)
         gpu.set(sw - #batteryText + 1, 1, batteryText)  -- Right
         gpu.set(math.floor(sw / 2 - #timeText / 2), 1, timeText)  -- Center
+        
+        -- Draw menu button with PixelOS text
+        gpu.set(1, 1, "PixelOS")  -- Left
     end
 end
 
@@ -342,7 +354,12 @@ local installState={
     usePassword=false,
     network=false,
     formatDisk=false,
-    confirmErase=false
+    confirmErase=false,
+    -- Additional options
+    languagePack=false,
+    thirdPartyApps=false,
+    tabletMode=false,
+    wallpaper=false
 }
 
 -- Step 1: Welcome Screen
@@ -544,7 +561,7 @@ local function showUserSetup()
     end
 end
 
--- Step 4: Network Check
+-- Step 4: Network Check and Additional Options
 local function showNetworkCheck()
     clear(0x2D2D2D)
     drawStatusBar()
@@ -568,14 +585,106 @@ local function showNetworkCheck()
         installState.network=false
     end
 
+    -- Calculate required disk space based on selected options
+    local baseSize = 2048 -- KB
+    local additionalSize = 0
+    
+    if installState.languagePack then
+        additionalSize = additionalSize + 512
+    end
+    if installState.thirdPartyApps then
+        additionalSize = additionalSize + 1024
+    end
+    if installState.tabletMode then
+        additionalSize = additionalSize + 256
+    end
+    if installState.wallpaper then
+        additionalSize = additionalSize + 128
+    end
+    
+    local totalSize = baseSize + additionalSize
+    
+    -- Check available disk space
+    local availableSpace = 0
+    if installState.targetDisk then
+        local proxy = c.proxy(installState.targetDisk.address)
+        if proxy then
+            availableSpace = proxy.spaceTotal() or 0
+        end
+    end
+    
+    -- Display disk space information
+    drawText(8,17,"磁盘空间需求:",0x000000,0xE1E1E1)
+    drawText(8,18,"  基础系统: " .. baseSize .. " KB",0x666666,0xE1E1E1)
+    drawText(8,19,"  附加项: " .. additionalSize .. " KB",0x666666,0xE1E1E1)
+    drawText(8,20,"  总计: " .. totalSize .. " KB",0x3366CC,0xE1E1E1)
+    drawText(8,21,"  可用空间: " .. availableSpace .. " KB",0x00AA00,0xE1E1E1)
+    
+    if availableSpace < totalSize * 1.2 then -- 20% buffer
+        drawText(8,22,"  警告: 空间不足，建议至少 " .. math.floor(totalSize * 1.2) .. " KB",0xFF0000,0xE1E1E1)
+    end
+
+    -- Additional options
+    drawText(8,24,"附加项:",0x000000,0xE1E1E1)
+    
+    local langCb = drawButton(10,25,3,1,installState.languagePack and "X" or "",installState.languagePack)
+    drawText(14,25,"语言包",0x000000,0xE1E1E1)
+    
+    local appsCb = drawButton(10,26,3,1,installState.thirdPartyApps and "X" or "",installState.thirdPartyApps)
+    drawText(14,26,"第三方应用",0x000000,0xE1E1E1)
+    
+    local tabletCb = drawButton(10,27,3,1,installState.tabletMode and "X" or "",installState.tabletMode)
+    drawText(14,27,"平板模式",0x000000,0xE1E1E1)
+    
+    local wallCb = drawButton(10,28,3,1,installState.wallpaper and "X" or "",installState.wallpaper)
+    drawText(14,28,"壁纸",0x000000,0xE1E1E1)
+
     local backBtn=drawButton(10,sh-4,10,3,loc.back,false)
     local nextBtn=drawButton(sw-20,sh-4,10,3,loc.next,true)
 
     while true do
         local x,y=waitClick()
-        if checkClick(backBtn,x,y) then
+        
+        -- Check additional options
+        if checkClick(langCb,x,y) then
+            installState.languagePack = not installState.languagePack
+            drawButton(langCb.x,langCb.y,langCb.w,langCb.h,installState.languagePack and "X" or "",installState.languagePack)
+            return 4 -- Refresh
+        elseif checkClick(appsCb,x,y) then
+            installState.thirdPartyApps = not installState.thirdPartyApps
+            drawButton(appsCb.x,appsCb.y,appsCb.w,appsCb.h,installState.thirdPartyApps and "X" or "",installState.thirdPartyApps)
+            return 4 -- Refresh
+        elseif checkClick(tabletCb,x,y) then
+            installState.tabletMode = not installState.tabletMode
+            drawButton(tabletCb.x,tabletCb.y,tabletCb.w,tabletCb.h,installState.tabletMode and "X" or "",installState.tabletMode)
+            return 4 -- Refresh
+        elseif checkClick(wallCb,x,y) then
+            installState.wallpaper = not installState.wallpaper
+            drawButton(wallCb.x,wallCb.y,wallCb.w,wallCb.h,installState.wallpaper and "X" or "",installState.wallpaper)
+            return 4 -- Refresh
+        
+        -- Check navigation buttons
+        elseif checkClick(backBtn,x,y) then
             return 3
         elseif checkClick(nextBtn,x,y) then
+            -- Check disk space before proceeding
+            if installState.targetDisk then
+                local proxy = c.proxy(installState.targetDisk.address)
+                if proxy then
+                    local availableSpace = proxy.spaceTotal() or 0
+                    if availableSpace < totalSize * 1.2 then
+                        clear(0x2D2D2D)
+                        drawStatusBar()
+                        drawBox(math.floor(sw/2)-25,math.floor(sh/2)-5,50,10,0xE1E1E1,true)
+                        drawText(math.floor(sw/2)-12,math.floor(sh/2)-3,"错误：磁盘空间不足",0xFF0000,0xE1E1E1)
+                        drawText(math.floor(sw/2)-20,math.floor(sh/2)-1,"需要至少 " .. math.floor(totalSize * 1.2) .. " KB 可用空间",0x000000,0xE1E1E1)
+                        drawText(math.floor(sw/2)-15,math.floor(sh/2)+1,"当前可用空间：" .. availableSpace .. " KB",0x000000,0xE1E1E1)
+                        drawText(math.floor(sw/2)-12,math.floor(sh/2)+3,"按任意键继续...",0x666666,0xE1E1E1)
+                        waitClick()
+                        return 4 -- Stay on this screen
+                    end
+                end
+            end
             return 5
         end
     end
@@ -626,10 +735,46 @@ local function showInstallation()
             -- Save config (simplified)
         end},
         {name = "下载系统文件", func = function()
+            -- Calculate required disk space based on selected options
+            local baseSize = 2048 -- KB
+            local additionalSize = 0
+            
+            if installState.languagePack then
+                additionalSize = additionalSize + 512
+            end
+            if installState.thirdPartyApps then
+                additionalSize = additionalSize + 1024
+            end
+            if installState.tabletMode then
+                additionalSize = additionalSize + 256
+            end
+            if installState.wallpaper then
+                additionalSize = additionalSize + 128
+            end
+            
+            local totalSize = baseSize + additionalSize
+            
+            -- Check disk space before installation
+            local proxy = c.proxy(installState.targetDisk.address)
+            if proxy then
+                local availableSpace = proxy.spaceTotal() or 0
+                
+                if availableSpace < totalSize * 1.2 then -- Add 20% buffer
+                    clear(0x2D2D2D)
+                    drawStatusBar()
+                    drawBox(math.floor(sw/2)-25,math.floor(sh/2)-5,50,10,0xE1E1E1,true)
+                    drawText(math.floor(sw/2)-12,math.floor(sh/2)-3,"错误：磁盘空间不足",0xFF0000,0xE1E1E1)
+                    drawText(math.floor(sw/2)-20,math.floor(sh/2)-1,"需要至少 " .. math.floor(totalSize * 1.2) .. " KB 可用空间",0x000000,0xE1E1E1)
+                    drawText(math.floor(sw/2)-15,math.floor(sh/2)+1,"当前可用空间：" .. availableSpace .. " KB",0x000000,0xE1E1E1)
+                    drawText(math.floor(sw/2)-12,math.floor(sh/2)+3,"按任意键继续...",0x666666,0xE1E1E1)
+                    waitClick()
+                    return
+                end
+            end
+            
             -- Simulated file download with progress
             local totalFiles = 50
             local startTime = os.time()
-            local totalSize = 2048 -- KB
             
             for i = 1, totalFiles do
                 local elapsed = os.time() - startTime
@@ -642,8 +787,8 @@ local function showInstallation()
                 -- Draw progress bar with all info
                 drawProgressBar(10, 15, sw - 20, percent, 
                     "正在安装文件：" .. i .. "/" .. totalFiles,
-                    "剩余时间：" .. remainingText,
-                    "剩余文件：" .. remainingFiles .. "  约需空间：" .. estimatedSize .. "KB")
+                    "剩余文件：" .. remainingFiles .. "  约需空间：" .. estimatedSize .. "KB",
+                    "剩余时间：" .. remainingText)
                 
                 computer.pullSignal(0.1)  -- Use computer API instead of os.sleep
             end
