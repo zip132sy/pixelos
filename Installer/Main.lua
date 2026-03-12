@@ -476,64 +476,112 @@ end
 local function updateStatusBar()
 	local batteryText = "电量：--%"
 	
-	-- Get battery info using correct OpenComputers API with error handling
+	-- Get battery info using OpenComputers standard API (same as MineOS)
 	local batteryFound = false
-	for address in component.list("battery") do
-		local success, proxy = pcall(component.proxy, address)
-		if success and proxy then
-			local energy = 0
-			local cur, mx
-			
-			-- Try different battery API methods
-			local apiType = "unknown"
-			
-			-- Method 1: Newer OpenComputers API (getEnergy/getMaxEnergy)
-			if type(proxy.getEnergy) == "function" and type(proxy.getMaxEnergy) == "function" then
-				local success1, value1 = pcall(proxy.getEnergy, proxy)
-				local success2, value2 = pcall(proxy.getMaxEnergy, proxy)
-				if success1 and success2 and value1 and value2 and value2 > 0 then
-					cur, mx = value1, value2
-					apiType = "new"
+	
+	-- Try standard computer.energy() API first (MineOS method)
+	local success, energy = pcall(computer.energy)
+	local success2, maxEnergy = pcall(computer.maxEnergy)
+	
+	if success and success2 and energy and maxEnergy and maxEnergy > 0 then
+		local batteryPercent = math.floor((energy / maxEnergy) * 100)
+		if batteryPercent >= 0 and batteryPercent <= 100 then
+			batteryText = "电量：" .. batteryPercent .. "%"
+			batteryFound = true
+		end
+	end
+	
+	-- If standard API failed, try component-based approach as fallback
+	if not batteryFound then
+		for address in component.list("battery") do
+			local success, proxy = pcall(component.proxy, address)
+			if success and proxy then
+				local cur, mx
+				
+				-- Try different battery API methods
+				-- Method 1: Newer OpenComputers API (getEnergy/getMaxEnergy)
+				if type(proxy.getEnergy) == "function" and type(proxy.getMaxEnergy) == "function" then
+					local success1, value1 = pcall(proxy.getEnergy, proxy)
+					local success2, value2 = pcall(proxy.getMaxEnergy, proxy)
+					if success1 and success2 and value1 and value2 and value2 > 0 then
+						cur, mx = value1, value2
+					end
 				end
-			end
-			
-			-- Method 2: Older OpenComputers API (energy/maxEnergy)
-			if not cur and proxy.energy ~= nil and proxy.maxEnergy ~= nil then
-				local success1, value1 = pcall(function() return proxy.energy end)
-				local success2, value2 = pcall(function() return proxy.maxEnergy end)
-				if success1 and success2 and value1 and value2 and value2 > 0 then
-					cur, mx = value1, value2
-					apiType = "old"
+				
+				-- Method 2: Older OpenComputers API (energy/maxEnergy)
+				if not cur and proxy.energy ~= nil and proxy.maxEnergy ~= nil then
+					local success1, value1 = pcall(function() return proxy.energy end)
+					local success2, value2 = pcall(function() return proxy.maxEnergy end)
+					if success1 and success2 and value1 and value2 and value2 > 0 then
+						cur, mx = value1, value2
+					end
 				end
-			end
-			
-			-- Method 3: Try direct access without pcall (for some implementations)
-			if not cur and proxy.energy and proxy.maxEnergy then
-				if proxy.maxEnergy > 0 then
-					cur, mx = proxy.energy, proxy.maxEnergy
-					apiType = "direct"
+				
+				-- Method 3: Try direct access
+				if not cur and proxy.energy and proxy.maxEnergy then
+					if proxy.maxEnergy > 0 then
+						cur, mx = proxy.energy, proxy.maxEnergy
+					end
 				end
-			end
-			
-			if cur and mx and mx > 0 then
-				energy = math.floor((cur / mx) * 100)
-				batteryText = "电量：" .. energy .. "%"
-				batteryFound = true
-				break
+				
+				if cur and mx and mx > 0 then
+					local batteryPercent = math.floor((cur / mx) * 100)
+					if batteryPercent >= 0 and batteryPercent <= 100 then
+						batteryText = "电量：" .. batteryPercent .. "%"
+						batteryFound = true
+						break
+					end
+				end
 			end
 		end
 	end
 	
+	-- If no battery found, show --%
+	if not batteryFound then
+		batteryText = "电量：--%"
+	end
+	
 	-- Get real time using multiple methods, with network fallback
 	local timeText = "00:00"
+	local timeSource = ""
+	local timezone = "UTC+8"
+	
+	-- Determine timezone based on selected language
+	local selectedLang = localizationComboBox and localizationComboBox:getItem(localizationComboBox.selectedItem) and localizationComboBox:getItem(localizationComboBox.selectedItem).text or "ChineseSimplified"
+	local cityParam = "Asia/Shanghai" -- Default to Beijing
+	
+	if selectedLang == "English" then
+		cityParam = "America/New_York" -- Default US timezone
+		timezone = "UTC-5"
+	elseif selectedLang == "Japanese" then
+		cityParam = "Asia/Tokyo"
+		timezone = "UTC+9"
+	elseif selectedLang == "Korean" then
+		cityParam = "Asia/Seoul"
+		timezone = "UTC+9"
+	elseif selectedLang == "Russian" then
+		cityParam = "Europe/Moscow"
+		timezone = "UTC+3"
+	elseif selectedLang == "German" or selectedLang == "French" or selectedLang == "Italian" then
+		cityParam = "Europe/Paris"
+		timezone = "UTC+1"
+	elseif selectedLang == "Spanish" then
+		cityParam = "Europe/Madrid"
+		timezone = "UTC+1"
+	else
+		-- Default to Beijing for other languages
+		cityParam = "Asia/Shanghai"
+		timezone = "UTC+8"
+	end
 	
 	-- Try network request first (as primary method)
 	local internetComponent = component.list("internet")()
 	if internetComponent then
 		local success, internet = pcall(component.proxy, internetComponent)
 		if success and internet then
-			-- Use uapis.cn API with city parameter set to Asia/Shanghai (Beijing)
-			local success2, handle = pcall(internet.request, "https://uapis.cn/api/v1/misc/worldtime?city=Asia/Shanghai")
+			-- Use uapis.cn API with city parameter based on selected language
+			local apiUrl = "https://uapis.cn/api/v1/misc/worldtime?city=" .. cityParam
+			local success2, handle = pcall(internet.request, apiUrl)
 			if success2 and handle then
 				local success3, result = pcall(handle.read)
 				if success3 and result then
@@ -556,11 +604,25 @@ local function updateStatusBar()
 					local data = parseJSON(result)
 					if data and data.hour and data.minute then
 						timeText = string.format("%02d:%02d", tonumber(data.hour), tonumber(data.minute))
+						timeSource = "N"
 						-- Update bootRealTime for future calculations
 						local success4, timestamp = pcall(os.time)
 						if success4 and timestamp then
 							bootRealTime = timestamp
-							timeTimezone = 8 * 3600 -- UTC+8 for Beijing
+							-- Calculate timezone offset based on selected city
+							if cityParam == "Asia/Shanghai" then
+								timeTimezone = 8 * 3600 -- UTC+8
+							elseif cityParam == "America/New_York" then
+								timeTimezone = -5 * 3600 -- UTC-5
+							elseif cityParam == "Asia/Tokyo" or cityParam == "Asia/Seoul" then
+								timeTimezone = 9 * 3600 -- UTC+9
+							elseif cityParam == "Europe/Moscow" then
+								timeTimezone = 3 * 3600 -- UTC+3
+							elseif cityParam == "Europe/Paris" or cityParam == "Europe/Madrid" then
+								timeTimezone = 1 * 3600 -- UTC+1
+							else
+								timeTimezone = 8 * 3600 -- Default to UTC+8
+							end
 						end
 					end
 				end
@@ -600,11 +662,13 @@ local function updateStatusBar()
 			local success2, dateTable = pcall(os.date, "*t", currentTime)
 			if success2 and dateTable and dateTable.hour and dateTable.min then
 				timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
+				timeSource = "C"
 			else
 				-- Fallback to simple time formatting
 				local hours = math.floor(currentTime / 3600) % 24
 				local minutes = math.floor((currentTime % 3600) / 60)
 				timeText = string.format("%02d:%02d", hours, minutes)
+				timeSource = "C"
 			end
 		else
 			-- Fallback to os.time() if computer.uptime() fails
@@ -613,14 +677,19 @@ local function updateStatusBar()
 				local success4, dateTable = pcall(os.date, "*t", osTime)
 				if success4 and dateTable and dateTable.hour and dateTable.min then
 					timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
+					timeSource = "O"
 				else
 					local hours = math.floor(osTime / 3600) % 24
 					local minutes = math.floor((osTime % 3600) / 60)
 					timeText = string.format("%02d:%02d", hours, minutes)
+					timeSource = "O"
 				end
 			end
 		end
 	end
+	
+	-- Add time source indicator and timezone
+	timeText = timeText .. " " .. timeSource .. " " .. timezone
 	
 	-- Format status bar text: battery on right, time in center
 	local sw, sh = component.invoke(GPUAddress, "getResolution")
@@ -1033,9 +1102,10 @@ addStage(function()
 	layout:removeChildren()
 	addImage(3, 2, "Downloading")
 
-	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 2))
+	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 4))
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
-	local cyka = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local installingLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local progressInfoLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -1120,7 +1190,8 @@ addStage(function()
 	
 	if totalAvailableSpace < estimatedTotalSize then
 		-- Not enough space, but continue anyway with warning
-		cyka.text = text.limit("警告：空间可能不足，但将继续安装", container.width, "center")
+		installingLabel.text = text.limit("警告：空间可能不足，但将继续安装", container.width, "center")
+		progressInfoLabel.text = ""
 		workspace:draw()
 		computer.pullSignal(1)  -- Wait 1 second instead of os.sleep
 	end
@@ -1128,11 +1199,28 @@ addStage(function()
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
-		-- Check available space before downloading (with smaller threshold)
+		-- Check available space before downloading (with more reasonable threshold)
 		local availableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
-		if availableSpace < 10 * 1024 then  -- Less than 10KB available (in bytes)
+		-- Calculate estimated size of current file
+		local estimatedFileSize = 0
+		local fileExt = filesystem.extension(path)
+		if fileExt == ".lua" then
+			estimatedFileSize = 10 * 1024  -- 10KB per Lua file
+		elseif fileExt == ".pic" then
+			estimatedFileSize = 50 * 1024  -- 50KB per image
+		elseif fileExt == ".lang" then
+			estimatedFileSize = 2 * 1024  -- 2KB per localization
+		else
+			estimatedFileSize = 20 * 1024  -- 20KB for other files
+		end
+		
+		-- Add 20% buffer for file system overhead
+		estimatedFileSize = estimatedFileSize * 1.2
+		
+		if availableSpace < estimatedFileSize then  -- Not enough space for this file
 			skippedFiles = skippedFiles + 1
-			cyka.text = text.limit((localization.notEnoughSpace or "空间不足，跳过:") .. " " .. path, container.width, "center")
+			installingLabel.text = text.limit((localization.notEnoughSpace or "空间不足，跳过:") .. " " .. path, container.width, "center")
+			progressInfoLabel.text = ""
 			workspace:draw()
 			computer.pullSignal(0.5)  -- Wait 0.5 second instead of os.sleep
 			-- Update progress to account for skipped files
@@ -1140,8 +1228,7 @@ addStage(function()
 			goto continue_download
 		end
 
-		cyka.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
-		workspace:draw()
+		installingLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
 
 		-- Download file
 		local downloadSuccess = download(path, OSPath .. path)
@@ -1190,7 +1277,7 @@ addStage(function()
 		local timeInfo = remainingTimeText .. " " .. formatTime(remainingTime) .. "  "
 		local sizeInfo = spaceUsedText .. " " .. math.floor(sizeUsed / 1024) .. "KB / " .. math.floor(sizeTotal / 1024) .. "KB"
 		
-		cyka.text = text.limit(fileInfo .. timeInfo .. sizeInfo, container.width, "center")
+		progressInfoLabel.text = text.limit(fileInfo .. timeInfo .. sizeInfo, container.width, "center")
 		workspace:draw()
 		
 		::continue_download::
@@ -1266,8 +1353,19 @@ addStage(function()
 	end
 	workspace:draw()
 
-	-- Removing temporary installer directory
-	temporaryFilesystemProxy.remove(installerPath)
+	-- Removing temporary installer directory (only if it's different from target)
+	if temporaryFilesystemProxy.address ~= selectedFilesystemProxy.address then
+		temporaryFilesystemProxy.remove(installerPath)
+	else
+		-- If temporary and target are the same, remove files one by one
+		local list = temporaryFilesystemProxy.list(installerPath)
+		if list then
+			for i = 1, #list do
+				temporaryFilesystemProxy.remove(installerPath .. list[i])
+			end
+			temporaryFilesystemProxy.remove(installerPath)
+		end
+	end
 end)
 
 --------------------------------------------------------------------------------
