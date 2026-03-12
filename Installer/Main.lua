@@ -541,13 +541,14 @@ local function updateStatusBar()
 					local function parseJSON(json)
 						-- Remove surrounding braces
 						json = json:gsub("^{" , ""):gsub("}$", "")
-						-- Split into key-value pairs
-						local pairs = {}
-						-- Extract time directly
-						local hour = json:match('"hour":(%d+)')
-						local minute = json:match('"minute":(%d+)')
-						if hour and minute then
-							return {hour = hour, minute = minute}
+						-- Extract datetime directly
+						local datetime = json:match('"datetime":"([^"]+)"')
+						if datetime then
+							-- Extract hour and minute from datetime string (format: "2026-03-12 11:45:19")
+							local hour, minute = datetime:match("%d+-%d+-%d+ (%d+):(%d+):%d+")
+							if hour and minute then
+								return {hour = hour, minute = minute}
+							end
 						end
 						return {}
 					end
