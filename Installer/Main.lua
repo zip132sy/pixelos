@@ -1222,6 +1222,7 @@ addStage(function()
 	local versions, path, id, version, shortcut = {}
 	local downloadedFiles = 0
 	local skippedFiles = 0
+	local startTime = computer.uptime()  -- Use computer.uptime() for accurate elapsed time
 	
 	-- Check total available space once at the beginning
 	local totalAvailableSpace = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
@@ -1315,23 +1316,32 @@ addStage(function()
 		
 		-- Update progress info
 		local remainingFiles = totalFiles - downloadedFiles - skippedFiles
-		local elapsedTime = os.time() - startTime
+		local elapsedTime = computer.uptime() - startTime  -- Use computer.uptime() for accurate time
 		local avgTimePerFile = downloadedFiles > 0 and elapsedTime / downloadedFiles or 0
 		local remainingTime = remainingFiles * avgTimePerFile
 		
 		local sizeUsed = selectedFilesystemProxy.spaceUsed()
 		local sizeTotal = selectedFilesystemProxy.spaceTotal()
+		local availableSpace = sizeTotal - sizeUsed
 		
 		-- Use localization if available, otherwise use English defaults
 		local remainingFilesText = localization and localization.remainingFiles or "Remaining:"
 		local remainingTimeText = localization and localization.remainingTime or "Time:"
 		local spaceUsedText = localization and localization.spaceUsed or "Space:"
+		local requiredSpaceText = localization and localization.requiredSpace or "Required:"
 		
-		local fileInfo = remainingFilesText .. " " .. remainingFiles .. "  "
-		local timeInfo = remainingTimeText .. " " .. formatTime(remainingTime) .. "  "
-		local sizeInfo = spaceUsedText .. " " .. math.floor(sizeUsed / 1024) .. "KB / " .. math.floor(sizeTotal / 1024) .. "KB"
+		-- Format file info
+		local fileInfo = remainingFilesText .. " " .. remainingFiles
 		
-		progressInfoLabel.text = text.limit(fileInfo .. timeInfo .. sizeInfo, container.width, "center")
+		-- Format time info (ensure correct calculation)
+		local timeInfo = remainingTimeText .. " " .. formatTime(remainingTime)
+		
+		-- Format space info: show both available and required space
+		local sizeInfo = spaceUsedText .. " " .. math.floor(availableSpace / 1024) .. "KB / " .. math.floor(sizeTotal / 1024) .. "KB"
+		local requiredSizeInfo = requiredSpaceText .. " ~" .. math.floor(estimatedTotalSize / 1024) .. "KB"
+		
+		-- Combine all info
+		progressInfoLabel.text = text.limit(fileInfo .. "  " .. timeInfo .. "  " .. sizeInfo .. "  " .. requiredSizeInfo, container.width, "center")
 		workspace:draw()
 		
 		::continue_download::
