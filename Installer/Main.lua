@@ -384,7 +384,7 @@ local function newSwitchAndLabel(width, color, text, state)
 end
 
 local function addTitle(color, text)
-	return layout:addChild(GUI.text(1, 1, color, text))
+	return layout:addChild(GUI.label(1, 1, layout.width, 1, color, text))
 end
 
 local function addImage(before, after, name)
@@ -426,7 +426,7 @@ end
 local usernameInput = newInput(30, "")
 local passwordInput = newInput(30, "", false, "•")
 local passwordSubmitInput = newInput(30, "", false, "•")
-local usernamePasswordText = GUI.text(1, 1, 0xCC0040, "")
+local usernamePasswordText = GUI.label(1, 1, 30, 1, 0xCC0040, "")
 local withoutPasswordSwitchAndLabel = newSwitchAndLabel(30, 0x66DB80, "", false)
 
 local wallpapersSwitchAndLabel = newSwitchAndLabel(30, 0xFF4980, "", true)
@@ -825,7 +825,7 @@ addStage(function()
 	layout:addChild(tabletModeSwitchAndLabel)
 
 	-- Add space usage estimation
-	local spaceLabel = layout:addChild(GUI.text(1, 1, 0x696969, "预计空间使用: 计算中..."))
+	local spaceLabel = layout:addChild(GUI.label(1, 1, layout.width, 1, 0x696969, "预计空间使用: 计算中..."))
 	spaceLabel:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Calculate estimated space usage
