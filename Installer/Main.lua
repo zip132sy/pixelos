@@ -84,12 +84,6 @@ local function rawRequest(url, chunkHandler, showSource)
 			return string.format("%%%02X", string.byte(char))
 		end)
 		
-		-- Show which source is being used (optional)
-		if showSource then
-			-- Print to console for debugging (workspace not available yet)
-			print("Connecting to:", i == 1 and "Gitee" or "GitHub (fallback)")
-		end
-		
 		-- Try to connect with timeout
 		local internetHandle, reason = component.invoke(internetAddress, "request", fullURL)
 		
