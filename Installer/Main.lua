@@ -585,20 +585,29 @@ end
 
 -- Select Chinese Simplified by default and ensure it loads properly
 local function selectDefaultLanguage()
-	-- First, try to find ChineseSimplified in the combobox
-	for i = 1, 10 do
-		local item = localizationComboBox:getItem(i)
-		if item then
-			if item.text == "ChineseSimplified" then
-				localizationComboBox.selectedItem = i
-				-- Call the onTouch function to load the localization
-				if item.onTouch then
-					item.onTouch()
-				end
-				return true
+	-- Try to find Chinese Simplified in the files.localizations list
+	for i = 1, #files.localizations do
+		local langPath = files.localizations[i]
+		local langName = filesystemHideExtension(filesystemName(langPath))
+		if langName == "ChineseSimplified" then
+			localizationComboBox.selectedItem = i
+			-- Load localization directly (same as onTouch function)
+			localization = deserialize(request(installerURL .. langPath))
+			-- Filling widgets with selected localization data
+			if localization then
+				usernameInput.placeholderText = localization.username
+				passwordInput.placeholderText = localization.password
+				passwordSubmitInput.placeholderText = localization.submitPassword
+				withoutPasswordSwitchAndLabel.label.text = localization.withoutPassword
+				wallpapersSwitchAndLabel.label.text = localization.wallpapers
+				applicationsSwitchAndLabel.label.text = localization.applications
+				localizationsSwitchAndLabel.label.text = localization.languages
+				tabletModeSwitchAndLabel.label.text = localization.tabletMode or "平板模式"
+				acceptSwitchAndLabel.label.text = localization.accept
+				updateMenuText()
+				updateStatusBar()
 			end
-		else
-			break
+			return true
 		end
 	end
 	return false
