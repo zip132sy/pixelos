@@ -1349,21 +1349,24 @@ addStage(function()
 	local efiCode = request(EFIURL)
 	
 	-- Check EEPROM space before flashing
-	local eepromTotal = component.invoke(EEPROMAddress, "getSize")()
-	if #efiCode > eepromTotal then
+	-- EEPROM doesn't have getSize method, so we try to set and catch the error
+	local success, result = pcall(component.invoke, EEPROMAddress, "set", efiCode)
+	
+	if not success then
+		-- Failed to write to EEPROM, likely due to space constraints
 		layout:removeChildren()
 		addImage(1, 1, "Error")
-		addTitle(0xFF0000, "EEPROM 空间不足")
-		local info = string.format("需要：%d 字节，可用：%d 字节", #efiCode, eepromTotal)
+		addTitle(0xFF0000, "EEPROM 烧录失败")
+		local info = string.format("错误：%s", tostring(result))
 		workspace:addChild(GUI.label(1, title() + 2, workspace.width - 2, 1, 0x696969, info)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-		workspace:addChild(GUI.label(1, title() + 3, workspace.width - 2, 1, 0x696969, "请更换更大的 EEPROM (Tier 2 或 Tier 3)")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		workspace:addChild(GUI.label(1, title() + 3, workspace.width - 2, 1, 0x696969, "EEPROM 空间不足或写入失败")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 		workspace:draw()
 		computer.pullSignal(5)
 		computer.shutdown()
 		return
 	end
 	
-	component.invoke(EEPROMAddress, "set", efiCode)
+	-- If successful, continue with labeling
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install Bios")
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 
