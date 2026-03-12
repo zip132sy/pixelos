@@ -511,10 +511,31 @@ local function updateStatusBar()
 		end
 	end
 	
-	-- Get real time using os.time() which should return real world time
+	-- Get real time using the formula: current time = bootRealTime + computer.uptime() + timezone offset
 	local timeText = "00:00"
-	local success, currentTime = pcall(os.time)
-	if success and currentTime then
+	-- Get boot time once at startup
+	if not bootRealTime then
+		-- Try to get real time at boot
+		local success, realTime = pcall(computer.getTime)
+		if success and realTime then
+			bootRealTime = realTime
+		else
+			-- Fallback to os.time()
+			local success2, osTime = pcall(os.time)
+			if success2 and osTime then
+				bootRealTime = osTime
+			else
+				bootRealTime = 0
+			end
+		end
+		-- Set timezone offset (adjust this value based on your timezone)
+		timeTimezone = 8 * 3600 -- UTC+8
+	end
+	
+	-- Calculate current time using the formula
+	local success, uptime = pcall(computer.uptime)
+	if success and uptime then
+		local currentTime = bootRealTime + uptime + timeTimezone
 		-- Use os.date to format the time
 		local success2, dateTable = pcall(os.date, "*t", currentTime)
 		if success2 and dateTable and dateTable.hour and dateTable.min then
@@ -526,12 +547,17 @@ local function updateStatusBar()
 			timeText = string.format("%02d:%02d", hours, minutes)
 		end
 	else
-		-- Fallback to computer.getTime() if os.time() fails
-		local success3, realTime = pcall(computer.getTime)
-		if success3 and realTime then
-			local hours = math.floor(realTime / 3600) % 24
-			local minutes = math.floor((realTime % 3600) / 60)
-			timeText = string.format("%02d:%02d", hours, minutes)
+		-- Fallback to os.time() if computer.uptime() fails
+		local success3, osTime = pcall(os.time)
+		if success3 and osTime then
+			local success4, dateTable = pcall(os.date, "*t", osTime)
+			if success4 and dateTable and dateTable.hour and dateTable.min then
+				timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
+			else
+				local hours = math.floor(osTime / 3600) % 24
+				local minutes = math.floor((osTime % 3600) / 60)
+				timeText = string.format("%02d:%02d", hours, minutes)
+			end
 		end
 	end
 	
