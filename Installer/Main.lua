@@ -1403,12 +1403,20 @@ addStage(function()
 		local event = {computer.pullSignal()}
 		if event[1] == "touch" then
 			-- Manually check if touch is on any button
+			-- Convert event coordinates to numbers (they might be strings)
+			local touchX, touchY = tonumber(event[2]), tonumber(event[3])
+			
 			for _, child in ipairs(confirmWindow.children) do
-				if child.onTouch and 
-				   event[2] >= child.x and event[2] < child.x + child.width and
-				   event[3] >= child.y and event[3] < child.y + child.height then
-					child.onTouch()
-					break
+				if child.onTouch and touchX and touchY then
+					local childX, childY = tonumber(child.x), tonumber(child.y)
+					local childWidth, childHeight = tonumber(child.width), tonumber(child.height)
+					
+					if childX and childY and childWidth and childHeight and
+					   touchX >= childX and touchX < childX + childWidth and
+					   touchY >= childY and touchY < childY + childHeight then
+						child.onTouch()
+						break
+					end
 				end
 			end
 		end
