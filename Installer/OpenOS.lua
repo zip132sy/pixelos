@@ -42,7 +42,7 @@ do
 		print("Your computer does not meet the minimum system requirements:")
 
 		for i = 1, #potatoes do
-			print("  - " .. potatoes[i])
+			print("  ⨯ " .. potatoes[i])
 		end
 
 		return
@@ -78,7 +78,7 @@ do
 			if message then
 				break
 			else
-				computer.pullSignal(0.1)  -- Use computer API instead of os.sleep
+				os.sleep(0.1)
 			end
 		end
 	end
