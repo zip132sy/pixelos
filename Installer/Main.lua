@@ -86,12 +86,8 @@ local function rawRequest(url, chunkHandler, showSource)
 		
 		-- Show which source is being used (optional)
 		if showSource then
-			if i == 1 then
-				centrizedText(title() + 1, 0x3366CC, "正在连接：Gitee 源")
-			else
-				centrizedText(title() + 1, 0x3366CC, "正在连接：GitHub 源 (Gitee 失败)")
-			end
-			workspace:draw()
+			-- Print to console for debugging (workspace not available yet)
+			print("Connecting to:", i == 1 and "Gitee" or "GitHub (fallback)")
 		end
 		
 		-- Try to connect with timeout
