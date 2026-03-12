@@ -511,52 +511,105 @@ local function updateStatusBar()
 		end
 	end
 	
-	-- Get real time using the formula: current time = bootRealTime + computer.uptime() + timezone offset
+	-- Get real time using multiple methods, with network fallback
 	local timeText = "00:00"
-	-- Get boot time once at startup
-	if not bootRealTime then
-		-- Try to get real time at boot
-		local success, realTime = pcall(computer.getTime)
-		if success and realTime then
-			bootRealTime = realTime
-		else
-			-- Fallback to os.time()
-			local success2, osTime = pcall(os.time)
-			if success2 and osTime then
-				bootRealTime = osTime
-			else
-				bootRealTime = 0
+	
+	-- Try network request first (as primary method)
+	local internetComponent = component.list("internet")()
+	if internetComponent then
+		local success, internet = pcall(component.proxy, internetComponent)
+		if success and internet then
+			local success2, handle = pcall(internet.request, "http://worldtimeapi.org/api/ip")
+			if success2 and handle then
+				local success3, result = pcall(handle.read)
+				if success3 and result then
+					-- Simple JSON parsing (basic implementation)
+					local function parseJSON(json)
+						-- Remove surrounding braces
+						json = json:gsub("^{" , ""):gsub("}$", "")
+						-- Split into key-value pairs
+						local pairs = {}
+						-- Extract datetime directly
+						local datetime = json:match('"datetime":"([^"]+)"')
+						if datetime then
+							return {datetime = datetime}
+						end
+						return {}
+					end
+					
+					local data = parseJSON(result)
+					if data and data.datetime then
+						-- Extract time from datetime string (format: 2024-03-12T12:34:56+08:00)
+						local hour, min = data.datetime:match("T(%d%d):(%d%d):")
+						if hour and min then
+							timeText = string.format("%02d:%02d", tonumber(hour), tonumber(min))
+							-- Update bootRealTime for future calculations
+							local year, month, day = data.datetime:match("(%d%d%d%d)%-(%d%d)%-(%d%d)T")
+							if year and month and day then
+								-- Calculate timestamp from date components
+								local success4, timestamp = pcall(os.time, {year=tonumber(year), month=tonumber(month), day=tonumber(day), hour=tonumber(hour), min=tonumber(min), sec=0})
+								if success4 and timestamp then
+									bootRealTime = timestamp
+									timeTimezone = 0 -- Use timezone from API
+								end
+							end
+						end
+					end
+				end
+				if handle.close then
+					handle:close()
+				end
 			end
 		end
-		-- Set timezone offset (adjust this value based on your timezone)
-		timeTimezone = 8 * 3600 -- UTC+8
 	end
 	
-	-- Calculate current time using the formula
-	local success, uptime = pcall(computer.uptime)
-	if success and uptime then
-		local currentTime = bootRealTime + uptime + timeTimezone
-		-- Use os.date to format the time
-		local success2, dateTable = pcall(os.date, "*t", currentTime)
-		if success2 and dateTable and dateTable.hour and dateTable.min then
-			timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
-		else
-			-- Fallback to simple time formatting
-			local hours = math.floor(currentTime / 3600) % 24
-			local minutes = math.floor((currentTime % 3600) / 60)
-			timeText = string.format("%02d:%02d", hours, minutes)
+	-- If network request failed, use the formula: current time = bootRealTime + computer.uptime() + timezone offset
+	if timeText == "00:00" then
+		-- Get boot time once at startup
+		if not bootRealTime then
+			-- Try to get real time at boot
+			local success, realTime = pcall(computer.getTime)
+			if success and realTime then
+				bootRealTime = realTime
+			else
+				-- Fallback to os.time()
+				local success2, osTime = pcall(os.time)
+				if success2 and osTime then
+					bootRealTime = osTime
+				else
+					bootRealTime = 0
+				end
+			end
+			-- Set timezone offset (adjust this value based on your timezone)
+			timeTimezone = 8 * 3600 -- UTC+8
 		end
-	else
-		-- Fallback to os.time() if computer.uptime() fails
-		local success3, osTime = pcall(os.time)
-		if success3 and osTime then
-			local success4, dateTable = pcall(os.date, "*t", osTime)
-			if success4 and dateTable and dateTable.hour and dateTable.min then
+		
+		-- Calculate current time using the formula
+		local success, uptime = pcall(computer.uptime)
+		if success and uptime then
+			local currentTime = bootRealTime + uptime + timeTimezone
+			-- Use os.date to format the time
+			local success2, dateTable = pcall(os.date, "*t", currentTime)
+			if success2 and dateTable and dateTable.hour and dateTable.min then
 				timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
 			else
-				local hours = math.floor(osTime / 3600) % 24
-				local minutes = math.floor((osTime % 3600) / 60)
+				-- Fallback to simple time formatting
+				local hours = math.floor(currentTime / 3600) % 24
+				local minutes = math.floor((currentTime % 3600) / 60)
 				timeText = string.format("%02d:%02d", hours, minutes)
+			end
+		else
+			-- Fallback to os.time() if computer.uptime() fails
+			local success3, osTime = pcall(os.time)
+			if success3 and osTime then
+				local success4, dateTable = pcall(os.date, "*t", osTime)
+				if success4 and dateTable and dateTable.hour and dateTable.min then
+					timeText = string.format("%02d:%02d", dateTable.hour, dateTable.min)
+				else
+					local hours = math.floor(osTime / 3600) % 24
+					local minutes = math.floor((osTime % 3600) / 60)
+					timeText = string.format("%02d:%02d", hours, minutes)
+				end
 			end
 		end
 	end
