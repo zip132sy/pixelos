@@ -1398,10 +1398,19 @@ addStage(function()
 	
 	workspace:draw()
 	
+	-- Wait for user input using simple event loop (no workspace:start dependency)
 	while not confirmResult do
 		local event = {computer.pullSignal()}
 		if event[1] == "touch" then
-			workspace:eventHandler(event)
+			-- Manually check if touch is on any button
+			for _, child in ipairs(confirmWindow.children) do
+				if child.onTouch and 
+				   event[2] >= child.x and event[2] < child.x + child.width and
+				   event[3] >= child.y and event[3] < child.y + child.height then
+					child.onTouch()
+					break
+				end
+			end
 		end
 	end
 	
