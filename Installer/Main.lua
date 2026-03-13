@@ -1491,93 +1491,57 @@ addStage(function()
 	-- Log success
 	logError("EEPROM 烧录成功 - BIOS 标签：PixelOS EFI")
 
-	-- Ask user if they want to install BIOS Manager
-	local installBiosManager = false
-	local confirmWindow = workspace:addChild(GUI.window(math.floor(workspace.width / 2 - 20), math.floor(workspace.height / 2 - 8), 40, 16))
-	confirmWindow.backgroundPanel = confirmWindow:addChild(GUI.panel(1, 1, confirmWindow.width, confirmWindow.height, 0xE1E1E1))
-	
-	-- Title
-	confirmWindow:addChild(GUI.label(1, 2, confirmWindow.width, 1, 0x2D2D2D, localization.installBiosManager or "安装 BIOS 管理器？")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	-- Add BIOS Manager installation stage
+	layout:removeChildren()
+	-- Use the BIOS_Manager.pic icon
+	local biosManagerImage = loadImage("BIOS_Manager")
+	if type(biosManagerImage) == "table" then
+		layout:addChild(GUI.image(math.floor(layout.width / 2 - biosManagerImage[1] / 2), 2, biosManagerImage))
+	else
+		addImage(0, 1, "EEPROM")
+	end
+	addTitle(0x696969, localization.installBiosManager or "安装 BIOS 管理器")
 	
 	-- Description
-	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local description = layout:addChild(GUI.label(1, 1, layout.width, 3, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能\n\n物理重启将进入已安装的系统"))
+	description:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
-	-- Timeout info
-	local timeoutLabel = confirmWindow:addChild(GUI.label(1, 6, confirmWindow.width - 2, 1, 0x878787, "10 秒后自动跳过安装")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	-- Buttons
+	local buttonLayout = layout:addChild(GUI.layout(1, 1, layout.width, 1, 1, 1))
+	buttonLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
+	buttonLayout:setSpacing(1, 1, 10)
+	buttonLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
-	-- Countdown display
-	local countdownLabel = confirmWindow:addChild(GUI.label(1, 8, confirmWindow.width - 2, 1, 0x3366CC, "剩余时间：10 秒")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local installButton = buttonLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.install or "安装"))
+	local skipButton = buttonLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.skip or "跳过"))
 	
-	-- Note: Physical reboot will still boot into the installed system
-	confirmWindow:addChild(GUI.label(1, 15, confirmWindow.width - 2, 1, 0x696969, "物理重启将进入已安装的系统")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_BOTTOM)
+	local installBiosManager = false
+	local confirmed = false
 	
-	-- Buttons (properly spaced)
-	local buttonWidth = 12
-	local spacing = 2
-	local totalWidth = buttonWidth * 2 + spacing
-	local startX = math.floor((confirmWindow.width - totalWidth) / 2) + 1
-	local buttonY = 12  -- Moved down to make room for timeout info
+	installButton.onTouch = function()
+		installBiosManager = true
+		confirmed = true
+	end
 	
-	local confirmButton = confirmWindow:addChild(GUI.button(startX, buttonY, buttonWidth, 3, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
-	local cancelButton = confirmWindow:addChild(GUI.button(startX + buttonWidth + spacing, buttonY, buttonWidth, 3, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
+	skipButton.onTouch = function()
+		installBiosManager = false
+		confirmed = true
+	end
 	
-	local confirmResult = false
-	local timeoutSeconds = 10  -- 10 秒超时
-	local timeoutStart = computer.uptime()
-	
-	-- Draw workspace first to calculate absolute coordinates
 	workspace:draw()
 	
-	-- Wait for user input with timeout (default to not installing BIOS Manager)
-	while not confirmResult do
-		-- Update countdown display
-		local elapsed = computer.uptime() - timeoutStart
-		local remaining = math.max(0, timeoutSeconds - elapsed)
-		countdownLabel.text = "剩余时间：" .. math.floor(remaining) .. " 秒"
-		workspace:draw()
-		
-		local event = {computer.pullSignal(0.5)}  -- 0.5 秒超时，方便检测总超时
-		
-		-- Check for timeout (default to not installing BIOS Manager)
-		if computer.uptime() - timeoutStart > timeoutSeconds then
-			installBiosManager = false
-			confirmWindow:remove()
+	-- Wait for user input
+	while not confirmed do
+		local event = {computer.pullSignal()}
+		if event[1] == "touch" then
+			workspace:handleEvent(event)
 			workspace:draw()
-			break
-		end
-		
-		-- Handle touch events
-		if event and event[1] == "touch" then
-			local touchX, touchY = tonumber(event[3]), tonumber(event[4])  -- touch event: type, address, x, y, button
-			
-			if touchX and touchY then
-				-- Use the absolute coordinates that containerDraw already set
-				-- confirmButton.x and confirmButton.y are already absolute coordinates
-				
-				-- Check confirm button bounds
-				if touchX >= confirmButton.x and touchX < confirmButton.x + buttonWidth and
-				   touchY >= confirmButton.y and touchY < confirmButton.y + 3 then
-					installBiosManager = true
-					confirmWindow:remove()
-					workspace:draw()
-					confirmResult = true
-				end
-				
-				-- Check cancel button bounds
-				if touchX >= cancelButton.x and touchX < cancelButton.x + buttonWidth and
-				   touchY >= cancelButton.y and touchY < cancelButton.y + 3 then
-					installBiosManager = false
-					confirmWindow:remove()
-					workspace:draw()
-					confirmResult = true
-				end
-			end
 		end
 	end
 	
 	if installBiosManager then
 		layout:removeChildren()
-		addImage(1, 1, "EEPROM")
+		addImage(1, 1, "BIOS_Manager")
 		addTitle(0x969696, localization.installingBiosManager or "正在安装 BIOS 管理器...")
 		workspace:draw()
 		
@@ -1622,7 +1586,7 @@ addStage(function()
 		end
 		-- Label is already set to "PixelOS EFI", no need to set again
 	else
-		logError("用户选择不安装 BIOS 管理器")
+		logError("用户选择跳过 BIOS 管理器安装")
 		-- Label is already set to "PixelOS EFI", no need to set again
 	end
 

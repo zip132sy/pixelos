@@ -1,4 +1,3 @@
-
 local GUI = require("GUI")
 local screen = require("Screen")
 local filesystem = require("Filesystem")
@@ -30,121 +29,144 @@ modulesLayout:setSpacing(1, 1, 1)
 window.contentLayout = window:addChild(GUI.layout(1, 1, 1, 1, 1, 1))
 
 local function moduleDraw(object)
-	local textColor = object.pressed and 0x3C3C3C or 0xE1E1E1
+    local textColor = object.pressed and 0x3C3C3C or 0xE1E1E1
 
-	if object.pressed then
-		screen.drawRectangle(object.x, object.y, object.width, object.height, 0xF0F0F0, textColor, " ")
-		screen.drawText(object.x, object.y - 1, 0xF0F0F0, string.rep("⣀", object.width))
-		screen.drawText(object.x, object.y + object.height, 0xF0F0F0, string.rep("⠉", object.width))
-	end
+    if object.pressed then
+        screen.drawRectangle(object.x, object.y, object.width, object.height, 0xF0F0F0, textColor, " ")
+        screen.drawText(object.x, object.y - 1, 0xF0F0F0, string.rep("⣀", object.width))
+        screen.drawText(object.x, object.y + object.height, 0xF0F0F0, string.rep("⠉", object.width))
+    end
 
-	screen.drawImage(object.x + 1, object.y, object.icon)
-	screen.drawText(object.x + 11, object.y + 1, textColor, object.module.name)
+    screen.drawImage(object.x + 1, object.y, object.icon)
+    screen.drawText(object.x + 11, object.y + 1, textColor, object.module.name)
 end
 
 local function runModule(object)
-	window.contentLayout:removeChildren()
-	window.contentLayout:setMargin(1, 1, 0, object.module.margin)
+    window.contentLayout:removeChildren()
+    window.contentLayout:setMargin(1, 1, 0, object.module.margin)
 
-	window.contentLayout.eventHandler = function(workspace, _, e1, e2, e3, e4, e5)
-		if e1 == "scroll" then
-			local cell = window.contentLayout.cells[1][1]
-			local to = -math.floor(cell.childrenHeight / 2)
+    window.contentLayout.eventHandler = function(workspace, _, e1, e2, e3, e4, e5)
+        if e1 == "scroll" then
+            local cell = window.contentLayout.cells[1][1]
+            local to = -math.floor(cell.childrenHeight / 2)
 
-			cell.verticalMargin = cell.verticalMargin + (e5 > 0 and scrollSpeed or -scrollSpeed)
-			if cell.verticalMargin > object.module.margin then
-				cell.verticalMargin = object.module.margin
-			elseif cell.verticalMargin < to then
-				cell.verticalMargin = to
-			end
+            cell.verticalMargin = cell.verticalMargin + (e5 > 0 and scrollSpeed or -scrollSpeed)
+            if cell.verticalMargin > object.module.margin then
+                cell.verticalMargin = object.module.margin
+            elseif cell.verticalMargin < to then
+                cell.verticalMargin = to
+            end
 
-			workspace:draw()
-		end
-	end
+            workspace:draw()
+        end
+    end
 
-	object.module.onTouch()
-	workspace:draw()
+    object.module.onTouch()
+    workspace:draw()
 end
 
 local function selectModule(object)
-	local child
-	for i = 1, #modulesLayout.children do
-		child = modulesLayout.children[i]
-		child.pressed = object == child
-	end
+    local child
+    for i = 1, #modulesLayout.children do
+        child = modulesLayout.children[i]
+        child.pressed = object == child
+    end
 
-	runModule(object)
+    runModule(object)
 end
 
 local function moduleEventHandler(workspace, object, e1)
-	if e1 == "touch" then
-		selectModule(object)
-	end
+    if e1 == "touch" then
+        selectModule(object)
+    end
 end
 
 modulesLayout.eventHandler = function(workspace, object, e1, e2, e3, e4, e5)
-	if e1 == "scroll" then
-		local cell = modulesLayout.cells[1][1]
-		local to = -(#modulesLayout.children - 1) * 4 + 1
-		
-		cell.verticalMargin = cell.verticalMargin + (e5 > 0 and scrollSpeed or -scrollSpeed)
-		if cell.verticalMargin > 1 then
-			cell.verticalMargin = 1
-		elseif cell.verticalMargin < to then
-			cell.verticalMargin = to
-		end
+    if e1 == "scroll" then
+        local cell = modulesLayout.cells[1][1]
+        local to = -(#modulesLayout.children - 1) * 4 + 1
+        
+        cell.verticalMargin = cell.verticalMargin + (e5 > 0 and scrollSpeed or -scrollSpeed)
+        if cell.verticalMargin > 1 then
+            cell.verticalMargin = 1
+        elseif cell.verticalMargin < to then
+            cell.verticalMargin = to
+        end
 
-		workspace:draw()
-	end
+        workspace:draw()
+    end
 end
 
 window.onResize = function(width, height)
-	modulesLayout:setMargin(1, 1, 0, 1)
+    modulesLayout:setMargin(1, 1, 0, 1)
 
-	window.backgroundPanel.width, window.backgroundPanel.height = width - leftPanel.width, height
-	window.contentLayout.localX, window.contentLayout.width, window.contentLayout.height = window.backgroundPanel.localX, window.backgroundPanel.width, window.backgroundPanel.height
-	leftPanel.height = height
-	modulesLayout.height = height - 2
+    window.backgroundPanel.width, window.backgroundPanel.height = width - leftPanel.width, height
+    window.contentLayout.localX, window.contentLayout.width, window.contentLayout.height = window.backgroundPanel.localX, window.backgroundPanel.width, window.backgroundPanel.height
+    leftPanel.height = height
+    modulesLayout.height = height - 2
 
-	for i = 1, #modulesLayout.children do
-		if modulesLayout.children[i].pressed then
-			runModule(modulesLayout.children[i])
-			break
-		end
-	end
+    for i = 1, #modulesLayout.children do
+        if modulesLayout.children[i].pressed then
+            runModule(modulesLayout.children[i])
+            break
+        end
+    end
 end
 
 --------------------------------------------------------------------------------
 
+-- Load modules with error handling
 local modules = filesystem.list(modulesPath)
 table.sort(modules, function(a, b) return a < b end)
 
+local loadedModules = 0
+local failedModules = 0
+
 for i = 1, #modules do
-	local result, reason = loadfile(modulesPath .. modules[i] .. "Main.lua")
-	if result then
-		local success, result = pcall(result, workspace, window, localization)
-		if success then
-			local object = modulesLayout:addChild(GUI.object(1, 1, 1, 3))
+    local moduleName = modules[i]
+    local modulePath = modulesPath .. moduleName .. "Main.lua"
+    
+    -- Check if Main.lua exists
+    if filesystem.exists(modulePath) then
+        local result, reason = loadfile(modulePath)
+        if result then
+            local success, moduleResult = pcall(result, workspace, window, localization)
+            if success then
+                local object = modulesLayout:addChild(GUI.object(1, 1, 1, 3))
 
-			object.icon = image.load(modulesPath .. modules[i] .. "Icon.pic")
-			object.module = result
-			object.pressed = false
-			object.draw = moduleDraw
-			object.eventHandler = moduleEventHandler
+                -- Load icon with error handling
+                local iconPath = modulesPath .. moduleName .. "Icon.pic"
+                if filesystem.exists(iconPath) then
+                    object.icon = image.load(iconPath)
+                else
+                    -- Create placeholder icon if not found
+                    object.icon = image.create(8, 3, 0xCCCCCC, 0x666666, 1, "?")
+                end
+                
+                object.module = moduleResult
+                object.pressed = false
+                object.draw = moduleDraw
+                object.eventHandler = moduleEventHandler
 
-			leftPanel.width = math.max(leftPanel.width, unicode.wlen(result.name) + 14)
-		else
-			error("Failed to execute module " .. modules[i] .. ": " .. tostring(result))
-		end
-	else
-		error("Failed to load module " .. modules[i] .. ": " .. tostring(reason))
-	end
+                leftPanel.width = math.max(leftPanel.width, unicode.wlen(moduleResult.name) + 14)
+                loadedModules = loadedModules + 1
+            else
+                failedModules = failedModules + 1
+                print("Failed to execute module " .. moduleName .. ": " .. tostring(moduleResult))
+            end
+        else
+            failedModules = failedModules + 1
+            print("Failed to load module " .. moduleName .. ": " .. tostring(reason))
+        end
+    else
+        print("Module " .. moduleName .. " skipped: Main.lua not found")
+    end
 end
 
 modulesLayout.width = leftPanel.width
 window.backgroundPanel.localX = leftPanel.width + 1
 for i = 1, #modulesLayout.children do
-	modulesLayout.children[i].width = leftPanel.width
+    modulesLayout.children[i].width = leftPanel.width
 end
 
 window:resize(window.width, window.height)

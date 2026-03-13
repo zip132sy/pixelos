@@ -127,6 +127,15 @@ module.onTouch = function()
 	end
 	
 	window.contentLayout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.biosManagerNote or "注意：刷写 BIOS 后需要重启系统才能生效"))
+	
+	-- Add separator
+	window.contentLayout:addChild(GUI.object(1, 1, 1, 2))
+	window.contentLayout:addChild(GUI.line(1, 1, 36, 0xA5A5A5))
+	window.contentLayout:addChild(GUI.object(1, 1, 1, 2))
+	
+	-- Encryption Section
+	window.contentLayout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.encryption or "加密"))
+	window.contentLayout:addChild(GUI.textBox(1, 1, 36, 2, nil, 0xA5A5A5, {localization.encryptionDesc or "加密功能正在开发中...", localization.encryptionNote or "此功能将在未来版本中推出"}, 1, 0, 0, true, true))
 end
 
 return module
