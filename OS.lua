@@ -339,7 +339,7 @@ local function boot()
     end
 
     -- Displays title and currently required library when booting OS
-    local UIRequireTotal = 11
+    local UIRequireTotal = 14
     local UIRequireCounter = 1
     
     local function UIRequire(module)
@@ -366,6 +366,9 @@ local function boot()
 		
 		UIRequireCounter = UIRequireCounter + 1
 	end
+    
+    -- Log which module is being loaded
+    logBIOSBoot("加载模块：" .. module .. " (" .. UIRequireCounter-1 .. "/" .. UIRequireTotal .. ")")
 
 	return require(module)
     end
@@ -379,8 +382,10 @@ local function boot()
 
     -- Loading libraries with error handling
 local function safeUIRequire(module)
+    logBIOSBoot("开始加载：" .. module)
     local success, result = pcall(UIRequire, module)
     if not success then
+        logBIOSBootError("加载失败：" .. module .. " - " .. tostring(result))
         -- Try to display error if possible
         local gpu = component.list("gpu")()
         local screen = component.list("screen")()
@@ -400,16 +405,22 @@ local function safeUIRequire(module)
         end
         return nil
     end
+    logBIOSBoot("成功加载：" .. module)
     return result
 end
 
 bit32 = bit32 or safeUIRequire("Bit32")
+logBIOSBoot("Bit32 加载完成")
 local paths = safeUIRequire("Paths")
+logBIOSBoot("Paths 加载完成")
 local event = safeUIRequire("Event")
+logBIOSBoot("Event 加载完成")
 safeUIRequire("Component")
+logBIOSBoot("Component 加载完成")
 
 -- Loading filesystem library after component
 local filesystem = safeUIRequire("Filesystem")
+logBIOSBoot("Filesystem 加载完成")
 
 -- Setting main filesystem proxy to what are we booting from
 if filesystem then
@@ -424,11 +435,17 @@ end
 
 -- Loading other libraries
 local keyboard = safeUIRequire("Keyboard")
+logBIOSBoot("Keyboard 加载完成")
 local color = safeUIRequire("Color")
+logBIOSBoot("Color 加载完成")
 local text = safeUIRequire("Text")
+logBIOSBoot("Text 加载完成")
 local number = safeUIRequire("Number")
+logBIOSBoot("Number 加载完成")
 local image = safeUIRequire("Image")
+logBIOSBoot("Image 加载完成")
 local screen = safeUIRequire("Screen")
+logBIOSBoot("Screen 加载完成")
 
 -- Setting currently chosen GPU component as screen buffer main one
 if GPUAddress and screen then
@@ -436,8 +453,12 @@ if GPUAddress and screen then
 end
 
 local GUI = safeUIRequire("GUI")
+logBIOSBoot("GUI 加载完成")
 local system = safeUIRequire("System")
+logBIOSBoot("System 加载完成")
 safeUIRequire("Network")
+logBIOSBoot("Network 加载完成")
+logBIOSBoot("所有库加载完成，开始初始化...")
 
 ---------------------------------------- Main loop ----------------------------------------
 
