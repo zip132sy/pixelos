@@ -1491,7 +1491,10 @@ addStage(function()
 	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
 	-- Timeout info
-	confirmWindow:addChild(GUI.label(1, 6, confirmWindow.width - 2, 1, 0x878787, "10 秒后自动跳过安装")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local timeoutLabel = confirmWindow:addChild(GUI.label(1, 6, confirmWindow.width - 2, 1, 0x878787, "10 秒后自动跳过安装")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	
+	-- Countdown display
+	local countdownLabel = confirmWindow:addChild(GUI.label(1, 8, confirmWindow.width - 2, 1, 0x3366CC, "剩余时间：10 秒")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
 	-- Note: Physical reboot will still boot into the installed system
 	confirmWindow:addChild(GUI.label(1, 15, confirmWindow.width - 2, 1, 0x696969, "物理重启将进入已安装的系统")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_BOTTOM)
@@ -1513,14 +1516,14 @@ addStage(function()
 	-- Draw workspace first to calculate absolute coordinates
 	workspace:draw()
 	
-	-- Get absolute button coordinates after drawing (containerDraw sets child.x and child.y)
-	local confirmButtonAbsX = confirmButton.x
-	local confirmButtonAbsY = confirmButton.y
-	local cancelButtonAbsX = cancelButton.x
-	local cancelButtonAbsY = cancelButton.y
-	
 	-- Wait for user input with timeout (default to not installing BIOS Manager)
 	while not confirmResult do
+		-- Update countdown display
+		local elapsed = computer.uptime() - timeoutStart
+		local remaining = math.max(0, timeoutSeconds - elapsed)
+		countdownLabel.text = "剩余时间：" .. math.floor(remaining) .. " 秒"
+		workspace:draw()
+		
 		local event = {computer.pullSignal(0.5)}  -- 0.5 秒超时，方便检测总超时
 		
 		-- Check for timeout (default to not installing BIOS Manager)
@@ -1531,14 +1534,20 @@ addStage(function()
 			break
 		end
 		
-		-- Only handle touch events
+		-- Handle touch events
 		if event and event[1] == "touch" then
-			local touchX, touchY = tonumber(event[2]), tonumber(event[3])
+			local touchX, touchY = tonumber(event[3]), tonumber(event[4])  -- touch event: type, address, x, y, button
 			
 			if touchX and touchY then
+				-- Calculate absolute button positions
+				local confirmBtnX = confirmWindow.x + confirmButton.x - 1
+				local confirmBtnY = confirmWindow.y + confirmButton.y - 1
+				local cancelBtnX = confirmWindow.x + cancelButton.x - 1
+				local cancelBtnY = confirmWindow.y + cancelButton.y - 1
+				
 				-- Check confirm button bounds
-				if touchX >= confirmButtonAbsX and touchX < confirmButtonAbsX + buttonWidth and
-				   touchY >= confirmButtonAbsY and touchY < confirmButtonAbsY + 3 then
+				if touchX >= confirmBtnX and touchX < confirmBtnX + buttonWidth and
+				   touchY >= confirmBtnY and touchY < confirmBtnY + 3 then
 					installBiosManager = true
 					confirmWindow:remove()
 					workspace:draw()
@@ -1546,8 +1555,8 @@ addStage(function()
 				end
 				
 				-- Check cancel button bounds
-				if touchX >= cancelButtonAbsX and touchX < cancelButtonAbsX + buttonWidth and
-				   touchY >= cancelButtonAbsY and touchY < cancelButtonAbsY + 3 then
+				if touchX >= cancelBtnX and touchX < cancelBtnX + buttonWidth and
+				   touchY >= cancelBtnY and touchY < cancelBtnY + 3 then
 					installBiosManager = false
 					confirmWindow:remove()
 					workspace:draw()
