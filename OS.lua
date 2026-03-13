@@ -48,15 +48,24 @@ local function closeBIOSLog()
 	end
 end
 
--- Execute string with error handling
+-- Execute string with error handling (with recursion protection)
+local executeDepth = 0
 local function executeString(...) 
+    executeDepth = executeDepth + 1
+    if executeDepth > 2 then
+        logBIOSBootError("启动递归过深，停止启动")
+        executeDepth = 0
+        return false, "Boot loop detected"
+    end
+    
     local result, reason = load(...) 
     
     if result then 
         result, reason = xpcall(result, debug.traceback) 
         
         if result then 
-            return 
+            executeDepth = 0
+            return true
         end 
     end 
     
@@ -82,24 +91,8 @@ local function executeString(...)
         computer.pullSignal()
     end
     
-    -- If all else fails, try to boot from any filesystem
-    for address in component.list("filesystem") do
-        local proxy = component.proxy(address)
-        if proxy.exists("/OS.lua") then
-            local handle, data, chunk = proxy.open("/OS.lua", "rb"), ""
-            if handle then
-                repeat
-                    chunk = proxy.read(handle, math.huge)
-                    data = data .. (chunk or "")
-                until not chunk
-                proxy.close(handle)
-                
-                logBIOSBoot("尝试从文件系统启动：" .. tostring(address))
-                executeString(data, "=/OS.lua")
-                break
-            end
-        end
-    end
+    executeDepth = 0
+    return false, reason
 end
 
 -- First, check for multiple bootable systems and show selection if needed
@@ -346,8 +339,9 @@ local function boot()
     end
 
     -- Displays title and currently required library when booting OS
-    local UIRequireTotal, UIRequireCounter = 14, 1
-
+    local UIRequireTotal = 11
+    local UIRequireCounter = 1
+    
     local function UIRequire(module)
 	if GPUAddress then
 		local gpuProxy = component.proxy(GPUAddress)
@@ -355,9 +349,9 @@ local function boot()
 			return math.floor(screenWidth / 2 - width / 2)
 		end
 		
-		local title, width, total = "PixelOS", 26, 14
-		local x, y, part = centrize(width), math.floor(screenHeight / 2 - 1), math.ceil(width * UIRequireCounter / UIRequireTotal)
-		UIRequireCounter = UIRequireCounter + 1
+		local title, width = "PixelOS", 26
+		local x, y = centrize(width), math.floor(screenHeight / 2 - 1)
+		local part = math.ceil(width * UIRequireCounter / UIRequireTotal)
 		
 		-- Title
 		gpuProxy.setForeground(0x2D2D2D)
@@ -369,6 +363,8 @@ local function boot()
 
 		gpuProxy.setForeground(0xC3C3C3)
 		gpuProxy.set(x + part, y + 2, string.rep("-", width - part))
+		
+		UIRequireCounter = UIRequireCounter + 1
 	end
 
 	return require(module)
@@ -576,15 +572,14 @@ if not useTabletMode then
     end
 
     -- Initialize BIOS log at the very beginning (after filesystem is available)
-    -- TEMPORARILY DISABLED to debug boot loop
-    -- fs = require("Filesystem")
-    -- initBIOSLog()
-    -- logBIOSBoot("PixelOS 启动初始化...")
-    -- logBIOSBoot("系统版本：" .. (system and system.version() or "未知"))
+    fs = require("Filesystem")
+    initBIOSLog()
+    logBIOSBoot("PixelOS 启动初始化...")
+    logBIOSBoot("系统版本：" .. (system and system.version() or "未知"))
     
     -- Logging in
     system.authorize()
-    -- logBIOSBoot("系统授权完成")
+    logBIOSBoot("系统授权完成")
 
     -- Main loop with UI regeneration after errors 
     while true do
