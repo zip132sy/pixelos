@@ -1,5 +1,12 @@
 local keyboard = require("Keyboard")
-local filesystem = require("Filesystem")
+-- Delay filesystem loading to avoid circular dependency
+local filesystem
+local function getFilesystem()
+    if not filesystem then
+        filesystem = require("Filesystem")
+    end
+    return filesystem
+end
 local event = require("Event")
 local color = require("Color")
 local image = require("Image")
@@ -2213,9 +2220,9 @@ local function filesystemChooserEventHandler(workspace, object, e1)
 
 		if object.path and #object.path > 0 then
 			-- local path = object.path:gsub("/+", "/")
-			filesystemDialog.filesystemTree.selectedItem = object.IOMode == GUI.IO_MODE_OPEN and object.path or filesystem.path(object.path)
-			filesystemDialog.input.text = filesystem.name(object.path)
-			filesystemDialog:expandPath(object.IOMode == GUI.IO_MODE_OPEN and filesystem.path(object.path) or filesystem.path(filesystem.path(object.path)))
+			filesystemDialog.filesystemTree.selectedItem = object.IOMode == GUI.IO_MODE_OPEN and object.path or getFilesystem().path(object.path)
+			filesystemDialog.input.text = getFilesystem().name(object.path)
+			filesystemDialog:expandPath(object.IOMode == GUI.IO_MODE_OPEN and getFilesystem().path(object.path) or getFilesystem().path(getFilesystem().path(object.path)))
 		end
 		
 		filesystemDialog.onCancel = function()
@@ -2627,11 +2634,11 @@ end
 --------------------------------------------------------------------------------
 
 local function filesystemTreeUpdateFileListRecursively(tree, path, offset)
-	local list = filesystem.list(path)
+	local list = getFilesystem().list(path)
 
 	local i, expandables = 1, {}
 	while i <= #list do
-		if filesystem.isDirectory(path .. list[i]) then
+		if getFilesystem().isDirectory(path .. list[i]) then
 			table.insert(expandables, list[i])
 			table.remove(list, i)
 		else
@@ -2644,7 +2651,7 @@ local function filesystemTreeUpdateFileListRecursively(tree, path, offset)
 
 	if tree.showMode == GUI.IO_MODE_BOTH or tree.showMode == GUI.IO_MODE_DIRECTORY then
 		for i = 1, #expandables do
-			tree:addItem(filesystem.name(expandables[i]):sub(1, -2), path .. expandables[i], offset, true)
+			tree:addItem(getFilesystem().name(expandables[i]):sub(1, -2), path .. expandables[i], offset, true)
 
 			if tree.expandedItems[path .. expandables[i]] then
 				filesystemTreeUpdateFileListRecursively(tree, path .. expandables[i], offset + 2)
@@ -2654,7 +2661,7 @@ local function filesystemTreeUpdateFileListRecursively(tree, path, offset)
 
 	if tree.showMode == GUI.IO_MODE_BOTH or tree.showMode == GUI.IO_MODE_FILE then
 		for i = 1, #list do
-			tree:addItem(list[i], path .. list[i], offset, false, tree.extensionFilters and not tree.extensionFilters[filesystem.extension(path .. list[i], true)] or false)
+			tree:addItem(list[i], path .. list[i], offset, false, tree.extensionFilters and not tree.extensionFilters[getFilesystem().extension(path .. list[i], true)] or false)
 		end
 	end
 end
@@ -3575,12 +3582,12 @@ function GUI.palette(x, y, startColor)
 	local paletteConfigPath = paths.user.applicationData .. "GUI/Palette.cfg"
 	
 	local favourites
-	if filesystem.exists(paletteConfigPath) then
-		favourites = filesystem.readTable(paletteConfigPath)
+	if getFilesystem().exists(paletteConfigPath) then
+		favourites = getFilesystem().readTable(paletteConfigPath)
 	else
 		favourites = {}
 		for i = 1, 6 do favourites[i] = color.HSBToInteger(math.random(0, 360), 1, 1) end
-		filesystem.writeTable(paletteConfigPath, favourites)
+		getFilesystem().writeTable(paletteConfigPath, favourites)
 	end
 
 	local favouritesContainer = palette:addChild(GUI.container(58, 24, 12, 1))
@@ -3610,7 +3617,7 @@ function GUI.palette(x, y, startColor)
 				favouritesContainer.children[i].colors.pressed.background = 0x0
 			end
 			
-			filesystem.writeTable(paletteConfigPath, favourites)
+			getFilesystem().writeTable(paletteConfigPath, favourites)
 
 			workspace:draw()
 		end

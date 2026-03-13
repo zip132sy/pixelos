@@ -7,6 +7,32 @@ local repositoryURL = repositoryURLs[1]
 local installerURL = "Installer/"
 local EFIURL = "EFI/Minified.lua"  -- 使用精简版 EFI，兼容更好的 EEPROM
 
+-- Logging system (only log errors to disk)
+local logFile = nil
+local logPath = nil
+
+local function initLog(filesystem)
+	if not logFile then
+		logPath = filesystem.path("/PixelOS_Install.log")
+		logFile = filesystem.open(logPath, "w")
+	end
+end
+
+local function logError(message)
+	if logFile then
+		local timestamp = os.date("%Y-%m-%d %H:%M:%S")
+		filesystem.write(logFile, string.format("[%s] ERROR: %s\n", timestamp, message))
+		filesystem.flush(logFile)
+	end
+end
+
+local function closeLog()
+	if logFile then
+		filesystem.close(logFile)
+		logFile = nil
+	end
+end
+
 local installerPath = "/PixelOS installer/"
 local installerPicturesPath = installerPath .. "Installer/Pictures/"
 local OSPath = "/"
@@ -1345,6 +1371,9 @@ addStage(function()
 	addTitle(0x969696, localization.flashing)
 	workspace:draw()
 	
+	-- Initialize log file
+	initLog(filesystem)
+	
 	-- Download EFI code
 	local efiCode = request(EFIURL)
 	
@@ -1353,6 +1382,10 @@ addStage(function()
 	local success, result = pcall(component.invoke, EEPROMAddress, "set", efiCode)
 	
 	if not success then
+		-- Log the error
+		logError("EEPROM 烧录失败：" .. tostring(result))
+		logError("EFI 代码大小：" .. #efiCode .. " 字节")
+		
 		-- Failed to write to EEPROM, likely due to space constraints
 		layout:removeChildren()
 		addImage(1, 1, "Error")
@@ -1373,6 +1406,8 @@ addStage(function()
 		-- Add error details
 		table.insert(lines, 1, "错误信息:")
 		table.insert(lines, "EEPROM 空间不足或写入失败")
+		table.insert(lines, "EFI 代码大小：" .. #efiCode .. " 字节")
+		table.insert(lines, "日志文件：" .. (logPath or "未知"))
 		
 		-- Create scrollable text area
 		local startY = title() + 2
@@ -1424,6 +1459,7 @@ addStage(function()
 			-- Ignore all other events (mouse, touch, scroll, etc.)
 		end
 		
+		closeLog()
 		computer.shutdown()
 		return
 	end
@@ -1431,6 +1467,9 @@ addStage(function()
 	-- If successful, continue with labeling
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install Bios")
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
+	
+	-- Log success
+	logError("EEPROM 烧录成功 - BIOS 标签：PixelOS Install Bios")
 
 	-- Ask user if they want to install BIOS Manager
 	local installBiosManager = false
@@ -1443,7 +1482,7 @@ addStage(function()
 	-- Description
 	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
-	-- Buttons (properly spaced)
+	-- Buttons (properly spaced) - Use simple touch detection like MineOS
 	local buttonWidth = 12
 	local spacing = 2
 	local totalWidth = buttonWidth * 2 + spacing
@@ -1454,45 +1493,37 @@ addStage(function()
 	
 	local confirmResult = false
 	
-	confirmButton.onTouch = function()
-		installBiosManager = true
-		confirmWindow:remove()
-		workspace:draw()
-		confirmResult = true
-	end
-	
-	cancelButton.onTouch = function()
-		installBiosManager = false
-		confirmWindow:remove()
-		workspace:draw()
-		confirmResult = true
-	end
+	-- Store button coordinates for manual event handling
+	local confirmButtonCoords = {x = startX, y = 10, w = buttonWidth, h = 3}
+	local cancelButtonCoords = {x = startX + buttonWidth + spacing, y = 10, w = buttonWidth, h = 3}
 	
 	workspace:draw()
 	
-	-- Wait for user input using simple event loop
+	-- Wait for user input using MineOS-style event handling (compatible with BIOS environment)
 	while not confirmResult do
 		local event = {computer.pullSignal()}
+		
+		-- Only handle touch events
 		if event[1] == "touch" then
 			local touchX, touchY = tonumber(event[2]), tonumber(event[3])
 			
-			-- Check confirm button
 			if touchX and touchY then
-				local cX, cY = tonumber(confirmButton.x), tonumber(confirmButton.y)
-				local cW, cH = tonumber(confirmButton.width), tonumber(confirmButton.height)
-				if cX and cY and cW and cH and
-				   touchX >= cX and touchX < cX + cW and
-				   touchY >= cY and touchY < cY + cH then
-					confirmButton.onTouch()
+				-- Check confirm button bounds
+				if touchX >= confirmButtonCoords.x and touchX < confirmButtonCoords.x + confirmButtonCoords.w and
+				   touchY >= confirmButtonCoords.y and touchY < confirmButtonCoords.y + confirmButtonCoords.h then
+					installBiosManager = true
+					confirmWindow:remove()
+					workspace:draw()
+					confirmResult = true
 				end
 				
-				-- Check cancel button
-				local nX, nY = tonumber(cancelButton.x), tonumber(cancelButton.y)
-				local nW, nH = tonumber(cancelButton.width), tonumber(cancelButton.height)
-				if nX and nY and nW and nH and
-				   touchX >= nX and touchX < nX + nW and
-				   touchY >= nY and touchY < nY + nH then
-					cancelButton.onTouch()
+				-- Check cancel button bounds
+				if touchX >= cancelButtonCoords.x and touchX < cancelButtonCoords.x + cancelButtonCoords.w and
+				   touchY >= cancelButtonCoords.y and touchY < cancelButtonCoords.y + cancelButtonCoords.h then
+					installBiosManager = false
+					confirmWindow:remove()
+					workspace:draw()
+					confirmResult = true
 				end
 			end
 		end

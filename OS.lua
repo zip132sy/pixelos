@@ -1,6 +1,43 @@
 -- PixelOS
 ---------------------------------------- System initialization ----------------------------------------
 
+-- BIOS boot logging system (only log errors to disk)
+local biosLogFile = nil
+local biosLogPath = "/BIOS_Boot.log"
+
+local function initBIOSLog()
+	if not biosLogFile then
+		local filesystem = require("Filesystem")
+		biosLogFile = filesystem.open(biosLogPath, "w")
+	end
+end
+
+local function logBIOSBoot(message)
+	if biosLogFile then
+		local filesystem = require("Filesystem")
+		local timestamp = os and os.date("%Y-%m-%d %H:%M:%S") or "unknown"
+		filesystem.write(biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
+		filesystem.flush(biosLogFile)
+	end
+end
+
+local function logBIOSBootError(message)
+	if biosLogFile then
+		local filesystem = require("Filesystem")
+		local timestamp = os and os.date("%Y-%m-%d %H:%M:%S") or "unknown"
+		filesystem.write(biosLogFile, string.format("[%s] ERROR: %s\n", timestamp, message))
+		filesystem.flush(biosLogFile)
+	end
+end
+
+local function closeBIOSLog()
+	if biosLogFile then
+		local filesystem = require("Filesystem")
+		filesystem.close(biosLogFile)
+		biosLogFile = nil
+	end
+end
+
 -- Execute string with error handling
 local function executeString(...) 
     local result, reason = load(...) 
@@ -12,6 +49,9 @@ local function executeString(...)
             return 
         end 
     end 
+    
+    -- Log the error
+    logBIOSBootError("启动失败：" .. tostring(reason))
     
     -- Try to display error if GPU is available
     local gpu = component.list("gpu")()
@@ -28,6 +68,7 @@ local function executeString(...)
         gpuProxy.set(2, 3, "Error: " .. tostring(reason))
         gpuProxy.setForeground(0xFFFFFF)
         gpuProxy.set(2, 5, "Press any key to continue...")
+        logBIOSBoot("等待用户确认...")
         computer.pullSignal()
     end
     
@@ -43,6 +84,7 @@ local function executeString(...)
                 until not chunk
                 proxy.close(handle)
                 
+                logBIOSBoot("尝试从文件系统启动：" .. tostring(address))
                 executeString(data, "=/OS.lua")
                 break
             end
@@ -523,16 +565,25 @@ if not useTabletMode then
         )
     end
 
+    -- Initialize BIOS log at the very beginning
+    initBIOSLog()
+    logBIOSBoot("PixelOS 启动初始化...")
+    logBIOSBoot("系统版本：" .. (system and system.version() or "未知"))
+    
     -- Logging in
     system.authorize()
+    logBIOSBoot("系统授权完成")
 
     -- Main loop with UI regeneration after errors 
     while true do
+        logBIOSBoot("进入主事件循环...")
         local success, path, line, traceback = system.call(workspace.start, workspace, 0)
         
         if success then
+            logBIOSBoot("主事件循环正常退出")
             break
         else
+            logBIOSBootError("主循环错误：" .. tostring(path) .. " 行 " .. tostring(line))
             system.updateWorkspace()
             system.updateDesktop()
             workspace:draw()
