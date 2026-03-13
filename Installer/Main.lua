@@ -1564,22 +1564,47 @@ addStage(function()
 		workspace:draw()
 		
 		local bootManagerURL = "EFI/BootManager.lua"
-		local bootManagerCode = request(bootManagerURL)
 		
-		-- Try to write BIOS Manager to EEPROM
-		local success, result = pcall(component.invoke, EEPROMAddress, "set", bootManagerCode)
+		-- Log the download attempt
+		logError("尝试下载 BIOS 管理器：" .. bootManagerURL)
+		
+		-- Try to download BIOS Manager with error handling
+		local success, bootManagerCode = pcall(request, bootManagerURL)
 		
 		if not success then
+			-- Download failed, show error
+			logError("BIOS 管理器下载失败：" .. tostring(bootManagerCode))
 			layout:removeChildren()
 			addImage(1, 1, "Warning")
-			addTitle(0xFF9900, "BIOS 管理器安装失败")
-			local info = string.format("EEPROM 空间不足，跳过 BIOS 管理器安装")
+			addTitle(0xFF9900, "BIOS 管理器下载失败")
+			local info = "无法下载 BIOS 管理器：" .. tostring(bootManagerCode)
 			workspace:addChild(GUI.label(1, title() + 2, workspace.width - 2, 1, 0x696969, info)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 			workspace:draw()
 			computer.pullSignal(2)
+		else
+			-- Download successful, log the size
+			logError("BIOS 管理器下载成功，大小：" .. #bootManagerCode .. " 字节")
+			
+			-- Try to write to EEPROM
+			local writeSuccess, result = pcall(component.invoke, EEPROMAddress, "set", bootManagerCode)
+			
+			if not writeSuccess then
+				logError("BIOS 管理器写入失败：" .. tostring(result))
+				layout:removeChildren()
+				addImage(1, 1, "Warning")
+				addTitle(0xFF9900, "BIOS 管理器安装失败")
+				local info = string.format("EEPROM 空间不足，跳过 BIOS 管理器安装")
+				workspace:addChild(GUI.label(1, title() + 2, workspace.width - 2, 1, 0x696969, info)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+				workspace:draw()
+				computer.pullSignal(2)
+			else
+				logError("BIOS 管理器安装成功")
+			end
+			-- Write successful, label is already set to "PixelOS EFI"
 		end
 		-- Label is already set to "PixelOS EFI", no need to set again
 	else
+		logError("用户选择不安装 BIOS 管理器")
 		-- Label is already set to "PixelOS EFI", no need to set again
 	end
 
