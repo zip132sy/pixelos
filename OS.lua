@@ -48,6 +48,21 @@ local function closeBIOSLog()
 	end
 end
 
+-- Early log function that works before filesystem is available
+local function earlyLog(message)
+    -- Try to get filesystem early
+    if not fs then
+        for addr in component.list("filesystem") do
+            fs = component.proxy(addr)
+            break
+        end
+    end
+    if fs then
+        initBIOSLog()
+        logBIOSBoot(message)
+    end
+end
+
 -- Execute string with error handling (with recursion protection)
 local executeDepth = 0
 local function executeString(...) 
@@ -191,10 +206,14 @@ end
 
 -- Main boot function
 local function boot()
+    -- Initialize logging as early as possible
+    earlyLog("=== Boot 函数开始执行 ===")
+    
     local selectedBootAddress = checkAndSelectBootSystem()
     
     if not selectedBootAddress then
         -- No bootable filesystem found
+        earlyLog("未找到可启动的文件系统")
         local gpu = component.list("gpu")()
         local screen = component.list("screen")()
         
@@ -214,6 +233,8 @@ local function boot()
         end
         computer.shutdown(true)
     end
+    
+    earlyLog("已选择启动设备：" .. tostring(selectedBootAddress))
 
     -- Obtaining boot filesystem component proxy
     local bootFilesystemProxy = component.proxy(selectedBootAddress)
@@ -640,6 +661,10 @@ end
 -- Run with error handling
 local success, err = pcall(boot)
 if not success then
+    -- Log the error first
+    earlyLog("启动失败：" .. tostring(err))
+    earlyLog("错误堆栈：" .. debug.traceback())
+    
     -- Display error using GPU directly with multi-line support
     local gpu = component.gpu
     if gpu then
@@ -672,32 +697,14 @@ if not success then
             gpu.set(x, startY + i, 0xFF0000, line)
         end
         
-        -- Display scroll instructions if needed
-        if #lines > screenHeight - 10 then
-            local instruction = "Press any key to continue"
-            local instX = math.floor(screenWidth / 2 - #instruction / 2)
-            gpu.set(instX, screenHeight - 2, 0x878787, instruction)
-        end
-    end
-    
-    -- Wait for user input before continuing
-    computer.pullSignal()
-    
-    -- Try to boot from any available filesystem
-    for address in component.list("filesystem") do
-        local proxy = component.proxy(address)
-        if proxy.exists("/OS.lua") then
-            local handle, data, chunk = proxy.open("/OS.lua", "rb"), ""
-            if handle then
-                repeat
-                    chunk = proxy.read(handle, math.huge)
-                    data = data .. (chunk or "")
-                until not chunk
-                proxy.close(handle)
-                
-                executeString(data, "=/OS.lua")
-                break
-            end
+        -- Display instruction
+        local instruction = "SYSTEM HALTED - Check /BIOS_Boot.log for details"
+        local instX = math.floor(screenWidth / 2 - #instruction / 2)
+        gpu.set(instX, screenHeight - 2, 0x878787, instruction)
+        
+        -- Infinite loop to prevent reboot
+        while true do
+            computer.pullSignal(1)
         end
     end
 end
