@@ -11,8 +11,16 @@ local function lc()
 end
 
 local function sc()
-  local s="{"for k,v in pairs(cfg)do if type(v)~="function"then s=s..("%q"):format(k).."="..(type(v)=="table"and"{}"or("%q"):format(v))..","end end
-  local f=fs.open(cp,"w")if f then fs.write(f,s.."}")fs.close(f)end
+  local s="{"
+  for k,v in pairs(cfg)do
+    if type(v)~="function"then
+      s=s..("%q"):format(k).."="
+      if type(v)=="table"then s=s.."{},"
+      else s=s..("%q"):format(v).."," end
+    end
+  end
+  s=s.."}"
+  local f=fs.open(cp,"w")if f then fs.write(f,s)fs.close(f)end
 end
 
 local function cls(c)gpu.fill(1,1,sw,sh,c or 0x2D2D2D," ")end
