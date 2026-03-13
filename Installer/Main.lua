@@ -1534,8 +1534,19 @@ addStage(function()
 	while not confirmed do
 		local event = {computer.pullSignal()}
 		if event[1] == "touch" then
-			workspace:handleEvent(event)
-			workspace:draw()
+			local touchX, touchY = tonumber(event[3]), tonumber(event[4])
+			
+			if touchX and touchY then
+				if touchX >= installButton.x and touchX < installButton.x + installButton.width and
+				   touchY >= installButton.y and touchY < installButton.y + installButton.height then
+					installBiosManager = true
+					confirmed = true
+				elseif touchX >= skipButton.x and touchX < skipButton.x + skipButton.width and
+				   touchY >= skipButton.y and touchY < skipButton.y + skipButton.height then
+					installBiosManager = false
+					confirmed = true
+				end
+			end
 		end
 	end
 	
