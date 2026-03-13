@@ -1,43 +1,49 @@
 -- PixelOS
 ---------------------------------------- System initialization ----------------------------------------
 
--- BIOS boot logging system (log all boot events to disk)
+-- BIOS boot logging system (log all boot events to disk, avoid circular dependencies)
 local biosLogFile = nil
 local biosLogPath = "/BIOS_Boot.log"
+local fs = nil  -- Store filesystem reference
 
 local function initBIOSLog()
-	if not biosLogFile then
-		local filesystem = require("Filesystem")
-		biosLogFile = filesystem.open(biosLogPath, "w")
+	if not biosLogFile and fs then
+		biosLogFile = fs.open(biosLogPath, "w")
 		-- Log initialization message immediately
-		local timestamp = os and os.date("%Y-%m-%d %H:%M:%S") or "unknown"
-		filesystem.write(biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
-		filesystem.flush(biosLogFile)
+		local timestamp = "unknown"
+		if os then
+			timestamp = os.date("%Y-%m-%d %H:%M:%S")
+		end
+		fs.write(biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
+		fs.flush(biosLogFile)
 	end
 end
 
 local function logBIOSBoot(message)
-	if biosLogFile then
-		local filesystem = require("Filesystem")
-		local timestamp = os and os.date("%Y-%m-%d %H:%M:%S") or "unknown"
-		filesystem.write(biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
-		filesystem.flush(biosLogFile)
+	if biosLogFile and fs then
+		local timestamp = "unknown"
+		if os then
+			timestamp = os.date("%Y-%m-%d %H:%M:%S")
+		end
+		fs.write(biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
+		fs.flush(biosLogFile)
 	end
 end
 
 local function logBIOSBootError(message)
-	if biosLogFile then
-		local filesystem = require("Filesystem")
-		local timestamp = os and os.date("%Y-%m-%d %H:%M:%S") or "unknown"
-		filesystem.write(biosLogFile, string.format("[%s] ERROR: %s\n", timestamp, message))
-		filesystem.flush(biosLogFile)
+	if biosLogFile and fs then
+		local timestamp = "unknown"
+		if os then
+			timestamp = os.date("%Y-%m-%d %H:%M:%S")
+		end
+		fs.write(biosLogFile, string.format("[%s] ERROR: %s\n", timestamp, message))
+		fs.flush(biosLogFile)
 	end
 end
 
 local function closeBIOSLog()
-	if biosLogFile then
-		local filesystem = require("Filesystem")
-		filesystem.close(biosLogFile)
+	if biosLogFile and fs then
+		fs.close(biosLogFile)
 		biosLogFile = nil
 	end
 end
@@ -569,14 +575,16 @@ if not useTabletMode then
         )
     end
 
-    -- Initialize BIOS log at the very beginning
-    initBIOSLog()
-    logBIOSBoot("PixelOS 启动初始化...")
-    logBIOSBoot("系统版本：" .. (system and system.version() or "未知"))
+    -- Initialize BIOS log at the very beginning (after filesystem is available)
+    -- TEMPORARILY DISABLED to debug boot loop
+    -- fs = require("Filesystem")
+    -- initBIOSLog()
+    -- logBIOSBoot("PixelOS 启动初始化...")
+    -- logBIOSBoot("系统版本：" .. (system and system.version() or "未知"))
     
     -- Logging in
     system.authorize()
-    logBIOSBoot("系统授权完成")
+    -- logBIOSBoot("系统授权完成")
 
     -- Main loop with UI regeneration after errors 
     while true do
