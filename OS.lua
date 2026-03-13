@@ -53,13 +53,33 @@ local function earlyLog(message)
     -- Try to get filesystem early
     if not fs then
         for addr in component.list("filesystem") do
-            fs = component.proxy(addr)
-            break
+            local success, proxy = pcall(component.proxy, addr)
+            if success and proxy then
+                fs = proxy
+                -- Try to open log file
+                local success, file = pcall(fs.open, fs, biosLogPath, "w")
+                if success and file then
+                    biosLogFile = file
+                    -- Write initialization message
+                    local timestamp = "unknown"
+                    if os and os.date then
+                        timestamp = os.date("%Y-%m-%d %H:%M:%S")
+                    end
+                    pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
+                    pcall(fs.flush, fs, biosLogFile)
+                    break
+                end
+            end
         end
     end
-    if fs then
-        initBIOSLog()
-        logBIOSBoot(message)
+    -- Now try to log the message
+    if biosLogFile and fs then
+        local timestamp = "unknown"
+        if os and os.date then
+            timestamp = os.date("%Y-%m-%d %H:%M:%S")
+        end
+        pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
+        pcall(fs.flush, fs, biosLogFile)
     end
 end
 
@@ -68,7 +88,10 @@ local executeDepth = 0
 local function executeString(...) 
     executeDepth = executeDepth + 1
     if executeDepth > 2 then
-        logBIOSBootError("启动递归过深，停止启动")
+        -- Try to log error
+        if fs then
+            logBIOSBootError("启动递归过深，停止启动")
+        end
         executeDepth = 0
         return false, "Boot loop detected"
     end
@@ -85,7 +108,9 @@ local function executeString(...)
     end 
     
     -- Log the error
-    logBIOSBootError("启动失败：" .. tostring(reason))
+    if fs then
+        logBIOSBootError("启动失败：" .. tostring(reason))
+    end
     
     -- Try to display error if GPU is available
     local gpu = component.list("gpu")()
@@ -102,7 +127,7 @@ local function executeString(...)
         gpuProxy.set(2, 3, "Error: " .. tostring(reason))
         gpuProxy.setForeground(0xFFFFFF)
         gpuProxy.set(2, 5, "Press any key to continue...")
-        logBIOSBoot("等待用户确认...")
+        if fs then logBIOSBoot("等待用户确认...") end
         computer.pullSignal()
     end
     
@@ -620,12 +645,14 @@ if not useTabletMode then
     logBIOSBoot("系统版本：" .. (system and system.version() or "未知"))
     
     -- Logging in
+    logBIOSBoot("开始系统授权...")
     system.authorize()
     logBIOSBoot("系统授权完成")
 
     -- Main loop with UI regeneration after errors 
+    logBIOSBoot("开始主事件循环...")
     while true do
-        logBIOSBoot("进入主事件循环...")
+        logBIOSBoot("进入事件循环迭代...")
         local success, path, line, traceback = system.call(workspace.start, workspace, 0)
         
         if success then
