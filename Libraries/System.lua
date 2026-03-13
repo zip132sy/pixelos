@@ -2286,6 +2286,11 @@ end
 --------------------------------------------------------------------------------
 
 local function updateDesktopMenuAndGetTopmostWindow()
+	-- Check if desktopWindowsContainer exists
+	if not desktopWindowsContainer then
+		return nil
+	end
+	
 	local topmostWindow = desktopWindowsContainer.children[#desktopWindowsContainer.children]
 
 	desktopMenu.children = topmostWindow and topmostWindow.menu and topmostWindow.menu.children or system.menuInitialChildren
@@ -2299,7 +2304,7 @@ local function setWorkspaceHidden(state)
 	for i = 1, #workspace.children do
 		child = workspace.children[i]
 		
-		if child ~= desktopWindowsContainer and child ~= desktopMenu and child ~= desktopMenuLayout then
+		if desktopWindowsContainer and child ~= desktopWindowsContainer and child ~= desktopMenu and child ~= desktopMenuLayout then
 			child.hidden = state
 		end
 	end
@@ -2351,6 +2356,14 @@ local function windowRemove(window)
 end
 
 function system.addWindow(window, dontAddToDock, preserveCoordinates)
+	-- Check if desktopWindowsContainer exists
+	if not desktopWindowsContainer then
+		-- If container doesn't exist yet, just add to workspace
+		workspace:addChild(window)
+		workspace.focusedObject = window
+		return
+	end
+	
 	-- Чекаем коорды
 	if not preserveCoordinates then
 		window.x, window.y =
@@ -3172,11 +3185,11 @@ function system.updateDesktop()
 	
 	workspace.eventHandler = function(workspace, object, e1, e2, e3, e4)
 		if e1 == "key_down" then
-			local windowCount = #desktopWindowsContainer.children
+			local windowCount = desktopWindowsContainer and #desktopWindowsContainer.children or 0
 			-- Ctrl or CMD
 			if windowCount > 0 and not lastWindowHandled and(keyboard.isKeyDown(29) or keyboard.isKeyDown(219)) then
 				-- W
-				if e4 == 17 then
+				if e4 == 17 and desktopWindowsContainer then
 					desktopWindowsContainer.children[windowCount]:remove()
 					lastWindowHandled = true
 
