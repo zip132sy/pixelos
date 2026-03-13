@@ -447,13 +447,21 @@ local function addImage(before, after, name)
 		layout:addChild(GUI.object(1, 1, 1, before))
 	end
 
-	local picture = layout:addChild(GUI.image(1, 1, loadImage(name)))
+	local picture
+	local imageData = loadImage(name)
+	if type(imageData) == "table" then
+		picture = layout:addChild(GUI.image(1, 1, imageData))
+		picture.height = picture.height + after
+	else
+		-- Image not found, add a placeholder
+		picture = layout:addChild(GUI.label(1, 1, 10, 3, 0x969696, "[Image]", "[Not]", "[Found]"))
+		picture:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		picture.height = 3 + after
+	end
 
 	if after > 0 then
 		layout:addChild(GUI.object(1, 1, 1, after))
 	end
-
-	picture.height = picture.height + after
 
 	return picture
 end
@@ -468,10 +476,6 @@ end
 
 local prevButton = addStageButton("<")
 local nextButton = addStageButton(">")
-
-local function loadImage(name)
-	return image.load(installerPicturesPath .. name .. ".pic")
-end
 
 local function newInput(width, ...)
 	return GUI.input(1, 1, width, 1, 0xF0F0F0, 0x787878, 0xC3C3C3, 0xF0F0F0, 0x878787, "", ...)
