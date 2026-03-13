@@ -6,80 +6,95 @@ local biosLogFile = nil
 local biosLogPath = "/BIOS_Boot.log"
 local fs = nil  -- Store filesystem reference
 
-local function initBIOSLog()
-	if not biosLogFile and fs then
-		biosLogFile = fs.open(biosLogPath, "w")
-		-- Log initialization message immediately
-		local timestamp = "unknown"
-		if os then
-			timestamp = os.date("%Y-%m-%d %H:%M:%S")
-		end
-		fs.write(biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
-		fs.flush(biosLogFile)
-	end
-end
-
-local function logBIOSBoot(message)
-	if biosLogFile and fs then
-		local timestamp = "unknown"
-		if os then
-			timestamp = os.date("%Y-%m-%d %H:%M:%S")
-		end
-		fs.write(biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
-		fs.flush(biosLogFile)
-	end
-end
-
-local function logBIOSBootError(message)
-	if biosLogFile and fs then
-		local timestamp = "unknown"
-		if os then
-			timestamp = os.date("%Y-%m-%d %H:%M:%S")
-		end
-		fs.write(biosLogFile, string.format("[%s] ERROR: %s\n", timestamp, message))
-		fs.flush(biosLogFile)
-	end
-end
-
-local function closeBIOSLog()
-	if biosLogFile and fs then
-		fs.close(biosLogFile)
-		biosLogFile = nil
-	end
+-- Most basic error display function (works without filesystem)
+local function displayCriticalError(message)
+    local gpu = component.list("gpu")()
+    local screen = component.list("screen")()
+    
+    if gpu and screen then
+        local gpuProxy = component.proxy(gpu)
+        gpuProxy.bind(screen)
+        local width, height = gpuProxy.getResolution()
+        
+        gpuProxy.setBackground(0x000000)
+        gpuProxy.fill(1, 1, width, height, " ")
+        gpuProxy.setForeground(0xFF0000)
+        gpuProxy.set(2, 2, "CRITICAL ERROR")
+        gpuProxy.setForeground(0xFFFFFF)
+        
+        -- Display error message with word wrap
+        local maxLen = width - 4
+        local lines = {}
+        local currentLine = ""
+        
+        for word in message:gmatch("%S+") do
+            if #currentLine + #word + 1 > maxLen then
+                table.insert(lines, currentLine)
+                currentLine = word
+            else
+                currentLine = currentLine .. (currentLine == "" and "" or " ") .. word
+            end
+        end
+        if currentLine ~= "" then
+            table.insert(lines, currentLine)
+        end
+        
+        local startY = math.floor(height / 2 - #lines / 2)
+        for i, line in ipairs(lines) do
+            gpuProxy.set(2, startY + i - 1, 0xFFFFFF, line)
+        end
+        
+        gpuProxy.setForeground(0x878787)
+        gpuProxy.set(2, height - 1, "System halted. Press any key to shutdown.")
+    end
+    
+    -- Wait for key press then shutdown
+    computer.pullSignal()
+    computer.shutdown()
 end
 
 -- Early log function that works before filesystem is available
 local function earlyLog(message)
-    -- Try to get filesystem early
-    if not fs then
-        for addr in component.list("filesystem") do
-            local success, proxy = pcall(component.proxy, addr)
-            if success and proxy then
-                fs = proxy
-                -- Try to open log file
-                local success, file = pcall(fs.open, fs, biosLogPath, "w")
-                if success and file then
-                    biosLogFile = file
-                    -- Write initialization message
-                    local timestamp = "unknown"
-                    if os and os.date then
-                        timestamp = os.date("%Y-%m-%d %H:%M:%S")
+    local success, err = pcall(function()
+        -- Try to get filesystem early
+        if not fs then
+            local fsList = component.list("filesystem")
+            if fsList then
+                for addr in fsList do
+                    local proxySuccess, proxy = pcall(component.proxy, addr)
+                    if proxySuccess and proxy then
+                        fs = proxy
+                        -- Try to open log file
+                        local openSuccess, file = pcall(fs.open, fs, biosLogPath, "w")
+                        if openSuccess and file then
+                            biosLogFile = file
+                            -- Write initialization message
+                            local timestamp = "unknown"
+                            if os and os.date then
+                                timestamp = os.date("%Y-%m-%d %H:%M:%S")
+                            end
+                            pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
+                            pcall(fs.flush, fs, biosLogFile)
+                            break
+                        end
                     end
-                    pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
-                    pcall(fs.flush, fs, biosLogFile)
-                    break
                 end
             end
         end
-    end
-    -- Now try to log the message
-    if biosLogFile and fs then
-        local timestamp = "unknown"
-        if os and os.date then
-            timestamp = os.date("%Y-%m-%d %H:%M:%S")
+        -- Now try to log the message
+        if biosLogFile and fs then
+            local timestamp = "unknown"
+            if os and os.date then
+                timestamp = os.date("%Y-%m-%d %H:%M:%S")
+            end
+            pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
+            pcall(fs.flush, fs, biosLogFile)
         end
-        pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
-        pcall(fs.flush, fs, biosLogFile)
+    end)
+    
+    if not success then
+        -- If logging fails, try to display error
+        displayCriticalError("Failed to initialize logging: " .. tostring(err))
     end
 end
 
@@ -686,52 +701,39 @@ end
 end
 
 -- Run with error handling
-local success, err = pcall(boot)
-if not success then
-    -- Log the error first
-    earlyLog("启动失败：" .. tostring(err))
-    earlyLog("错误堆栈：" .. debug.traceback())
+local success, err = pcall(function()
+    -- Basic system check before boot
+    earlyLog("系统启动检查...")
     
-    -- Display error using GPU directly with multi-line support
-    local gpu = component.gpu
-    if gpu then
-        gpu.setForeground(0xFF0000)
-        gpu.setBackground(0x000000)
-        gpu.fill(1, 1, gpu.getResolution())
-        
-        local screenWidth, screenHeight = gpu.getResolution()
-        local errorMsg = "Critical error during boot: " .. tostring(err)
-        
-        -- Split error message into multiple lines (max 60 chars per line)
-        local maxLineLength = math.floor(screenWidth * 0.8)
-        local lines = {}
-        
-        for i = 1, math.ceil(#errorMsg / maxLineLength) do
-            local startIdx = (i - 1) * maxLineLength + 1
-            local endIdx = math.min(i * maxLineLength, #errorMsg)
-            table.insert(lines, errorMsg:sub(startIdx, endIdx))
-        end
-        
-        -- Display title
-        local title = "Boot Error"
-        local titleX = math.floor(screenWidth / 2 - #title / 2)
-        gpu.set(titleX, 2, 0xFFFFFF, title)
-        
-        -- Display error lines (centered)
-        local startY = math.floor(screenHeight / 2 - #lines / 2)
-        for i, line in ipairs(lines) do
-            local x = math.floor(screenWidth / 2 - #line / 2)
-            gpu.set(x, startY + i, 0xFF0000, line)
-        end
-        
-        -- Display instruction
-        local instruction = "SYSTEM HALTED - Check /BIOS_Boot.log for details"
-        local instX = math.floor(screenWidth / 2 - #instruction / 2)
-        gpu.set(instX, screenHeight - 2, 0x878787, instruction)
-        
-        -- Infinite loop to prevent reboot
-        while true do
-            computer.pullSignal(1)
-        end
+    if not component then
+        displayCriticalError("Component API is not available!")
     end
+    
+    if not component.list("gpu")() then
+        displayCriticalError("No GPU found! Cannot continue without graphics.")
+    end
+    
+    if not component.list("screen")() then
+        displayCriticalError("No screen found! Cannot continue without display.")
+    end
+    
+    local fsCount = 0
+    for addr in component.list("filesystem") do
+        fsCount = fsCount + 1
+    end
+    
+    if fsCount == 0 then
+        displayCriticalError("No filesystem found! Cannot boot without storage.")
+    end
+    
+    earlyLog("系统检查通过，开始启动...")
+    earlyLog("找到 " .. fsCount .. " 个文件系统")
+    
+    -- Now call boot function
+    boot()
+end)
+
+if not success then
+    -- Display critical error
+    displayCriticalError("Boot failed: " .. tostring(err) .. "\n\nCheck /BIOS_Boot.log for details.")
 end
