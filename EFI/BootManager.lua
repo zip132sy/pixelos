@@ -76,4 +76,3 @@ local function main()
 end
 
 pcall(function()gpu.setBackground(0x2D2D2D)main()end)
-for a in comp.list("filesystem")do local p=comp.proxy(a)if p.exists("/OS.lua")then comp.invoke(comp.list("eeprom")(),"setData",a)comp.shutdown(true)end end
