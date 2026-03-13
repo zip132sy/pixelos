@@ -203,6 +203,9 @@ end
 component.invoke(GPUAddress, "setBackground", 0xE1E1E1)
 component.invoke(GPUAddress, "fill", 1, 1, screenWidth, screenHeight, " ")
 
+-- Set EEPROM label at the very beginning (before any downloads)
+component.invoke(EEPROMAddress, "setLabel", "PixelOS Install EFI")
+
 -- Warning function (global)
 local function warning(text)
 	centrizedText(title(), 0xFF9900, "Warning: " .. text)
@@ -1465,11 +1468,16 @@ addStage(function()
 	end
 	
 	-- If successful, continue with labeling
-	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install Bios")
+	-- Set EEPROM data to point to the installation filesystem
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 	
+	-- Set label to "PixelOS EFI" BEFORE asking about BIOS Manager
+	-- This ensures that even if user physically reboots during the dialog,
+	-- the system will recognize this as a completed installation
+	component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+	
 	-- Log success
-	logError("EEPROM 烧录成功 - BIOS 标签：PixelOS Install Bios")
+	logError("EEPROM 烧录成功 - BIOS 标签：PixelOS EFI")
 
 	-- Ask user if they want to install BIOS Manager
 	local installBiosManager = false
@@ -1482,17 +1490,25 @@ addStage(function()
 	-- Description
 	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
+	-- Timeout info
+	confirmWindow:addChild(GUI.label(1, 6, confirmWindow.width - 2, 1, 0x878787, "10 秒后自动跳过安装")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	
+	-- Note: Physical reboot will still boot into the installed system
+	confirmWindow:addChild(GUI.label(1, 15, confirmWindow.width - 2, 1, 0x696969, "物理重启将进入已安装的系统")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_BOTTOM)
+	
 	-- Buttons (properly spaced)
 	local buttonWidth = 12
 	local spacing = 2
 	local totalWidth = buttonWidth * 2 + spacing
 	local startX = math.floor((confirmWindow.width - totalWidth) / 2) + 1
-	local buttonY = 10
+	local buttonY = 12  -- Moved down to make room for timeout info
 	
 	local confirmButton = confirmWindow:addChild(GUI.button(startX, buttonY, buttonWidth, 3, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
 	local cancelButton = confirmWindow:addChild(GUI.button(startX + buttonWidth + spacing, buttonY, buttonWidth, 3, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
 	
 	local confirmResult = false
+	local timeoutSeconds = 10  -- 10 秒超时
+	local timeoutStart = computer.uptime()
 	
 	-- Draw workspace first to calculate absolute coordinates
 	workspace:draw()
@@ -1503,12 +1519,20 @@ addStage(function()
 	local cancelButtonAbsX = cancelButton.x
 	local cancelButtonAbsY = cancelButton.y
 	
-	-- Wait for user input using MineOS-style event handling
+	-- Wait for user input with timeout (default to not installing BIOS Manager)
 	while not confirmResult do
-		local event = {computer.pullSignal()}
+		local event = {computer.pullSignal(0.5)}  -- 0.5 秒超时，方便检测总超时
+		
+		-- Check for timeout (default to not installing BIOS Manager)
+		if computer.uptime() - timeoutStart > timeoutSeconds then
+			installBiosManager = false
+			confirmWindow:remove()
+			workspace:draw()
+			break
+		end
 		
 		-- Only handle touch events
-		if event[1] == "touch" then
+		if event and event[1] == "touch" then
 			local touchX, touchY = tonumber(event[2]), tonumber(event[3])
 			
 			if touchX and touchY then
@@ -1553,14 +1577,11 @@ addStage(function()
 			workspace:addChild(GUI.label(1, title() + 2, workspace.width - 2, 1, 0x696969, info)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 			workspace:draw()
 			computer.pullSignal(2)
-		else
-			component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
 		end
+		-- Label is already set to "PixelOS EFI", no need to set again
 	else
-		-- If BIOS Manager is not installed, set the label to "PixelOS EFI"
-		component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+		-- Label is already set to "PixelOS EFI", no need to set again
 	end
-
 
 	-- Saving system versions
 	switchProxy(function()
