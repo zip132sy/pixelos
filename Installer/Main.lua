@@ -1487,15 +1487,20 @@ addStage(function()
 	local spacing = 2
 	local totalWidth = buttonWidth * 2 + spacing
 	local startX = math.floor((confirmWindow.width - totalWidth) / 2) + 1
+	local buttonY = 10
 	
-	local confirmButton = confirmWindow:addChild(GUI.button(startX, 10, buttonWidth, 3, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
-	local cancelButton = confirmWindow:addChild(GUI.button(startX + buttonWidth + spacing, 10, buttonWidth, 3, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
+	local confirmButton = confirmWindow:addChild(GUI.button(startX, buttonY, buttonWidth, 3, 0x3366CC, 0xFFFFFF, 0x2255AA, 0xFFFFFF, localization.confirm or "确认"))
+	local cancelButton = confirmWindow:addChild(GUI.button(startX + buttonWidth + spacing, buttonY, buttonWidth, 3, 0xC3C3C3, 0x696969, 0xA5A5A5, 0xFFFFFF, localization.cancel or "取消"))
 	
 	local confirmResult = false
 	
-	-- Store button coordinates for manual event handling
-	local confirmButtonCoords = {x = startX, y = 10, w = buttonWidth, h = 3}
-	local cancelButtonCoords = {x = startX + buttonWidth + spacing, y = 10, w = buttonWidth, h = 3}
+	-- Calculate absolute screen coordinates (window position + button offset)
+	local windowX = math.floor(workspace.width / 2 - 20)
+	local windowY = math.floor(workspace.height / 2 - 8)
+	local confirmButtonAbsX = windowX + startX
+	local confirmButtonAbsY = windowY + buttonY
+	local cancelButtonAbsX = windowX + startX + buttonWidth + spacing
+	local cancelButtonAbsY = windowY + buttonY
 	
 	workspace:draw()
 	
@@ -1508,18 +1513,18 @@ addStage(function()
 			local touchX, touchY = tonumber(event[2]), tonumber(event[3])
 			
 			if touchX and touchY then
-				-- Check confirm button bounds
-				if touchX >= confirmButtonCoords.x and touchX < confirmButtonCoords.x + confirmButtonCoords.w and
-				   touchY >= confirmButtonCoords.y and touchY < confirmButtonCoords.y + confirmButtonCoords.h then
+				-- Check confirm button bounds (using absolute coordinates)
+				if touchX >= confirmButtonAbsX and touchX < confirmButtonAbsX + buttonWidth and
+				   touchY >= confirmButtonAbsY and touchY < confirmButtonAbsY + 3 then
 					installBiosManager = true
 					confirmWindow:remove()
 					workspace:draw()
 					confirmResult = true
 				end
 				
-				-- Check cancel button bounds
-				if touchX >= cancelButtonCoords.x and touchX < cancelButtonCoords.x + cancelButtonCoords.w and
-				   touchY >= cancelButtonCoords.y and touchY < cancelButtonCoords.y + cancelButtonCoords.h then
+				-- Check cancel button bounds (using absolute coordinates)
+				if touchX >= cancelButtonAbsX and touchX < cancelButtonAbsX + buttonWidth and
+				   touchY >= cancelButtonAbsY and touchY < cancelButtonAbsY + 3 then
 					installBiosManager = false
 					confirmWindow:remove()
 					workspace:draw()
