@@ -1,7 +1,7 @@
 -- PixelOS
 ---------------------------------------- System initialization ----------------------------------------
 
--- BIOS boot logging system (only log errors to disk)
+-- BIOS boot logging system (log all boot events to disk)
 local biosLogFile = nil
 local biosLogPath = "/BIOS_Boot.log"
 
@@ -9,6 +9,10 @@ local function initBIOSLog()
 	if not biosLogFile then
 		local filesystem = require("Filesystem")
 		biosLogFile = filesystem.open(biosLogPath, "w")
+		-- Log initialization message immediately
+		local timestamp = os and os.date("%Y-%m-%d %H:%M:%S") or "unknown"
+		filesystem.write(biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
+		filesystem.flush(biosLogFile)
 	end
 end
 
