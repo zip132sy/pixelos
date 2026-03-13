@@ -1482,7 +1482,7 @@ addStage(function()
 	-- Description
 	confirmWindow:addChild(GUI.label(1, 4, confirmWindow.width - 2, 1, 0x696969, localization.installBiosManagerDesc or "安装 macOS 风格的启动管理器，提供更多功能")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	
-	-- Buttons (properly spaced) - Use simple touch detection like MineOS
+	-- Buttons (properly spaced)
 	local buttonWidth = 12
 	local spacing = 2
 	local totalWidth = buttonWidth * 2 + spacing
@@ -1494,17 +1494,16 @@ addStage(function()
 	
 	local confirmResult = false
 	
-	-- Calculate absolute screen coordinates (window position + button offset)
-	local windowX = math.floor(workspace.width / 2 - 20)
-	local windowY = math.floor(workspace.height / 2 - 8)
-	local confirmButtonAbsX = windowX + startX
-	local confirmButtonAbsY = windowY + buttonY
-	local cancelButtonAbsX = windowX + startX + buttonWidth + spacing
-	local cancelButtonAbsY = windowY + buttonY
-	
+	-- Draw workspace first to calculate absolute coordinates
 	workspace:draw()
 	
-	-- Wait for user input using MineOS-style event handling (compatible with BIOS environment)
+	-- Get absolute button coordinates after drawing (containerDraw sets child.x and child.y)
+	local confirmButtonAbsX = confirmButton.x
+	local confirmButtonAbsY = confirmButton.y
+	local cancelButtonAbsX = cancelButton.x
+	local cancelButtonAbsY = cancelButton.y
+	
+	-- Wait for user input using MineOS-style event handling
 	while not confirmResult do
 		local event = {computer.pullSignal()}
 		
@@ -1513,7 +1512,7 @@ addStage(function()
 			local touchX, touchY = tonumber(event[2]), tonumber(event[3])
 			
 			if touchX and touchY then
-				-- Check confirm button bounds (using absolute coordinates)
+				-- Check confirm button bounds
 				if touchX >= confirmButtonAbsX and touchX < confirmButtonAbsX + buttonWidth and
 				   touchY >= confirmButtonAbsY and touchY < confirmButtonAbsY + 3 then
 					installBiosManager = true
@@ -1522,7 +1521,7 @@ addStage(function()
 					confirmResult = true
 				end
 				
-				-- Check cancel button bounds (using absolute coordinates)
+				-- Check cancel button bounds
 				if touchX >= cancelButtonAbsX and touchX < cancelButtonAbsX + buttonWidth and
 				   touchY >= cancelButtonAbsY and touchY < cancelButtonAbsY + 3 then
 					installBiosManager = false
