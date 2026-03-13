@@ -152,15 +152,19 @@ local function rawRequest(url, chunkHandler, showSource)
 		end
 	end
 
-	error("Connection failed for all URLs: " .. tostring(lastError))
+	return false, lastError  -- Return error instead of error()
 end
 
 local function request(url)
 	local data = ""
 
-	rawRequest(url, function(chunk)
+	local success, err = rawRequest(url, function(chunk)
 		data = data .. chunk
 	end, true)  -- Show source on first connection
+
+	if not success then
+		error("Connection failed: " .. tostring(err))
+	end
 
 	return data
 end
@@ -171,9 +175,13 @@ local function download(url, path)
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
 	if fileHandle then
 		local success, err = pcall(function()
-			rawRequest(url, function(chunk)
+			local rawSuccess, rawErr = rawRequest(url, function(chunk)
 				selectedFilesystemProxy.write(fileHandle, chunk)
 			end, false)  -- Don't show source during downloads
+			
+			if not rawSuccess then
+				error(tostring(rawErr))
+			end
 		end)
 		
 		selectedFilesystemProxy.close(fileHandle)
@@ -1539,15 +1547,12 @@ addStage(function()
 			local touchX, touchY = tonumber(event[3]), tonumber(event[4])  -- touch event: type, address, x, y, button
 			
 			if touchX and touchY then
-				-- Calculate absolute button positions
-				local confirmBtnX = confirmWindow.x + confirmButton.x - 1
-				local confirmBtnY = confirmWindow.y + confirmButton.y - 1
-				local cancelBtnX = confirmWindow.x + cancelButton.x - 1
-				local cancelBtnY = confirmWindow.y + cancelButton.y - 1
+				-- Use the absolute coordinates that containerDraw already set
+				-- confirmButton.x and confirmButton.y are already absolute coordinates
 				
 				-- Check confirm button bounds
-				if touchX >= confirmBtnX and touchX < confirmBtnX + buttonWidth and
-				   touchY >= confirmBtnY and touchY < confirmBtnY + 3 then
+				if touchX >= confirmButton.x and touchX < confirmButton.x + buttonWidth and
+				   touchY >= confirmButton.y and touchY < confirmButton.y + 3 then
 					installBiosManager = true
 					confirmWindow:remove()
 					workspace:draw()
@@ -1555,8 +1560,8 @@ addStage(function()
 				end
 				
 				-- Check cancel button bounds
-				if touchX >= cancelBtnX and touchX < cancelBtnX + buttonWidth and
-				   touchY >= cancelBtnY and touchY < cancelBtnY + 3 then
+				if touchX >= cancelButton.x and touchX < cancelButton.x + buttonWidth and
+				   touchY >= cancelButton.y and touchY < cancelButton.y + 3 then
 					installBiosManager = false
 					confirmWindow:remove()
 					workspace:draw()
