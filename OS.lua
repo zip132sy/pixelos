@@ -43,23 +43,46 @@ local function displayCriticalError(message)
         gpuProxy.set(2, 2, "CRITICAL ERROR")
         gpuProxy.setForeground(0xFFFFFF)
         
-        -- Display error message with word wrap
+        -- Display error message with improved word wrap
         local maxLen = width - 4
         local lines = {}
-        local currentLine = ""
         
-        for word in message:gmatch("%S+") do
-            if #currentLine + #word + 1 > maxLen then
-                table.insert(lines, currentLine)
-                currentLine = word
+        -- Split message by newlines
+        local messageLines = {}
+        local start = 1
+        while start <= #message do
+            local newline = message:find("\n", start)
+            if newline then
+                table.insert(messageLines, message:sub(start, newline - 1))
+                start = newline + 1
             else
-                currentLine = currentLine .. (currentLine == "" and "" or " ") .. word
+                table.insert(messageLines, message:sub(start))
+                break
             end
         end
-        if currentLine ~= "" then
-            table.insert(lines, currentLine)
+        
+        -- Process each line with word wrap
+        for _, line in ipairs(messageLines) do
+            local currentLine = ""
+            for word in line:gmatch("%S+") do
+                if #currentLine + #word + 1 > maxLen then
+                    table.insert(lines, currentLine)
+                    currentLine = word
+                else
+                    currentLine = currentLine .. (currentLine == "" and "" or " ") .. word
+                end
+            end
+            if currentLine ~= "" then
+                table.insert(lines, currentLine)
+            end
         end
         
+        -- If no lines (empty message), add a placeholder
+        if #lines == 0 then
+            table.insert(lines, "No error message provided")
+        end
+        
+        -- Display lines with proper spacing
         local startY = math.floor(height / 2 - #lines / 2)
         for i, line in ipairs(lines) do
             gpuProxy.setForeground(0xFFFFFF)
