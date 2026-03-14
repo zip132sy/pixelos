@@ -77,4 +77,8 @@ end
 
 local ok,err=pcall(main)
 if not ok then
-  cls(0x2D2D2D)txt(2,2,"Boot Error: "..tostring(err),0xFF0000)txt(2,4,"Press any key",0xFFFFFF)comp.pullSignal()end
+  cls(0x2D2D2D)
+  txt(2,2,"Boot Error: "..tostring(err),0xFF0000)
+  txt(2,4,"Press any key",0xFFFFFF)
+  comp.pullSignal()
+end
