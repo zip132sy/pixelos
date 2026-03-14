@@ -4,7 +4,9 @@ gpu.bind(screen)
 local sw,sh=gpu.getResolution()
 local cp="/System/OS/bios.cfg"
 local cfg={bd=3,bi={},df=nil}
-local fs=comp.proxy(comp.list("filesystem")())
+local fs
+local f=comp.list("filesystem")
+if f then local a=f()while type(a)~="string"and f do a=f()end if a then fs=comp.proxy(a)end end
 
 local function lc()
   if fs.exists(cp)then local f=fs.open(cp,"r")if f then local d=fs.read(f)fs.close(f)local fn=load("return "..d)if fn then cfg=fn()end end end
