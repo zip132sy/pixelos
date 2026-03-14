@@ -105,22 +105,49 @@ local function earlyLog(message)
         if not fs then
             local fsList = component.list("filesystem")
             if fsList then
-                for addr in fsList do
-                    local proxySuccess, proxy = pcall(component.proxy, addr)
-                    if proxySuccess and proxy then
-                        fs = proxy
-                        -- Try to open log file
-                        local openSuccess, file = pcall(fs.open, fs, biosLogPath, "w")
-                        if openSuccess and file then
-                            biosLogFile = file
-                            -- Write initialization message
-                            local timestamp = "unknown"
-                            if os and os.date then
-                                timestamp = os.date("%Y-%m-%d %H:%M:%S")
+                -- Check if fsList is a function (iterator) or a table
+                if type(fsList) == "function" then
+                    -- Normal case: fsList is an iterator function
+                    for addr in fsList do
+                        local proxySuccess, proxy = pcall(component.proxy, addr)
+                        if proxySuccess and proxy then
+                            fs = proxy
+                            -- Try to open log file
+                            local openSuccess, file = pcall(fs.open, fs, biosLogPath, "w")
+                            if openSuccess and file then
+                                biosLogFile = file
+                                -- Write initialization message
+                                local timestamp = "unknown"
+                                if os and os.date then
+                                    timestamp = os.date("%Y-%m-%d %H:%M:%S")
+                                end
+                                pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
+                                pcall(fs.flush, fs, biosLogFile)
+                                break
                             end
-                            pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
-                            pcall(fs.flush, fs, biosLogFile)
-                            break
+                        end
+                    end
+                elseif type(fsList) == "table" then
+                    -- Handle case where fsList is a table
+                    for _, addr in pairs(fsList) do
+                        if type(addr) == "string" then
+                            local proxySuccess, proxy = pcall(component.proxy, addr)
+                            if proxySuccess and proxy then
+                                fs = proxy
+                                -- Try to open log file
+                                local openSuccess, file = pcall(fs.open, fs, biosLogPath, "w")
+                                if openSuccess and file then
+                                    biosLogFile = file
+                                    -- Write initialization message
+                                    local timestamp = "unknown"
+                                    if os and os.date then
+                                        timestamp = os.date("%Y-%m-%d %H:%M:%S")
+                                    end
+                                    pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: === PixelOS BIOS Boot Log ===\n", timestamp))
+                                    pcall(fs.flush, fs, biosLogFile)
+                                    break
+                                end
+                            end
                         end
                     end
                 end
@@ -232,17 +259,40 @@ local function checkAndSelectBootSystem()
     end
     local currentBootAddress = eeprom and component.invoke(eeprom, "getData")
     
-    for address in component.list("filesystem") do
-        local proxy = component.proxy(address)
-        local label = proxy.getLabel() or "Unlabeled Drive"
-        
-        if proxy.exists("/OS.lua") then
-            table.insert(systems, {
-                address = address,
-                label = label,
-                proxy = proxy,
-                isCurrent = (address == currentBootAddress)
-            })
+    local fsList = component.list("filesystem")
+    if fsList then
+        if type(fsList) == "function" then
+            -- Normal case: fsList is an iterator function
+            for address in fsList do
+                local proxy = component.proxy(address)
+                local label = proxy.getLabel() or "Unlabeled Drive"
+                
+                if proxy.exists("/OS.lua") then
+                    table.insert(systems, {
+                        address = address,
+                        label = label,
+                        proxy = proxy,
+                        isCurrent = (address == currentBootAddress)
+                    })
+                end
+            end
+        elseif type(fsList) == "table" then
+            -- Handle case where fsList is a table
+            for _, address in pairs(fsList) do
+                if type(address) == "string" then
+                    local proxy = component.proxy(address)
+                    local label = proxy.getLabel() or "Unlabeled Drive"
+                    
+                    if proxy.exists("/OS.lua") then
+                        table.insert(systems, {
+                            address = address,
+                            label = label,
+                            proxy = proxy,
+                            isCurrent = (address == currentBootAddress)
+                        })
+                    end
+                end
+            end
         end
     end
     
@@ -978,8 +1028,21 @@ local success, err = pcall(function()
     end
     
     local fsCount = 0
-    for addr in component.list("filesystem") do
-        fsCount = fsCount + 1
+    local fsList = component.list("filesystem")
+    if fsList then
+        if type(fsList) == "function" then
+            -- Normal case: fsList is an iterator function
+            for addr in fsList do
+                fsCount = fsCount + 1
+            end
+        elseif type(fsList) == "table" then
+            -- Handle case where fsList is a table
+            for _, addr in pairs(fsList) do
+                if type(addr) == "string" then
+                    fsCount = fsCount + 1
+                end
+            end
+        end
     end
     
     if fsCount == 0 then
@@ -990,10 +1053,26 @@ local success, err = pcall(function()
     earlyLog("找到 " .. fsCount .. " 个文件系统")
     
     -- Test component.proxy with a known string to see if that's the issue
-    local testAddr = component.list("filesystem")()
+    local testAddr
+    local fsIter = component.list("filesystem")
+    if fsIter then
+        if type(fsIter) == "function" then
+            testAddr = fsIter()
+            while type(testAddr) ~= "string" and fsIter do
+                testAddr = fsIter()
+            end
+        elseif type(fsIter) == "table" then
+            for _, addr in pairs(fsIter) do
+                if type(addr) == "string" then
+                    testAddr = addr
+                    break
+                end
+            end
+        end
+    end
     earlyLog("测试 component.proxy 与地址: " .. tostring(testAddr) .. " (类型: " .. type(testAddr) .. ")")
     
-    if testAddr then
+    if testAddr and type(testAddr) == "string" then
         local testProxy = component.proxy(testAddr)
         earlyLog("测试 component.proxy 成功: " .. tostring(testProxy))
     end
