@@ -54,6 +54,29 @@ local function displayCriticalError(message)
     computer.shutdown()
 end
 
+-- BIOS boot logging functions
+local function logBIOSBoot(message)
+    if biosLogFile and fs then
+        local timestamp = "unknown"
+        if os and os.date then
+            timestamp = os.date("%Y-%m-%d %H:%M:%S")
+        end
+        pcall(fs.write, fs, biosLogFile, string.format("[%s] BOOT: %s\n", timestamp, message))
+        pcall(fs.flush, fs, biosLogFile)
+    end
+end
+
+local function logBIOSBootError(message)
+    if biosLogFile and fs then
+        local timestamp = "unknown"
+        if os and os.date then
+            timestamp = os.date("%Y-%m-%d %H:%M:%S")
+        end
+        pcall(fs.write, fs, biosLogFile, string.format("[%s] ERROR: %s\n", timestamp, message))
+        pcall(fs.flush, fs, biosLogFile)
+    end
+end
+
 -- Early log function that works before filesystem is available
 local function earlyLog(message)
     local success, err = pcall(function()
