@@ -93,10 +93,10 @@ local function earlyLog(message)
         end
     end)
     
-    if not success then
-        -- If logging fails, try to display error
-        displayCriticalError("Failed to initialize logging: " .. tostring(err))
-    end
+    -- Don't display error if logging fails, just continue without logging
+    -- if not success then
+    --     displayCriticalError("Failed to initialize logging: " .. tostring(err))
+    -- end
 end
 
 -- Execute string with error handling (with recursion protection)
