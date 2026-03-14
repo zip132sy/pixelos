@@ -300,6 +300,11 @@ local function boot()
     
     earlyLog("已选择启动设备：" .. tostring(selectedBootAddress))
 
+    -- Ensure selectedBootAddress is a string
+    if type(selectedBootAddress) ~= "string" then
+        displayCriticalError("Invalid boot address: " .. tostring(selectedBootAddress))
+    end
+
     -- Obtaining boot filesystem component proxy
     local bootFilesystemProxy = component.proxy(selectedBootAddress)
 
@@ -678,8 +683,7 @@ if not useTabletMode then
     end
 
     -- Initialize BIOS log at the very beginning (after filesystem is available)
-    fs = require("Filesystem")
-    initBIOSLog()
+    local filesystem = require("Filesystem")
     logBIOSBoot("PixelOS 启动初始化...")
     logBIOSBoot("系统版本：" .. (system and system.version() or "未知"))
     
@@ -752,6 +756,15 @@ local success, err = pcall(function()
     
     earlyLog("系统检查通过，开始启动...")
     earlyLog("找到 " .. fsCount .. " 个文件系统")
+    
+    -- Test component.proxy with a known string to see if that's the issue
+    local testAddr = component.list("filesystem")()
+    earlyLog("测试 component.proxy 与地址: " .. tostring(testAddr) .. " (类型: " .. type(testAddr) .. ")")
+    
+    if testAddr then
+        local testProxy = component.proxy(testAddr)
+        earlyLog("测试 component.proxy 成功: " .. tostring(testProxy))
+    end
     
     -- Now call boot function
     boot()
