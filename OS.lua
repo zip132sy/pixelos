@@ -195,14 +195,32 @@ local function checkAndSelectBootSystem()
     end
     
     if #systems <= 1 then
-        return systems[1] and systems[1].address or component.list("filesystem")()
+        local fsAddr = systems[1] and systems[1].address
+        if not fsAddr then
+            local fsIter = component.list("filesystem")
+            fsAddr = fsIter()
+            -- Ensure we get a string
+            while type(fsAddr) == "table" and fsIter do
+                fsAddr = fsIter()
+            end
+        end
+        return fsAddr
     end
     
     local gpu = component.list("gpu")()
     local screen = component.list("screen")()
     
     if not gpu or not screen then
-        return systems[1] and systems[1].address or component.list("filesystem")()
+        local fsAddr = systems[1] and systems[1].address
+        if not fsAddr then
+            local fsIter = component.list("filesystem")
+            fsAddr = fsIter()
+            -- Ensure we get a string
+            while type(fsAddr) == "table" and fsIter do
+                fsAddr = fsIter()
+            end
+        end
+        return fsAddr
     end
     
     local gpuProxy = component.proxy(gpu)
