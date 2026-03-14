@@ -41,7 +41,8 @@ local function displayCriticalError(message)
         
         local startY = math.floor(height / 2 - #lines / 2)
         for i, line in ipairs(lines) do
-            gpuProxy.set(2, startY + i - 1, 0xFFFFFF, line)
+            gpuProxy.setForeground(0xFFFFFF)
+            gpuProxy.set(2, startY + i - 1, line)
         end
         
         gpuProxy.setForeground(0x878787)
