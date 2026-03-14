@@ -273,7 +273,25 @@ local function boot()
     -- Initialize logging as early as possible
     earlyLog("=== Boot 函数开始执行 ===")
     
+    -- Debug: Check component.list behavior
+    local testIter = component.list("filesystem")
+    earlyLog("component.list('filesystem') 返回类型: " .. type(testIter))
+    
+    local firstAddr = testIter()
+    earlyLog("第一个文件系统地址: " .. tostring(firstAddr) .. " (类型: " .. type(firstAddr) .. ")")
+    
     local selectedBootAddress = checkAndSelectBootSystem()
+    
+    earlyLog("checkAndSelectBootSystem 返回值: " .. tostring(selectedBootAddress) .. " (类型: " .. type(selectedBootAddress) .. ")")
+    
+    -- Debug: If it's a table, print its contents
+    if type(selectedBootAddress) == "table" then
+        local tableInfo = "Table contents: "
+        for k, v in pairs(selectedBootAddress) do
+            tableInfo = tableInfo .. k .. "=" .. tostring(v) .. ", "
+        end
+        earlyLog(tableInfo)
+    end
     
     if not selectedBootAddress then
         -- No bootable filesystem found
@@ -302,7 +320,17 @@ local function boot()
 
     -- Ensure selectedBootAddress is a string
     if type(selectedBootAddress) ~= "string" then
-        displayCriticalError("Invalid boot address: " .. tostring(selectedBootAddress))
+        -- Try to get the first filesystem address directly
+        local fsIter = component.list("filesystem")
+        local fsAddr = fsIter()
+        earlyLog("尝试直接获取文件系统地址: " .. tostring(fsAddr))
+        
+        if fsAddr then
+            selectedBootAddress = fsAddr
+            earlyLog("已使用直接获取的地址: " .. selectedBootAddress)
+        else
+            displayCriticalError("Invalid boot address: " .. tostring(selectedBootAddress) .. " (类型: " .. type(selectedBootAddress) .. ")")
+        end
     end
 
     -- Obtaining boot filesystem component proxy
