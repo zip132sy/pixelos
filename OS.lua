@@ -8,8 +8,29 @@ local fs = nil  -- Store filesystem reference
 
 -- Most basic error display function (works without filesystem)
 local function displayCriticalError(message)
-    local gpu = component.list("gpu")()
-    local screen = component.list("screen")()
+    local gpu
+    local gpuIter = component.list("gpu")
+    if gpuIter then
+        local gpuAddr = gpuIter()
+        while type(gpuAddr) ~= "string" and gpuIter do
+            gpuAddr = gpuIter()
+        end
+        if gpuAddr then
+            gpu = gpuAddr
+        end
+    end
+    
+    local screen
+    local screenIter = component.list("screen")
+    if screenIter then
+        local screenAddr = screenIter()
+        while type(screenAddr) ~= "string" and screenIter do
+            screenAddr = screenIter()
+        end
+        if screenAddr then
+            screen = screenAddr
+        end
+    end
     
     if gpu and screen then
         local gpuProxy = component.proxy(gpu)
@@ -152,8 +173,29 @@ local function executeString(...)
     end
     
     -- Try to display error if GPU is available
-    local gpu = component.list("gpu")()
-    local screen = component.list("screen")()
+    local gpu
+    local gpuIter = component.list("gpu")
+    if gpuIter then
+        local gpuAddr = gpuIter()
+        while type(gpuAddr) ~= "string" and gpuIter do
+            gpuAddr = gpuIter()
+        end
+        if gpuAddr then
+            gpu = gpuAddr
+        end
+    end
+    
+    local screen
+    local screenIter = component.list("screen")
+    if screenIter then
+        local screenAddr = screenIter()
+        while type(screenAddr) ~= "string" and screenIter do
+            screenAddr = screenIter()
+        end
+        if screenAddr then
+            screen = screenAddr
+        end
+    end
     
     if gpu and screen then
         local gpuProxy = component.proxy(gpu)
@@ -177,7 +219,17 @@ end
 -- First, check for multiple bootable systems and show selection if needed
 local function checkAndSelectBootSystem()
     local systems = {}
-    local eeprom = component.list("eeprom")()
+    local eeprom
+    local eepromIter = component.list("eeprom")
+    if eepromIter then
+        local eepromAddr = eepromIter()
+        while type(eepromAddr) ~= "string" and eepromIter do
+            eepromAddr = eepromIter()
+        end
+        if eepromAddr then
+            eeprom = eepromAddr
+        end
+    end
     local currentBootAddress = eeprom and component.invoke(eeprom, "getData")
     
     for address in component.list("filesystem") do
@@ -207,8 +259,29 @@ local function checkAndSelectBootSystem()
         return fsAddr
     end
     
-    local gpu = component.list("gpu")()
-    local screen = component.list("screen")()
+    local gpu
+    local gpuIter = component.list("gpu")
+    if gpuIter then
+        local gpuAddr = gpuIter()
+        while type(gpuAddr) ~= "string" and gpuIter do
+            gpuAddr = gpuIter()
+        end
+        if gpuAddr then
+            gpu = gpuAddr
+        end
+    end
+    
+    local screen
+    local screenIter = component.list("screen")
+    if screenIter then
+        local screenAddr = screenIter()
+        while type(screenAddr) ~= "string" and screenIter do
+            screenAddr = screenIter()
+        end
+        if screenAddr then
+            screen = screenAddr
+        end
+    end
     
     if not gpu or not screen then
         local fsAddr = systems[1] and systems[1].address
@@ -314,8 +387,29 @@ local function boot()
     if not selectedBootAddress then
         -- No bootable filesystem found
         earlyLog("未找到可启动的文件系统")
-        local gpu = component.list("gpu")()
-        local screen = component.list("screen")()
+        local gpu
+        local gpuIter = component.list("gpu")
+        if gpuIter then
+            local gpuAddr = gpuIter()
+            while type(gpuAddr) ~= "string" and gpuIter do
+                gpuAddr = gpuIter()
+            end
+            if gpuAddr then
+                gpu = gpuAddr
+            end
+        end
+        
+        local screen
+        local screenIter = component.list("screen")
+        if screenIter then
+            local screenAddr = screenIter()
+            while type(screenAddr) ~= "string" and screenIter do
+                screenAddr = screenIter()
+            end
+            if screenAddr then
+                screen = screenAddr
+            end
+        end
         
         if gpu and screen then
             local gpuProxy = component.proxy(gpu)
@@ -462,12 +556,32 @@ local function boot()
 	end
     end
 
-    local GPUAddress = component.list("gpu")()
+    local GPUAddress
+    local gpuIter = component.list("gpu")
+    if gpuIter then
+        local gpuAddr = gpuIter()
+        while type(gpuAddr) ~= "string" and gpuIter do
+            gpuAddr = gpuIter()
+        end
+        if gpuAddr then
+            GPUAddress = gpuAddr
+        end
+    end
     local screenWidth, screenHeight = 80, 25
     
     if GPUAddress then
         local gpuProxy = component.proxy(GPUAddress)
-        local screenAddress = component.list("screen")()
+        local screenAddress
+        local screenIter = component.list("screen")
+        if screenIter then
+            local screenAddr = screenIter()
+            while type(screenAddr) ~= "string" and screenIter do
+                screenAddr = screenIter()
+            end
+            if screenAddr then
+                screenAddress = screenAddr
+            end
+        end
         if screenAddress then
             gpuProxy.bind(screenAddress)
             screenWidth, screenHeight = gpuProxy.getResolution()
@@ -523,8 +637,29 @@ local function safeUIRequire(module)
     if not success then
         logBIOSBootError("加载失败：" .. module .. " - " .. tostring(result))
         -- Try to display error if possible
-        local gpu = component.list("gpu")()
-        local screen = component.list("screen")()
+        local gpu
+        local gpuIter = component.list("gpu")
+        if gpuIter then
+            local gpuAddr = gpuIter()
+            while type(gpuAddr) ~= "string" and gpuIter do
+                gpuAddr = gpuIter()
+            end
+            if gpuAddr then
+                gpu = gpuAddr
+            end
+        end
+        
+        local screen
+        local screenIter = component.list("screen")
+        if screenIter then
+            local screenAddr = screenIter()
+            while type(screenAddr) ~= "string" and screenIter do
+                screenAddr = screenIter()
+            end
+            if screenAddr then
+                screen = screenAddr
+            end
+        end
         
         if gpu and screen then
             local gpuProxy = component.proxy(gpu)
@@ -601,8 +736,29 @@ logBIOSBoot("所有库加载完成，开始初始化...")
 -- Check if required libraries are available
 if not GUI or not system or not event then
     -- Try to display error if possible
-    local gpu = component.list("gpu")()
-    local screen = component.list("screen")()
+    local gpu
+    local gpuIter = component.list("gpu")
+    if gpuIter then
+        local gpuAddr = gpuIter()
+        while type(gpuAddr) ~= "string" and gpuIter do
+            gpuAddr = gpuIter()
+        end
+        if gpuAddr then
+            gpu = gpuAddr
+        end
+    end
+    
+    local screen
+    local screenIter = component.list("screen")
+    if screenIter then
+        local screenAddr = screenIter()
+        while type(screenAddr) ~= "string" and screenIter do
+            screenAddr = screenIter()
+        end
+        if screenAddr then
+            screen = screenAddr
+        end
+    end
     
     if gpu and screen then
         local gpuProxy = component.proxy(gpu)
@@ -627,43 +783,51 @@ local useTabletMode = false
 
 -- Try to read user configuration for tablet mode preference
 local userSettingsPath = "/Settings/UserSettings.cfg"
-local fs = component.list("filesystem")()
-if fs then
-    local proxy = component.proxy(fs)
-    if proxy.exists(userSettingsPath) then
-        local handle = proxy.open(userSettingsPath, "rb")
-        if handle then
-            local config = {}
-            local success, result = pcall(function()
-                local data = ""
-                local chunk
-                repeat
-                    chunk = proxy.read(handle, math.huge)
-                    data = data .. (chunk or "")
-                until not chunk
-                config = load("return " .. data)()
-            end)
-            proxy.close(handle)
-            
-            if success and config.tabletMode ~= nil then
-                useTabletMode = config.tabletMode
-            else
-                -- Default: check screen size
-                if GPUAddress and screen then
-                    local gpuProxy = component.proxy(GPUAddress)
-                    gpuProxy.bind(screen)
-                    local screenWidth, screenHeight = gpuProxy.getResolution()
-                    useTabletMode = (screenWidth <= 60 or screenHeight <= 20)
+local fs
+local fsIter = component.list("filesystem")
+if fsIter then
+    local fsAddr = fsIter()
+    while type(fsAddr) ~= "string" and fsIter do
+        fsAddr = fsIter()
+    end
+    if fsAddr then
+        fs = fsAddr
+        local proxy = component.proxy(fs)
+        if proxy.exists(userSettingsPath) then
+            local handle = proxy.open(userSettingsPath, "rb")
+            if handle then
+                local config = {}
+                local success, result = pcall(function()
+                    local data = ""
+                    local chunk
+                    repeat
+                        chunk = proxy.read(handle, math.huge)
+                        data = data .. (chunk or "")
+                    until not chunk
+                    config = load("return " .. data)()
+                end)
+                proxy.close(handle)
+                
+                if success and config.tabletMode ~= nil then
+                    useTabletMode = config.tabletMode
+                else
+                    -- Default: check screen size
+                    if GPUAddress and screen then
+                        local gpuProxy = component.proxy(GPUAddress)
+                        gpuProxy.bind(screen)
+                        local screenWidth, screenHeight = gpuProxy.getResolution()
+                        useTabletMode = (screenWidth <= 60 or screenHeight <= 20)
+                    end
                 end
             end
-        end
-    else
-        -- No config file, use screen size detection
-        if GPUAddress and screen then
-            local gpuProxy = component.proxy(GPUAddress)
-            gpuProxy.bind(screen)
-            local screenWidth, screenHeight = gpuProxy.getResolution()
-            useTabletMode = (screenWidth <= 60 or screenHeight <= 20)
+        else
+            -- No config file, use screen size detection
+            if GPUAddress and screen then
+                local gpuProxy = component.proxy(GPUAddress)
+                gpuProxy.bind(screen)
+                local screenWidth, screenHeight = gpuProxy.getResolution()
+                useTabletMode = (screenWidth <= 60 or screenHeight <= 20)
+            end
         end
     end
 end
@@ -783,11 +947,33 @@ local success, err = pcall(function()
         displayCriticalError("Component API is not available!")
     end
     
-    if not component.list("gpu")() then
+    local gpuFound = false
+    local gpuIter = component.list("gpu")
+    if gpuIter then
+        local gpuAddr = gpuIter()
+        while type(gpuAddr) ~= "string" and gpuIter do
+            gpuAddr = gpuIter()
+        end
+        if gpuAddr then
+            gpuFound = true
+        end
+    end
+    if not gpuFound then
         displayCriticalError("No GPU found! Cannot continue without graphics.")
     end
     
-    if not component.list("screen")() then
+    local screenFound = false
+    local screenIter = component.list("screen")
+    if screenIter then
+        local screenAddr = screenIter()
+        while type(screenAddr) ~= "string" and screenIter do
+            screenAddr = screenIter()
+        end
+        if screenAddr then
+            screenFound = true
+        end
+    end
+    if not screenFound then
         displayCriticalError("No screen found! Cannot continue without display.")
     end
     
