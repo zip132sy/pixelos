@@ -524,6 +524,11 @@ local function boot()
 
     -- Obtaining boot filesystem component proxy
     local bootFilesystemProxy = component.proxy(selectedBootAddress)
+    
+    -- Check if bootFilesystemProxy is valid
+    if not bootFilesystemProxy then
+        displayCriticalError("Failed to get filesystem proxy for address: " .. tostring(selectedBootAddress))
+    end
 
     -- Executes file from boot HDD during OS initialization (will be overriden in filesystem library later)
     function dofile(path)
@@ -584,7 +589,9 @@ local function boot()
     package.loaded.unicode = unicode
 
     -- Checks existense of specified path. It will be overriden after filesystem library initialization
-    local requireExists = bootFilesystemProxy.exists
+    local requireExists = function(path)
+        return bootFilesystemProxy.exists(bootFilesystemProxy, path)
+    end
 
     -- Works the similar way as native Lua require() function
     function require(module)
