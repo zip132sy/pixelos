@@ -288,22 +288,7 @@ local function checkAndSelectBootSystem()
             -- Normal case: fsList is an iterator function
             for address in fsList do
                 local proxy = component.proxy(address)
-                local label = proxy.getLabel() or "Unlabeled Drive"
-                
-                if proxy.exists("/OS.lua") then
-                    table.insert(systems, {
-                        address = address,
-                        label = label,
-                        proxy = proxy,
-                        isCurrent = (address == currentBootAddress)
-                    })
-                end
-            end
-        elseif type(fsList) == "table" then
-            -- Handle case where fsList is a table
-            for _, address in pairs(fsList) do
-                if type(address) == "string" then
-                    local proxy = component.proxy(address)
+                if proxy then
                     local label = proxy.getLabel() or "Unlabeled Drive"
                     
                     if proxy.exists("/OS.lua") then
@@ -313,6 +298,25 @@ local function checkAndSelectBootSystem()
                             proxy = proxy,
                             isCurrent = (address == currentBootAddress)
                         })
+                    end
+                end
+            end
+        elseif type(fsList) == "table" then
+            -- Handle case where fsList is a table
+            for _, address in pairs(fsList) do
+                if type(address) == "string" then
+                    local proxy = component.proxy(address)
+                    if proxy then
+                        local label = proxy.getLabel() or "Unlabeled Drive"
+                        
+                        if proxy.exists("/OS.lua") then
+                            table.insert(systems, {
+                                address = address,
+                                label = label,
+                                proxy = proxy,
+                                isCurrent = (address == currentBootAddress)
+                            })
+                        end
                     end
                 end
             end
