@@ -11,24 +11,42 @@ local function displayCriticalError(message)
     local gpu
     local gpuIter = component.list("gpu")
     if gpuIter then
-        local gpuAddr = gpuIter()
-        while type(gpuAddr) ~= "string" and gpuIter do
-            gpuAddr = gpuIter()
-        end
-        if gpuAddr then
-            gpu = gpuAddr
+        if type(gpuIter) == "function" then
+            local gpuAddr = gpuIter()
+            while type(gpuAddr) ~= "string" and gpuIter do
+                gpuAddr = gpuIter()
+            end
+            if gpuAddr then
+                gpu = gpuAddr
+            end
+        elseif type(gpuIter) == "table" then
+            for _, gpuAddr in pairs(gpuIter) do
+                if type(gpuAddr) == "string" then
+                    gpu = gpuAddr
+                    break
+                end
+            end
         end
     end
     
     local screen
     local screenIter = component.list("screen")
     if screenIter then
-        local screenAddr = screenIter()
-        while type(screenAddr) ~= "string" and screenIter do
-            screenAddr = screenIter()
-        end
-        if screenAddr then
-            screen = screenAddr
+        if type(screenIter) == "function" then
+            local screenAddr = screenIter()
+            while type(screenAddr) ~= "string" and screenIter do
+                screenAddr = screenIter()
+            end
+            if screenAddr then
+                screen = screenAddr
+            end
+        elseif type(screenIter) == "table" then
+            for _, screenAddr in pairs(screenIter) do
+                if type(screenAddr) == "string" then
+                    screen = screenAddr
+                    break
+                end
+            end
         end
     end
     
@@ -226,24 +244,42 @@ local function executeString(...)
     local gpu
     local gpuIter = component.list("gpu")
     if gpuIter then
-        local gpuAddr = gpuIter()
-        while type(gpuAddr) ~= "string" and gpuIter do
-            gpuAddr = gpuIter()
-        end
-        if gpuAddr then
-            gpu = gpuAddr
+        if type(gpuIter) == "function" then
+            local gpuAddr = gpuIter()
+            while type(gpuAddr) ~= "string" and gpuIter do
+                gpuAddr = gpuIter()
+            end
+            if gpuAddr then
+                gpu = gpuAddr
+            end
+        elseif type(gpuIter) == "table" then
+            for _, gpuAddr in pairs(gpuIter) do
+                if type(gpuAddr) == "string" then
+                    gpu = gpuAddr
+                    break
+                end
+            end
         end
     end
     
     local screen
     local screenIter = component.list("screen")
     if screenIter then
-        local screenAddr = screenIter()
-        while type(screenAddr) ~= "string" and screenIter do
-            screenAddr = screenIter()
-        end
-        if screenAddr then
-            screen = screenAddr
+        if type(screenIter) == "function" then
+            local screenAddr = screenIter()
+            while type(screenAddr) ~= "string" and screenIter do
+                screenAddr = screenIter()
+            end
+            if screenAddr then
+                screen = screenAddr
+            end
+        elseif type(screenIter) == "table" then
+            for _, screenAddr in pairs(screenIter) do
+                if type(screenAddr) == "string" then
+                    screen = screenAddr
+                    break
+                end
+            end
         end
     end
     
@@ -272,12 +308,21 @@ local function checkAndSelectBootSystem()
     local eeprom
     local eepromIter = component.list("eeprom")
     if eepromIter then
-        local eepromAddr = eepromIter()
-        while type(eepromAddr) ~= "string" and eepromIter do
-            eepromAddr = eepromIter()
-        end
-        if eepromAddr then
-            eeprom = eepromAddr
+        if type(eepromIter) == "function" then
+            local eepromAddr = eepromIter()
+            while type(eepromAddr) ~= "string" and eepromIter do
+                eepromAddr = eepromIter()
+            end
+            if eepromAddr then
+                eeprom = eepromAddr
+            end
+        elseif type(eepromIter) == "table" then
+            for _, eepromAddr in pairs(eepromIter) do
+                if type(eepromAddr) == "string" then
+                    eeprom = eepromAddr
+                    break
+                end
+            end
         end
     end
     local currentBootAddress = eeprom and component.invoke(eeprom, "getData")
@@ -327,11 +372,25 @@ local function checkAndSelectBootSystem()
         local fsAddr = systems[1] and systems[1].address
         if not fsAddr then
             local fsIter = component.list("filesystem")
-            fsAddr = fsIter()
-            -- Ensure we get a string
-            while type(fsAddr) == "table" and fsIter do
+            if type(fsIter) == "function" then
                 fsAddr = fsIter()
+                -- Ensure we get a string
+                while type(fsAddr) ~= "string" and fsIter do
+                    fsAddr = fsIter()
+                end
+            elseif type(fsIter) == "table" then
+                -- Handle case where fsIter is a table
+                for _, addr in pairs(fsIter) do
+                    if type(addr) == "string" then
+                        fsAddr = addr
+                        break
+                    end
+                end
             end
+        end
+        -- Ensure we return a string
+        if type(fsAddr) ~= "string" then
+            return nil
         end
         return fsAddr
     end
@@ -339,24 +398,42 @@ local function checkAndSelectBootSystem()
     local gpu
     local gpuIter = component.list("gpu")
     if gpuIter then
-        local gpuAddr = gpuIter()
-        while type(gpuAddr) ~= "string" and gpuIter do
-            gpuAddr = gpuIter()
-        end
-        if gpuAddr then
-            gpu = gpuAddr
+        if type(gpuIter) == "function" then
+            local gpuAddr = gpuIter()
+            while type(gpuAddr) ~= "string" and gpuIter do
+                gpuAddr = gpuIter()
+            end
+            if gpuAddr then
+                gpu = gpuAddr
+            end
+        elseif type(gpuIter) == "table" then
+            for _, gpuAddr in pairs(gpuIter) do
+                if type(gpuAddr) == "string" then
+                    gpu = gpuAddr
+                    break
+                end
+            end
         end
     end
     
     local screen
     local screenIter = component.list("screen")
     if screenIter then
-        local screenAddr = screenIter()
-        while type(screenAddr) ~= "string" and screenIter do
-            screenAddr = screenIter()
-        end
-        if screenAddr then
-            screen = screenAddr
+        if type(screenIter) == "function" then
+            local screenAddr = screenIter()
+            while type(screenAddr) ~= "string" and screenIter do
+                screenAddr = screenIter()
+            end
+            if screenAddr then
+                screen = screenAddr
+            end
+        elseif type(screenIter) == "table" then
+            for _, screenAddr in pairs(screenIter) do
+                if type(screenAddr) == "string" then
+                    screen = screenAddr
+                    break
+                end
+            end
         end
     end
     
@@ -364,11 +441,25 @@ local function checkAndSelectBootSystem()
         local fsAddr = systems[1] and systems[1].address
         if not fsAddr then
             local fsIter = component.list("filesystem")
-            fsAddr = fsIter()
-            -- Ensure we get a string
-            while type(fsAddr) == "table" and fsIter do
+            if type(fsIter) == "function" then
                 fsAddr = fsIter()
+                -- Ensure we get a string
+                while type(fsAddr) ~= "string" and fsIter do
+                    fsAddr = fsIter()
+                end
+            elseif type(fsIter) == "table" then
+                -- Handle case where fsIter is a table
+                for _, addr in pairs(fsIter) do
+                    if type(addr) == "string" then
+                        fsAddr = addr
+                        break
+                    end
+                end
             end
+        end
+        -- Ensure we return a string
+        if type(fsAddr) ~= "string" then
+            return nil
         end
         return fsAddr
     end
@@ -428,9 +519,20 @@ local function checkAndSelectBootSystem()
                 selectedIndex = math.min(#systems, selectedIndex + 1)
                 drawSelector()
             elseif key == 28 then
-                return systems[selectedIndex].address
+                -- Ensure we return a string
+                local addr = systems[selectedIndex].address
+                if type(addr) == "string" then
+                    return addr
+                else
+                    return nil
+                end
             elseif key == 1 then
-                return currentBootAddress
+                -- Ensure we return a string
+                if type(currentBootAddress) == "string" then
+                    return currentBootAddress
+                else
+                    return nil
+                end
             end
         end
     end
@@ -445,8 +547,18 @@ local function boot()
     local testIter = component.list("filesystem")
     earlyLog("component.list('filesystem') 返回类型: " .. type(testIter))
     
-    local firstAddr = testIter()
-    earlyLog("第一个文件系统地址: " .. tostring(firstAddr) .. " (类型: " .. type(firstAddr) .. ")")
+    local firstAddr
+    if type(testIter) == "function" then
+        firstAddr = testIter()
+    elseif type(testIter) == "table" then
+        for _, addr in pairs(testIter) do
+            if type(addr) == "string" then
+                firstAddr = addr
+                break
+            end
+        end
+    end
+    earlyLog("第一个文件系统地址: " .. tostring(firstAddr) .. " (类型: " .. type(firstAddr) .. " )")
     
     local selectedBootAddress = checkAndSelectBootSystem()
     
@@ -467,24 +579,42 @@ local function boot()
         local gpu
         local gpuIter = component.list("gpu")
         if gpuIter then
-            local gpuAddr = gpuIter()
-            while type(gpuAddr) ~= "string" and gpuIter do
-                gpuAddr = gpuIter()
-            end
-            if gpuAddr then
-                gpu = gpuAddr
+            if type(gpuIter) == "function" then
+                local gpuAddr = gpuIter()
+                while type(gpuAddr) ~= "string" and gpuIter do
+                    gpuAddr = gpuIter()
+                end
+                if gpuAddr then
+                    gpu = gpuAddr
+                end
+            elseif type(gpuIter) == "table" then
+                for _, gpuAddr in pairs(gpuIter) do
+                    if type(gpuAddr) == "string" then
+                        gpu = gpuAddr
+                        break
+                    end
+                end
             end
         end
         
         local screen
         local screenIter = component.list("screen")
         if screenIter then
-            local screenAddr = screenIter()
-            while type(screenAddr) ~= "string" and screenIter do
-                screenAddr = screenIter()
-            end
-            if screenAddr then
-                screen = screenAddr
+            if type(screenIter) == "function" then
+                local screenAddr = screenIter()
+                while type(screenAddr) ~= "string" and screenIter do
+                    screenAddr = screenIter()
+                end
+                if screenAddr then
+                    screen = screenAddr
+                end
+            elseif type(screenIter) == "table" then
+                for _, screenAddr in pairs(screenIter) do
+                    if type(screenAddr) == "string" then
+                        screen = screenAddr
+                        break
+                    end
+                end
             end
         end
         
@@ -503,6 +633,36 @@ local function boot()
             computer.pullSignal()
         end
         computer.shutdown(true)
+    elseif type(selectedBootAddress) ~= "string" then
+        -- Boot address is not a string, try to get filesystem address directly
+        earlyLog("启动地址不是字符串 (类型: " .. type(selectedBootAddress) .. ")，尝试直接获取文件系统地址")
+        -- Try to get the first filesystem address directly
+        local fsIter = component.list("filesystem")
+        local fsAddr = nil
+        if type(fsIter) == "function" then
+            fsAddr = fsIter()
+            -- Ensure we get a string
+            while type(fsAddr) ~= "string" and fsIter do
+                fsAddr = fsIter()
+            end
+        elseif type(fsIter) == "table" then
+            -- Handle case where fsIter is a table
+            for _, addr in pairs(fsIter) do
+                if type(addr) == "string" then
+                    fsAddr = addr
+                    break
+                end
+            end
+        end
+        earlyLog("尝试直接获取文件系统地址: " .. tostring(fsAddr))
+        
+        if fsAddr then
+            selectedBootAddress = fsAddr
+            earlyLog("已使用直接获取的地址: " .. selectedBootAddress)
+        else
+            displayCriticalError("Invalid boot address: " .. tostring(selectedBootAddress) .. " (类型: " .. type(selectedBootAddress) .. ")")
+            computer.shutdown(true)
+        end
     end
     
     earlyLog("已选择启动设备：" .. tostring(selectedBootAddress))
@@ -511,7 +671,22 @@ local function boot()
     if type(selectedBootAddress) ~= "string" then
         -- Try to get the first filesystem address directly
         local fsIter = component.list("filesystem")
-        local fsAddr = fsIter()
+        local fsAddr = nil
+        if type(fsIter) == "function" then
+            fsAddr = fsIter()
+            -- Ensure we get a string
+            while type(fsAddr) ~= "string" and fsIter do
+                fsAddr = fsIter()
+            end
+        elseif type(fsIter) == "table" then
+            -- Handle case where fsIter is a table
+            for _, addr in pairs(fsIter) do
+                if type(addr) == "string" then
+                    fsAddr = addr
+                    break
+                end
+            end
+        end
         earlyLog("尝试直接获取文件系统地址: " .. tostring(fsAddr))
         
         if fsAddr then
@@ -522,12 +697,19 @@ local function boot()
         end
     end
 
+    -- Final check: ensure selectedBootAddress is definitely a string
+    if type(selectedBootAddress) ~= "string" then
+        displayCriticalError("Fatal error: boot address is not a string (type: " .. type(selectedBootAddress) .. ")")
+        computer.shutdown(true)
+    end
+    
     -- Obtaining boot filesystem component proxy
     local bootFilesystemProxy = component.proxy(selectedBootAddress)
     
     -- Check if bootFilesystemProxy is valid
     if not bootFilesystemProxy then
         displayCriticalError("Failed to get filesystem proxy for address: " .. tostring(selectedBootAddress))
+        computer.shutdown(true)
     end
 
     -- Executes file from boot HDD during OS initialization (will be overriden in filesystem library later)
@@ -569,6 +751,15 @@ local function boot()
 	loaded = {},
 	loading = {}
     }
+    
+    -- Clean up paths to remove any special characters, preserving slashes
+    for path in pairs(package.paths) do
+        local cleanPath = path:gsub("[^%w%p/]", "")
+        if cleanPath ~= path then
+            package.paths[cleanPath] = package.paths[path]
+            package.paths[path] = nil
+        end
+    end
 
     -- Filling package.loaded with default global variables for OpenOS bitches
     package.loaded.bit32 = bit32
@@ -590,7 +781,7 @@ local function boot()
 
     -- Checks existense of specified path. It will be overriden after filesystem library initialization
     local requireExists = function(path)
-        return bootFilesystemProxy.exists(bootFilesystemProxy, path)
+        return bootFilesystemProxy.exists(path)
     end
 
     -- Works the similar way as native Lua require() function
@@ -606,10 +797,12 @@ local function boot()
 		local errors = {}
 
 		local function checkVariant(variant)
-			if requireExists(variant) then
-				return variant
+			-- Clean variant path to remove any special characters, preserving slashes
+			local cleanVariant = variant:gsub("[^%w%p/]", "")
+			if requireExists(cleanVariant) then
+				return cleanVariant
 			else
-				table.insert(errors, "  variant \"" .. variant .. "\" not exists")
+				table.insert(errors, "  variant \"" .. cleanVariant .. "\" not exists")
 			end
 		end
 
@@ -643,12 +836,21 @@ local function boot()
     local GPUAddress
     local gpuIter = component.list("gpu")
     if gpuIter then
-        local gpuAddr = gpuIter()
-        while type(gpuAddr) ~= "string" and gpuIter do
-            gpuAddr = gpuIter()
-        end
-        if gpuAddr then
-            GPUAddress = gpuAddr
+        if type(gpuIter) == "function" then
+            local gpuAddr = gpuIter()
+            while type(gpuAddr) ~= "string" and gpuIter do
+                gpuAddr = gpuIter()
+            end
+            if gpuAddr then
+                GPUAddress = gpuAddr
+            end
+        elseif type(gpuIter) == "table" then
+            for _, gpuAddr in pairs(gpuIter) do
+                if type(gpuAddr) == "string" then
+                    GPUAddress = gpuAddr
+                    break
+                end
+            end
         end
     end
     local screenWidth, screenHeight = 80, 25
@@ -658,12 +860,21 @@ local function boot()
         local screenAddress
         local screenIter = component.list("screen")
         if screenIter then
-            local screenAddr = screenIter()
-            while type(screenAddr) ~= "string" and screenIter do
-                screenAddr = screenIter()
-            end
-            if screenAddr then
-                screenAddress = screenAddr
+            if type(screenIter) == "function" then
+                local screenAddr = screenIter()
+                while type(screenAddr) ~= "string" and screenIter do
+                    screenAddr = screenIter()
+                end
+                if screenAddr then
+                    screenAddress = screenAddr
+                end
+            elseif type(screenIter) == "table" then
+                for _, screenAddr in pairs(screenIter) do
+                    if type(screenAddr) == "string" then
+                        screenAddress = screenAddr
+                        break
+                    end
+                end
             end
         end
         if screenAddress then
@@ -724,24 +935,42 @@ local function safeUIRequire(module)
         local gpu
         local gpuIter = component.list("gpu")
         if gpuIter then
-            local gpuAddr = gpuIter()
-            while type(gpuAddr) ~= "string" and gpuIter do
-                gpuAddr = gpuIter()
-            end
-            if gpuAddr then
-                gpu = gpuAddr
+            if type(gpuIter) == "function" then
+                local gpuAddr = gpuIter()
+                while type(gpuAddr) ~= "string" and gpuIter do
+                    gpuAddr = gpuIter()
+                end
+                if gpuAddr then
+                    gpu = gpuAddr
+                end
+            elseif type(gpuIter) == "table" then
+                for _, gpuAddr in pairs(gpuIter) do
+                    if type(gpuAddr) == "string" then
+                        gpu = gpuAddr
+                        break
+                    end
+                end
             end
         end
         
         local screen
         local screenIter = component.list("screen")
         if screenIter then
-            local screenAddr = screenIter()
-            while type(screenAddr) ~= "string" and screenIter do
-                screenAddr = screenIter()
-            end
-            if screenAddr then
-                screen = screenAddr
+            if type(screenIter) == "function" then
+                local screenAddr = screenIter()
+                while type(screenAddr) ~= "string" and screenIter do
+                    screenAddr = screenIter()
+                end
+                if screenAddr then
+                    screen = screenAddr
+                end
+            elseif type(screenIter) == "table" then
+                for _, screenAddr in pairs(screenIter) do
+                    if type(screenAddr) == "string" then
+                        screen = screenAddr
+                        break
+                    end
+                end
             end
         end
         
@@ -819,30 +1048,48 @@ logBIOSBoot("所有库加载完成，开始初始化...")
 
 -- Check if required libraries are available
 if not GUI or not system or not event then
-    -- Try to display error if possible
-    local gpu
-    local gpuIter = component.list("gpu")
-    if gpuIter then
-        local gpuAddr = gpuIter()
-        while type(gpuAddr) ~= "string" and gpuIter do
-            gpuAddr = gpuIter()
+        -- Try to display error if possible
+        local gpu
+        local gpuIter = component.list("gpu")
+        if gpuIter then
+            if type(gpuIter) == "function" then
+                local gpuAddr = gpuIter()
+                while type(gpuAddr) ~= "string" and gpuIter do
+                    gpuAddr = gpuIter()
+                end
+                if gpuAddr then
+                    gpu = gpuAddr
+                end
+            elseif type(gpuIter) == "table" then
+                for _, gpuAddr in pairs(gpuIter) do
+                    if type(gpuAddr) == "string" then
+                        gpu = gpuAddr
+                        break
+                    end
+                end
+            end
         end
-        if gpuAddr then
-            gpu = gpuAddr
+        
+        local screen
+        local screenIter = component.list("screen")
+        if screenIter then
+            if type(screenIter) == "function" then
+                local screenAddr = screenIter()
+                while type(screenAddr) ~= "string" and screenIter do
+                    screenAddr = screenIter()
+                end
+                if screenAddr then
+                    screen = screenAddr
+                end
+            elseif type(screenIter) == "table" then
+                for _, screenAddr in pairs(screenIter) do
+                    if type(screenAddr) == "string" then
+                        screen = screenAddr
+                        break
+                    end
+                end
+            end
         end
-    end
-    
-    local screen
-    local screenIter = component.list("screen")
-    if screenIter then
-        local screenAddr = screenIter()
-        while type(screenAddr) ~= "string" and screenIter do
-            screenAddr = screenIter()
-        end
-        if screenAddr then
-            screen = screenAddr
-        end
-    end
     
     if gpu and screen then
         local gpuProxy = component.proxy(gpu)
@@ -870,12 +1117,23 @@ local userSettingsPath = "/Settings/UserSettings.cfg"
 local fs
 local fsIter = component.list("filesystem")
 if fsIter then
-    local fsAddr = fsIter()
-    while type(fsAddr) ~= "string" and fsIter do
-        fsAddr = fsIter()
+    if type(fsIter) == "function" then
+        local fsAddr = fsIter()
+        while type(fsAddr) ~= "string" and fsIter do
+            fsAddr = fsIter()
+        end
+        if fsAddr then
+            fs = fsAddr
+        end
+    elseif type(fsIter) == "table" then
+        for _, fsAddr in pairs(fsIter) do
+            if type(fsAddr) == "string" then
+                fs = fsAddr
+                break
+            end
+        end
     end
-    if fsAddr then
-        fs = fsAddr
+    if fs then
         local proxy = component.proxy(fs)
         if proxy.exists(userSettingsPath) then
             local handle = proxy.open(userSettingsPath, "rb")
@@ -964,7 +1222,21 @@ if not useTabletMode then
                         end
                     else
                         if not component.invoke(GPUAddress, "getScreen") then
-                            local address = component.list("screen")()
+                            local screenIter = component.list("screen")
+                            local address
+                            if type(screenIter) == "function" then
+                                address = screenIter()
+                                while type(address) ~= "string" and screenIter do
+                                    address = screenIter()
+                                end
+                            elseif type(screenIter) == "table" then
+                                for _, addr in pairs(screenIter) do
+                                    if type(addr) == "string" then
+                                        address = addr
+                                        break
+                                    end
+                                end
+                            end
                             
                             if address then
                                 bindScreen(address)
@@ -1034,12 +1306,21 @@ local success, err = pcall(function()
     local gpuFound = false
     local gpuIter = component.list("gpu")
     if gpuIter then
-        local gpuAddr = gpuIter()
-        while type(gpuAddr) ~= "string" and gpuIter do
-            gpuAddr = gpuIter()
-        end
-        if gpuAddr then
-            gpuFound = true
+        if type(gpuIter) == "function" then
+            local gpuAddr = gpuIter()
+            while type(gpuAddr) ~= "string" and gpuIter do
+                gpuAddr = gpuIter()
+            end
+            if gpuAddr then
+                gpuFound = true
+            end
+        elseif type(gpuIter) == "table" then
+            for _, gpuAddr in pairs(gpuIter) do
+                if type(gpuAddr) == "string" then
+                    gpuFound = true
+                    break
+                end
+            end
         end
     end
     if not gpuFound then
@@ -1049,12 +1330,21 @@ local success, err = pcall(function()
     local screenFound = false
     local screenIter = component.list("screen")
     if screenIter then
-        local screenAddr = screenIter()
-        while type(screenAddr) ~= "string" and screenIter do
-            screenAddr = screenIter()
-        end
-        if screenAddr then
-            screenFound = true
+        if type(screenIter) == "function" then
+            local screenAddr = screenIter()
+            while type(screenAddr) ~= "string" and screenIter do
+                screenAddr = screenIter()
+            end
+            if screenAddr then
+                screenFound = true
+            end
+        elseif type(screenIter) == "table" then
+            for _, screenAddr in pairs(screenIter) do
+                if type(screenAddr) == "string" then
+                    screenFound = true
+                    break
+                end
+            end
         end
     end
     if not screenFound then

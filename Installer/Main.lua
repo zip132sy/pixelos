@@ -39,7 +39,19 @@ local OSPath = "/"
 
 -- Checking for required components
 local function getComponentAddress(name)
-	return component.list(name)() or error("Required " .. name .. " component is missing")
+	local iter = component.list(name)
+	if type(iter) == "function" then
+		return iter() or error("Required " .. name .. " component is missing")
+	elseif type(iter) == "table" then
+		for _, addr in pairs(iter) do
+			if type(addr) == "string" then
+				return addr
+			end
+		end
+		return error("Required " .. name .. " component is missing")
+	else
+		return error("Required " .. name .. " component is missing")
+	end
 end
 
 local EEPROMAddress, internetAddress, GPUAddress =
@@ -234,11 +246,24 @@ do
 	end
 
 	-- Searching for appropriate temporary filesystem for storing libraries, images, etc
-	for address in component.list("filesystem") do
-		local proxy = component.proxy(address)
-		if proxy.spaceTotal() >= 2 * 1024 * 1024 then
-			temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
-			break
+	local fsList = component.list("filesystem")
+	if type(fsList) == "function" then
+		for address in fsList do
+			local proxy = component.proxy(address)
+			if proxy.spaceTotal() >= 2 * 1024 * 1024 then
+				temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
+				break
+			end
+		end
+	elseif type(fsList) == "table" then
+		for _, address in pairs(fsList) do
+			if type(address) == "string" then
+				local proxy = component.proxy(address)
+				if proxy.spaceTotal() >= 2 * 1024 * 1024 then
+					temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
+					break
+				end
+			end
 		end
 	end
 
@@ -632,7 +657,18 @@ local function updateStatusBar()
 	end
 	
 	-- Try network request first (as primary method)
-	local internetComponent = component.list("internet")()
+	local internetComponent
+	local internetIter = component.list("internet")
+	if type(internetIter) == "function" then
+		internetComponent = internetIter()
+	elseif type(internetIter) == "table" then
+		for _, addr in pairs(internetIter) do
+			if type(addr) == "string" then
+				internetComponent = addr
+				break
+			end
+		end
+	end
 	if internetComponent then
 		local success, internet = pcall(component.proxy, internetComponent)
 		if success and internet then
@@ -991,14 +1027,30 @@ addStage(function()
 
 		diskLayout:removeChildren()
 
-		for address in component.list("filesystem") do
-			local proxy = component.proxy(address)
-			if proxy.spaceTotal() >= 1 * 1024 * 1024 then
-				addDisk(
-					proxy,
-					proxy.spaceTotal() < 1 * 1024 * 1024 and HDDImage or HDDImage,
-					proxy.isReadOnly() or proxy.spaceTotal() < 2 * 1024 * 1024
-				)
+		local fsList = component.list("filesystem")
+		if type(fsList) == "function" then
+			for address in fsList do
+				local proxy = component.proxy(address)
+				if proxy.spaceTotal() >= 1 * 1024 * 1024 then
+					addDisk(
+						proxy,
+						proxy.spaceTotal() < 1 * 1024 * 1024 and HDDImage or HDDImage,
+						proxy.isReadOnly() or proxy.spaceTotal() < 2 * 1024 * 1024
+					)
+				end
+			end
+		elseif type(fsList) == "table" then
+			for _, address in pairs(fsList) do
+				if type(address) == "string" then
+					local proxy = component.proxy(address)
+					if proxy.spaceTotal() >= 1 * 1024 * 1024 then
+						addDisk(
+							proxy,
+							proxy.spaceTotal() < 1 * 1024 * 1024 and HDDImage or HDDImage,
+							proxy.isReadOnly() or proxy.spaceTotal() < 2 * 1024 * 1024
+						)
+					end
+				end
 			end
 		end
 
