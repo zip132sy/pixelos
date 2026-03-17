@@ -4,6 +4,26 @@ local os = require("os")
 
 local gpu = component.gpu
 
+-- Function to display messages in EEPROM environment
+local function displayMessage(message)
+	-- Try to use gpu if available
+	if gpu then
+		local screen = component.list("screen")()
+		if screen then
+			gpu.bind(screen, true)
+			local w, h = gpu.getResolution()
+			gpu.setBackground(0x000000)
+			gpu.setForeground(0xFFFFFF)
+			gpu.fill(1, 1, w, h, " ")
+			local x = math.floor(w / 2 - #message / 2)
+			local y = math.floor(h / 2)
+			gpu.set(x, y, message)
+		end
+	end
+	-- Also beep to indicate error
+	computer.beep(1000, 0.5)
+end
+
 do
 	local potatoes = {}
 
@@ -39,12 +59,8 @@ do
 	end
 
 	if #potatoes > 0 then
-		print("Your computer does not meet the minimum system requirements:")
-
-		for i = 1, #potatoes do
-			print("  ⨯ " .. potatoes[i])
-		end
-
+		displayMessage("Your computer does not meet the minimum system requirements")
+		computer.shutdown()
 		return
 	end
 end
@@ -55,14 +71,14 @@ do
 	if not success then
 		if result then
 			if result:match("PKIX") then
-				print("Download server SSL certificate was rejected. Update Java or install certificate manually")
+				displayMessage("Download server SSL certificate was rejected")
 			else
-				print("Download server unavailable: " .. tostring(result))
+				displayMessage("Download server unavailable")
 			end
 		else
-			print("Download server unavailable for unknown reasons")
+			displayMessage("Download server unavailable")
 		end
-
+		computer.shutdown()
 		return
 	end
 
@@ -86,7 +102,8 @@ do
 	result.close()
 
 	if not success then
-		print("Download server unavailable. Check if gitee.com is not blocked")
+		displayMessage("Download server unavailable")
+		computer.shutdown()
 		return
 	end
 end
@@ -106,22 +123,43 @@ component.eeprom.set([[
 		return nil
 	end
 	
+	local function displayMessage(message)
+		-- Try to use gpu if available
+		local gpu = component.list("gpu")()
+		if gpu then
+			gpu = component.proxy(gpu)
+			local screen = component.list("screen")()
+			if screen then
+				gpu.bind(screen, true)
+				local w, h = gpu.getResolution()
+				gpu.setBackground(0x000000)
+				gpu.setForeground(0xFFFFFF)
+				gpu.fill(1, 1, w, h, " ")
+				local x = math.floor(w / 2 - #message / 2)
+				local y = math.floor(h / 2)
+				gpu.set(x, y, message)
+			end
+		end
+		-- Also beep to indicate error
+		computer.beep(1000, 0.5)
+	end
+	
 	local internetAddr = getComponentAddress("internet")
 	if not internetAddr then
-		print("No internet component found")
+		displayMessage("No internet component found")
 		return
 	end
 	
 	local internet = component.proxy(internetAddr)
 	if not internet then
-		print("Failed to get internet proxy")
+		displayMessage("Failed to get internet proxy")
 		return
 	end
 	
 	local connection, data, chunk = internet.request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
 	
 	if not connection then
-		print("Failed to connect to server")
+		displayMessage("Failed to connect to server")
 		return
 	end
 	
@@ -141,7 +179,7 @@ component.eeprom.set([[
 	if result then
 		result()
 	else
-		print("Failed to load installer: " .. tostring(err))
+		displayMessage("Failed to load installer")
 	end
 ]])
 

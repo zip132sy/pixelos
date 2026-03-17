@@ -3,6 +3,18 @@
 
 local encryption = {}
 
+-- XOR encryption function
+local function xorEncrypt(data, key)
+    local result = {}
+    local keyLen = #key
+    for i = 1, #data do
+        local dataByte = data:byte(i)
+        local keyByte = key:byte((i - 1) % keyLen + 1)
+        table.insert(result, string.char(bit32.bxor(dataByte, keyByte)))
+    end
+    return table.concat(result)
+end
+
 -- Vigenère cipher with XOR for stronger encryption
 local function generateKeyStream(key, length)
     local keyStream = {}
