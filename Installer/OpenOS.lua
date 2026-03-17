@@ -92,7 +92,38 @@ do
 end
 
 component.eeprom.set([[
-	local connection, data, chunk = component.proxy(component.list("internet")()).request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
+	local function getComponentAddress(type)
+		local iter = component.list(type)
+		if type(iter) == "function" then
+			return iter()
+		elseif type(iter) == "table" then
+			for _, addr in pairs(iter) do
+				if type(addr) == "string" then
+					return addr
+				end
+			end
+		end
+		return nil
+	end
+	
+	local internetAddr = getComponentAddress("internet")
+	if not internetAddr then
+		print("No internet component found")
+		return
+	end
+	
+	local internet = component.proxy(internetAddr)
+	if not internet then
+		print("Failed to get internet proxy")
+		return
+	end
+	
+	local connection, data, chunk = internet.request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
+	
+	if not connection then
+		print("Failed to connect to server")
+		return
+	end
 	
 	while true do
 		chunk = connection.read(math.huge)
@@ -106,7 +137,12 @@ component.eeprom.set([[
 	
 	connection.close()
 	
-	load(data)()
+	local result, err = load(data)
+	if result then
+		result()
+	else
+		print("Failed to load installer: " .. tostring(err))
+	end
 ]])
 
 computer.shutdown(true)
