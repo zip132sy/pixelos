@@ -92,8 +92,8 @@ do
 end
 
 component.eeprom.set([[
-	local function getComponentAddress(type)
-		local iter = component.list(type)
+	local function getComponentAddress(componentType)
+		local iter = component.list(componentType)
 		if type(iter) == "function" then
 			return iter()
 		elseif type(iter) == "table" then
