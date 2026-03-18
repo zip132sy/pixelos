@@ -150,7 +150,22 @@ component.eeprom.set([[
 		return
 	end
 	
-	local internet = component.proxy(internetAddr)
+	local internet
+	-- Try different ways to get internet proxy
+	if component.proxy then
+		internet = component.proxy(internetAddr)
+	elseif component.invoke then
+		-- Fallback to using component.invoke directly
+		internet = {}
+		internet.request = function(url)
+			return component.invoke(internetAddr, "request", url)
+		end
+		internet.close = function(connection)
+			if connection and connection.close then
+				connection.close()
+			end
+		end
+	end
 	if not internet then
 		displayMessage("Failed to get internet proxy")
 		return
