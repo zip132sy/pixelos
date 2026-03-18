@@ -704,9 +704,42 @@ local function boot()
     end
     
     -- Obtaining boot filesystem component proxy
-    local bootFilesystemProxy = component.proxy(selectedBootAddress)
+    local bootFilesystemProxy
     
-    -- Check if bootFilesystemProxy is valid
+    -- Try different ways to get filesystem proxy
+    if component.proxy then
+        bootFilesystemProxy = component.proxy(selectedBootAddress)
+    end
+    
+    -- If component.proxy failed, try to get a new filesystem address directly
+    if not bootFilesystemProxy then
+        earlyLog("获取文件系统代理失败，尝试直接获取文件系统地址")
+        local fsIter = component.list("filesystem")
+        local fsAddr = nil
+        if type(fsIter) == "function" then
+            fsAddr = fsIter()
+            while type(fsAddr) ~= "string" and fsIter do
+                fsAddr = fsIter()
+            end
+        elseif type(fsIter) == "table" then
+            for _, addr in pairs(fsIter) do
+                if type(addr) == "string" then
+                    fsAddr = addr
+                    break
+                end
+            end
+        end
+        
+        if fsAddr then
+            earlyLog("已获取新的文件系统地址: " .. fsAddr)
+            selectedBootAddress = fsAddr
+            if component.proxy then
+                bootFilesystemProxy = component.proxy(selectedBootAddress)
+            end
+        end
+    end
+    
+    -- Final check if bootFilesystemProxy is valid
     if not bootFilesystemProxy then
         displayCriticalError("Failed to get filesystem proxy for address: " .. tostring(selectedBootAddress))
         computer.shutdown(true)
