@@ -41,16 +41,32 @@ local OSPath = "/"
 local function getComponentAddress(name)
 	local iter = component.list(name)
 	if type(iter) == "function" then
-		return iter() or error("Required " .. name .. " component is missing")
+		local addr = iter()
+		if not addr then
+			-- Show error message and shutdown
+			centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
+			computer.pullSignal(2)
+			computer.shutdown()
+			return nil
+		end
+		return addr
 	elseif type(iter) == "table" then
 		for _, addr in pairs(iter) do
 			if type(addr) == "string" then
 				return addr
 			end
 		end
-		return error("Required " .. name .. " component is missing")
+		-- Show error message and shutdown
+		centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
+		computer.pullSignal(2)
+		computer.shutdown()
+		return nil
 	else
-		return error("Required " .. name .. " component is missing")
+		-- Show error message and shutdown
+		centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
+		computer.pullSignal(2)
+		computer.shutdown()
+		return nil
 	end
 end
 
@@ -175,7 +191,11 @@ local function request(url)
 	end, true)  -- Show source on first connection
 
 	if not success then
-		error("Connection failed: " .. tostring(err))
+		-- Show error message and shutdown
+		centrizedText(title(), 0xFF0000, "Error: Connection failed: " .. tostring(err))
+		computer.pullSignal(2)
+		computer.shutdown()
+		return nil
 	end
 
 	return data
@@ -192,7 +212,11 @@ local function download(url, path)
 			end, false)  -- Don't show source during downloads
 			
 			if not rawSuccess then
-				error(tostring(rawErr))
+				-- Show error message and shutdown
+				centrizedText(title(), 0xFF0000, "Error: Download failed: " .. tostring(rawErr))
+				computer.pullSignal(2)
+				computer.shutdown()
+				return false
 			end
 		end)
 		
@@ -213,9 +237,22 @@ end
 local function deserialize(text)
 	local result, reason = load("return " .. text, "=string")
 	if result then
-		return result()
+		local success, data = pcall(result)
+		if success then
+			return data
+		else
+			-- Show error message and shutdown
+			centrizedText(title(), 0xFF0000, "Error: Failed to deserialize data: " .. tostring(data))
+			computer.pullSignal(2)
+			computer.shutdown()
+			return nil
+		end
 	else
-		error(reason)
+		-- Show error message and shutdown
+		centrizedText(title(), 0xFF0000, "Error: Failed to parse data: " .. tostring(reason))
+		computer.pullSignal(2)
+		computer.shutdown()
+		return nil
 	end
 end
 
@@ -371,7 +408,11 @@ function require(module)
 	if package.loaded[module] then
 		return package.loaded[module]
 	elseif package.loading[module] then
-		error("already loading " .. module .. ": " .. debug.traceback())
+		-- Show error message and shutdown
+		centrizedText(title(), 0xFF0000, "Error: Already loading " .. module)
+		computer.pullSignal(2)
+		computer.shutdown()
+		return nil
 	else
 		package.loading[module] = true
 
@@ -389,12 +430,29 @@ function require(module)
 			
 			local result, loadReason = load(data, "=" .. module)
 			if result then
-				package.loaded[module] = result() or true
+				local success, moduleData = pcall(result)
+				if success then
+					package.loaded[module] = moduleData or true
+				else
+					-- Show error message and shutdown
+					centrizedText(title(), 0xFF0000, "Error: Failed to load " .. module .. ": " .. tostring(moduleData))
+					computer.pullSignal(2)
+					computer.shutdown()
+					return nil
+				end
 			else
-				error("Failed to load " .. module .. ": " .. tostring(loadReason))
+				-- Show error message and shutdown
+				centrizedText(title(), 0xFF0000, "Error: Failed to load " .. module .. ": " .. tostring(loadReason))
+				computer.pullSignal(2)
+				computer.shutdown()
+				return nil
 			end
 		else
-			error("Failed to load " .. module .. ": File not found at " .. filePath)
+			-- Show error message and shutdown
+			centrizedText(title(), 0xFF0000, "Error: Failed to load " .. module .. ": File not found at " .. filePath)
+			computer.pullSignal(2)
+			computer.shutdown()
+			return nil
 		end
 
 		package.loading[module] = nil
