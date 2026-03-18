@@ -204,34 +204,57 @@ end
 local function download(url, path)
 	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
 
+	-- First try network download
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
+	local networkSuccess = false
+	
 	if fileHandle then
 		local success, err = pcall(function()
 			local rawSuccess, rawErr = rawRequest(url, function(chunk)
 				selectedFilesystemProxy.write(fileHandle, chunk)
 			end, false)  -- Don't show source during downloads
 			
-			if not rawSuccess then
-				-- Show error message and shutdown
-				centrizedText(title(), 0xFF0000, "Error: Download failed: " .. tostring(rawErr))
-				computer.pullSignal(2)
-				computer.shutdown()
-				return false
+			if rawSuccess then
+				networkSuccess = true
 			end
 		end)
 		
 		selectedFilesystemProxy.close(fileHandle)
 		
-		if not success then
-			-- File doesn't exist on server, remove the empty file
+		if networkSuccess then
+			return true
+		else
+			-- Network failed, try local file
 			selectedFilesystemProxy.remove(path)
-			return false
 		end
-		return true
-	else
-		-- Don't error, just skip this file
-		return false
 	end
+
+	-- Try to use local file as fallback
+	local localPath = path
+	if temporaryFilesystemProxy.exists(localPath) then
+		-- Copy from temporary filesystem to selected filesystem
+		local localHandle = temporaryFilesystemProxy.open(localPath, "rb")
+		if localHandle then
+			local destHandle = selectedFilesystemProxy.open(path, "wb")
+			if destHandle then
+				local data = ""
+				local chunk
+				repeat
+					chunk = temporaryFilesystemProxy.read(localHandle, math.huge)
+					data = data .. (chunk or "")
+				until not chunk
+				temporaryFilesystemProxy.close(localHandle)
+				selectedFilesystemProxy.write(destHandle, data)
+				selectedFilesystemProxy.close(destHandle)
+				return true
+			else
+				temporaryFilesystemProxy.close(localHandle)
+			end
+		end
+	end
+
+	-- Don't error, just skip this file
+	return false
 end
 
 local function deserialize(text)
@@ -321,7 +344,38 @@ local stages = {}
 
 -- First, we need a big ass file list with localizations, applications, wallpapers
 progress(0)
-local files = deserialize(request(installerURL .. "Files.cfg"))
+local files
+local success, err = pcall(function()
+	-- Try to get Files.cfg from network first
+	files = deserialize(request(installerURL .. "Files.cfg"))
+end)
+
+-- If network fails, try to use local Files.cfg
+if not success or not files then
+	progress(0.5, "Network error, using local Files.cfg")
+	local localFilesPath = "/Installer/Files.cfg"
+	if temporaryFilesystemProxy.exists(localFilesPath) then
+		local handle = temporaryFilesystemProxy.open(localFilesPath, "rb")
+		if handle then
+			local data = ""
+			local chunk
+			repeat
+				chunk = temporaryFilesystemProxy.read(handle, math.huge)
+				data = data .. (chunk or "")
+			until not chunk
+			temporaryFilesystemProxy.close(handle)
+			files = deserialize(data)
+		end
+	end
+end
+
+-- If still no files, show error and shutdown
+if not files then
+	centrizedText(title(), 0xFF0000, "Error: Failed to load Files.cfg")
+	computer.pullSignal(2)
+	computer.shutdown()
+	return
+end
 
 -- After that we could download required libraries for installer from it
 -- First, show loading screen with progress bar (MineOS style)
