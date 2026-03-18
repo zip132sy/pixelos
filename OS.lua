@@ -703,17 +703,28 @@ local function boot()
         computer.shutdown(true)
     end
     
-    -- Obtaining boot filesystem component proxy
+    -- Obtaining boot filesystem component proxy (similar to MineOS implementation)
     local bootFilesystemProxy
     
-    -- Try different ways to get filesystem proxy
-    if component.proxy then
-        bootFilesystemProxy = component.proxy(selectedBootAddress)
+    -- Try to get boot address from EEPROM first (MineOS method)
+    local eepromAddress = component.list("eeprom")()
+    if eepromAddress then
+        local eepromData = component.invoke(eepromAddress, "getData")
+        if eepromData and type(eepromData) == "string" then
+            bootFilesystemProxy = component.proxy(eepromData)
+            earlyLog("从EEPROM获取引导地址: " .. eepromData)
+        end
     end
     
-    -- If component.proxy failed, try to get a new filesystem address directly
+    -- If EEPROM method failed, try the original method with selectedBootAddress
+    if not bootFilesystemProxy and selectedBootAddress and type(selectedBootAddress) == "string" then
+        bootFilesystemProxy = component.proxy(selectedBootAddress)
+        earlyLog("使用选定的引导地址: " .. selectedBootAddress)
+    end
+    
+    -- If still no bootFilesystemProxy, try to get any filesystem
     if not bootFilesystemProxy then
-        earlyLog("获取文件系统代理失败，尝试直接获取文件系统地址")
+        earlyLog("获取文件系统代理失败，尝试直接获取文件系统")
         local fsIter = component.list("filesystem")
         local fsAddr = nil
         if type(fsIter) == "function" then
@@ -732,16 +743,13 @@ local function boot()
         
         if fsAddr then
             earlyLog("已获取新的文件系统地址: " .. fsAddr)
-            selectedBootAddress = fsAddr
-            if component.proxy then
-                bootFilesystemProxy = component.proxy(selectedBootAddress)
-            end
+            bootFilesystemProxy = component.proxy(fsAddr)
         end
     end
     
     -- Final check if bootFilesystemProxy is valid
     if not bootFilesystemProxy then
-        displayCriticalError("Failed to get filesystem proxy for address: " .. tostring(selectedBootAddress))
+        displayCriticalError("Failed to get filesystem proxy. No valid filesystem found.")
         computer.shutdown(true)
     end
 
