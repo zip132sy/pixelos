@@ -185,14 +185,52 @@ do
 	end
 end
 
+-- Network connectivity check
+local function checkNetwork()
+	-- Try to connect to a simple URL to test network
+	local testHandle = component.invoke(internetAddress, "request", "http://example.com")
+	if testHandle then
+		testHandle.close()
+		return true
+	end
+	return false
+end
+
+-- Display download progress with filename
+local function downloadWithProgress(url, path, current, total)
+	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
+	
+	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
+	if fileHandle then
+		-- Show current download info
+		local shortName = filesystemName(path)
+		if #shortName > 30 then
+			shortName = shortName:sub(1, 27) .. "..."
+		end
+		centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
+		
+		rawRequest(url, function(chunk)
+			selectedFilesystemProxy.write(fileHandle, chunk)
+		end)
+		
+		selectedFilesystemProxy.close(fileHandle)
+	else
+		error("File opening failed: " .. tostring(reason))
+	end
+end
+
 -- First, we need a big ass file list with localizations, applications, wallpapers
 progress(0)
+centrizedText(title(), 0x2D2D2D, "Checking network...")
+if not checkNetwork() then
+	error("Network connection failed. Please check your internet card and try again.")
+end
 local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- After that we could download required libraries for installer from it
 for i = 1, #files.installerFiles do
 	progress(i / #files.installerFiles)
-	download(files.installerFiles[i], installerPath .. files.installerFiles[i])
+	downloadWithProgress(files.installerFiles[i], installerPath .. files.installerFiles[i], i, #files.installerFiles)
 end
 
 -- Initializing simple package system for loading system libraries
