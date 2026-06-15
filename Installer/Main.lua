@@ -13,7 +13,6 @@ local EEPROMAddress, internetAddress, GPUAddress =
 component.invoke(GPUAddress, "bind", getComponentAddress("screen"))
 local screenWidth, screenHeight = component.invoke(GPUAddress, "getResolution")
 
-local repositoryURL = "https://gitee.com/zip132sy/pixelos/raw/master/"
 local installerURL = "Installer/"
 local EFIURL = "EFI/Minified.lua"
 
@@ -65,30 +64,50 @@ local function filesystemHideExtension(path)
 	return path:match("(.+)%..+") or path
 end
 
+-- Multiple repository URLs for fallback
+local repositoryURLs = {
+	"https://gitee.com/zip132sy/pixelos/raw/master/",
+	"https://raw.githubusercontent.com/zip132sy/pixelos/master/"
+}
+
 local function rawRequest(url, chunkHandler)
-	local internetHandle, reason = component.invoke(internetAddress, "request", repositoryURL .. url:gsub("([^%w%-%_%.%~])", function(char)
-		return string.format("%%%02X", string.byte(char))
-	end))
-
-	if internetHandle then
-		local chunk, reason
-		while true do
-			chunk, reason = internetHandle.read(math.huge)	
-			
-			if chunk then
-				chunkHandler(chunk)
-			else
-				if reason then
-					error("Internet request failed: " .. tostring(reason))
+	-- Try each repository URL in order
+	for i, repoURL in ipairs(repositoryURLs) do
+		local fullURL = repoURL .. url:gsub("([^%w%-%_%.%~])", function(char)
+			return string.format("%%%02X", string.byte(char))
+		end)
+		
+		local internetHandle, reason = component.invoke(internetAddress, "request", fullURL)
+		
+		if internetHandle then
+			local chunk, reason
+			while true do
+				chunk, reason = internetHandle.read(math.huge)	
+				
+				if chunk then
+					chunkHandler(chunk)
+				else
+					if reason then
+						-- Try next URL if available
+						if i < #repositoryURLs then
+							break
+						else
+							error("Internet request failed: " .. tostring(reason))
+						end
+					end
+					break
 				end
-
-				break
 			end
+			
+			internetHandle.close()
+			if not reason then
+				return  -- Success
+			end
+		elseif i < #repositoryURLs then
+			-- Try next URL
+		else
+			error("Connection failed: " .. url)
 		end
-
-		internetHandle.close()
-	else
-		error("Connection failed: " .. url)
 	end
 end
 
