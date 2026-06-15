@@ -40,7 +40,7 @@ local OSPath = "/"
 -- Checking for required components
 local function getComponentAddress(name)
 	local iter = component.list(name)
-	if type(iter) == "function" then
+	if _G.type(iter) == "function" then
 		local addr = iter()
 		if not addr then
 			-- Show error message and shutdown
@@ -50,9 +50,9 @@ local function getComponentAddress(name)
 			return nil
 		end
 		return addr
-	elseif type(iter) == "table" then
+	elseif _G.type(iter) == "table" then
 		for _, addr in pairs(iter) do
-			if type(addr) == "string" then
+			if _G.type(addr) == "string" then
 				return addr
 			end
 		end
@@ -307,7 +307,7 @@ do
 
 	-- Searching for appropriate temporary filesystem for storing libraries, images, etc
 	local fsList = component.list("filesystem")
-	if type(fsList) == "function" then
+	if _G.type(fsList) == "function" then
 		for address in fsList do
 			local proxy = component.proxy(address)
 			if proxy.spaceTotal() >= 2 * 1024 * 1024 then
@@ -315,9 +315,9 @@ do
 				break
 			end
 		end
-	elseif type(fsList) == "table" then
+	elseif _G.type(fsList) == "table" then
 		for _, address in pairs(fsList) do
-			if type(address) == "string" then
+			if _G.type(address) == "string" then
 				local proxy = component.proxy(address)
 				if proxy.spaceTotal() >= 2 * 1024 * 1024 then
 					temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
@@ -586,7 +586,7 @@ local function addImage(before, after, name)
 
 	local picture
 	local imageData = loadImage(name)
-	if type(imageData) == "table" then
+	if _G.type(imageData) == "table" then
 		picture = layout:addChild(GUI.image(1, 1, imageData))
 		picture.height = picture.height + after
 	else
@@ -694,7 +694,7 @@ local function updateStatusBar()
 				
 				-- Try different battery API methods
 				-- Method 1: Newer OpenComputers API (getEnergy/getMaxEnergy)
-				if type(proxy.getEnergy) == "function" and type(proxy.getMaxEnergy) == "function" then
+				if _G.type(proxy.getEnergy) == "function" and _G.type(proxy.getMaxEnergy) == "function" then
 					local success1, value1 = pcall(proxy.getEnergy, proxy)
 					local success2, value2 = pcall(proxy.getMaxEnergy, proxy)
 					if success1 and success2 and value1 and value2 and value2 > 0 then
@@ -771,11 +771,11 @@ local function updateStatusBar()
 	-- Try network request first (as primary method)
 	local internetComponent
 	local internetIter = component.list("internet")
-	if type(internetIter) == "function" then
+	if _G.type(internetIter) == "function" then
 		internetComponent = internetIter()
-	elseif type(internetIter) == "table" then
+	elseif _G.type(internetIter) == "table" then
 		for _, addr in pairs(internetIter) do
-			if type(addr) == "string" then
+			if _G.type(addr) == "string" then
 				internetComponent = addr
 				break
 			end
@@ -1140,7 +1140,7 @@ addStage(function()
 		diskLayout:removeChildren()
 
 		local fsList = component.list("filesystem")
-		if type(fsList) == "function" then
+		if _G.type(fsList) == "function" then
 			for address in fsList do
 				local proxy = component.proxy(address)
 				if proxy.spaceTotal() >= 1 * 1024 * 1024 then
@@ -1151,9 +1151,9 @@ addStage(function()
 					)
 				end
 			end
-		elseif type(fsList) == "table" then
+		elseif _G.type(fsList) == "table" then
 			for _, address in pairs(fsList) do
-				if type(address) == "string" then
+				if _G.type(address) == "string" then
 					local proxy = component.proxy(address)
 					if proxy.spaceTotal() >= 1 * 1024 * 1024 then
 						addDisk(
@@ -1401,7 +1401,7 @@ addStage(function()
 	local downloadList = {}
 
 	local function getData(item)
-		if type(item) == "table" then
+		if _G.type(item) == "table" then
 			return item.path, item.id, item.version, item.shortcut
 		else
 			return item
@@ -1700,7 +1700,7 @@ addStage(function()
 	layout:removeChildren()
 	-- Use the BIOS_Manager.pic icon
 	local biosManagerImage = loadImage("BIOS_Manager")
-	if type(biosManagerImage) == "table" then
+	if _G.type(biosManagerImage) == "table" then
 		layout:addChild(GUI.image(math.floor(layout.width / 2 - biosManagerImage[1] / 2), 2, biosManagerImage))
 	else
 		addImage(0, 1, "EEPROM")
