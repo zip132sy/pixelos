@@ -2,38 +2,14 @@ local component = require("component")
 local computer = require("computer")
 local os = require("os")
 
--- Safe helper: get first component address of given type, or nil
-local function getComponentAddress(type)
-	if not component.list then return nil end
-	local ok, iter = pcall(component.list, type)
-	if not ok or not iter then return nil end
-	if type(iter) == "function" then
-		local ok2, addr = pcall(iter)
-		if ok2 then return addr end
-	elseif type(iter) == "table" then
-		for addr in pairs(iter) do return addr end
-	end
-	return nil
-end
+local gpu = component.gpu
 
--- Safe helper: get proxy for first component of given type, or nil
-local function getComponentProxy(type)
-	local addr = getComponentAddress(type)
-	if not addr then return nil end
-	local ok, proxy = pcall(component.proxy, addr)
-	if ok then return proxy end
-	return nil
-end
-
--- Checking if computer is tough enough for PixelOS
+-- Checking if computer is tough enough for such a S T Y L I S H product as MineOS
 do
 	local potatoes = {}
 
 	-- GPU/screen
-	local gpu = getComponentProxy("gpu")
-	if not gpu then
-		table.insert(potatoes, "Tier 3 graphics card and screen");
-	elseif gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+	if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
 		table.insert(potatoes, "Tier 3 graphics card and screen");
 	end
 
@@ -46,22 +22,10 @@ do
 	do
 		local filesystemFound = false
 
-		local ok, iter = pcall(component.list, "filesystem")
-		if ok and iter then
-			if type(iter) == "function" then
-				for addr in iter do
-					if component.invoke(addr, "spaceTotal") >= 2 * 1024 * 1024 then
-						filesystemFound = true
-						break
-					end
-				end
-			elseif type(iter) == "table" then
-				for addr in pairs(iter) do
-					if component.invoke(addr, "spaceTotal") >= 2 * 1024 * 1024 then
-						filesystemFound = true
-						break
-					end
-				end
+		for address in component.list("filesystem") do
+			if component.invoke(address, "spaceTotal") >= 2 * 1024 * 1024 then
+				filesystemFound = true
+				break
 			end
 		end
 
@@ -71,12 +35,12 @@ do
 	end
 
 	-- Internet
-	if not getComponentAddress("internet") then
+	if not component.isAvailable("internet") then
 		table.insert(potatoes, "Internet card");
 	end
 
 	-- EEPROM
-	if not getComponentAddress("eeprom") then
+	if not component.isAvailable("eeprom") then
 		table.insert(potatoes, "EEPROM");
 	end
 
@@ -94,13 +58,7 @@ end
 
 -- Checking if installer can be downloaded from Gitee
 do
-	local internet = getComponentProxy("internet")
-	if not internet then
-		print("Internet card not available")
-		return
-	end
-
-	local success, result = pcall(internet.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
+	local success, result = pcall(component.internet.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
 
 	if not success then
 		if result then
@@ -143,35 +101,8 @@ end
 
 -- Flashing EEPROM with tiny script that will run installer itself after reboot.
 -- It's necessary, because we need clean computer without OpenOS hooks to computer.pullSignal()
-local eeprom = getComponentProxy("eeprom")
-if eeprom then
-	eeprom.set([[
-	local internetAddr = nil
-	local list = component.list("internet")
-	if type(list) == "function" then
-		internetAddr = list()
-	elseif type(list) == "table" then
-		for addr in pairs(list) do internetAddr = addr break end
-	end
-	if not internetAddr then
-		local gpu = component.list("gpu")()
-		if gpu then
-			local g = component.proxy(gpu)
-			local screen = component.list("screen")()
-			if screen then
-				local s = component.proxy(screen)
-				g.bind(s.address, true)
-				local w, h = g.getResolution()
-				g.setBackground(0x000000)
-				g.fill(1, 1, w, h, " ")
-				g.setForeground(0xFFFFFF)
-				g.set(math.floor(w/2 - 18), math.floor(h/2), "No internet card found!")
-			end
-		end
-		while true do end
-	end
-	local internet = component.proxy(internetAddr)
-	local connection, data, chunk = internet.request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
+component.eeprom.set([[
+	local connection, data, chunk = component.proxy(component.list("internet")()).request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
 	
 	while true do
 		chunk = connection.read(math.huge)
@@ -187,6 +118,5 @@ if eeprom then
 	
 	load(data)()
 ]])
-end
 
 computer.shutdown(true)
