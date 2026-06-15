@@ -471,7 +471,15 @@ addStage(function()
 	layout:addChild(localizationComboBox)
 
 	workspace:draw()
-	localizationComboBox:getItem(1).onTouch()
+	-- Default to Chinese (item 13), fallback to English if not found
+	local defaultIndex = 1
+	for i = 1, #files.localizations do
+		if files.localizations[i]:match("Chinese") then
+			defaultIndex = i
+			break
+		end
+	end
+	localizationComboBox:getItem(defaultIndex).onTouch()
 end)
 
 -- Filesystem selection stage
