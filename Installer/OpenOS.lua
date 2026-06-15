@@ -126,12 +126,20 @@ component.eeprom.set([[
 	
 	print("Starting PixelOS installation...")
 	
-	local internetAddr = component.list("internet")()
-	local internet = internetAddr and component.proxy(internetAddr)
-	if not internet then
+	local internetAddr = component.list("internet")
+	if type(internetAddr) == "function" then
+		internetAddr = internetAddr()
+	elseif type(internetAddr) == "table" then
+		internetAddr = nil
+		for addr in pairs(internetAddr) do internetAddr = addr; break end
+	else
+		internetAddr = nil
+	end
+	if not internetAddr then
 		print("No internet card found")
 		computer.shutdown()
 	end
+	local internet = component.proxy(internetAddr)
 	local response, reason = internet.request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
 	
 	if response then
