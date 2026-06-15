@@ -126,16 +126,15 @@ component.eeprom.set([[
 	
 	print("Starting PixelOS installation...")
 	
-	local internetAddr = component.list("internet")
-	if type(internetAddr) == "function" then
-		internetAddr = internetAddr()
-	elseif type(internetAddr) == "table" then
-		local firstAddr = nil
-		for addr in pairs(internetAddr) do firstAddr = addr; break end
-		internetAddr = firstAddr
-	else
-		internetAddr = nil
-	end
+	local internetAddr = nil
+	pcall(function()
+		local list = component.list("internet")
+		if type(list) == "function" then
+			internetAddr = list()
+		elseif type(list) == "table" then
+			for addr in pairs(list) do internetAddr = addr; break end
+		end
+	end)
 	if not internetAddr then
 		print("No internet card found")
 		computer.shutdown()
