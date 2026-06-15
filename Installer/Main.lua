@@ -593,6 +593,31 @@ addStage(function()
 	layout:addChild(applicationsSwitchAndLabel)
 	layout:addChild(localizationsSwitchAndLabel)
 	layout:addChild(biosManagerSwitchAndLabel)
+
+	-- Add estimated size display
+	local function calculateEstimatedSize()
+		-- Rough estimate: libraries ~500KB, apps ~100KB each, wallpapers ~50KB each
+		local baseSize = 500 * 1024
+		local appsSize = applicationsSwitchAndLabel.switch.state and (12 * 100 * 1024) or 0
+		local localizationsSize = localizationsSwitchAndLabel.switch.state and (21 * 30 * 1024) or (2 * 30 * 1024)
+		local wallpapersSize = wallpapersSwitchAndLabel.switch.state and (8 * 50 * 1024) or 0
+		local biosSize = biosManagerSwitchAndLabel.switch.state and (20 * 1024) or 0
+		return baseSize + appsSize + localizationsSize + wallpapersSize + biosSize
+	end
+
+	local function formatSize(bytes)
+		if bytes < 1024 then
+			return bytes .. " B"
+		elseif bytes < 1048576 then
+			return string.format("%.1f KB", bytes / 1024)
+		else
+			return string.format("%.1f MB", bytes / 1048576)
+		end
+	end
+
+	local estimatedSize = calculateEstimatedSize()
+	local sizeLabel = layout:addChild(GUI.label(1, 1, layout.width, 1, 0x696969, ""))
+	sizeLabel.text = "Estimated size: " .. formatSize(estimatedSize)
 end)
 
 -- License acception stage
@@ -746,7 +771,6 @@ addStage(function()
 		local filesRemaining = totalFiles - i
 		local avgTimePerFile = elapsedTime / i
 		local remainingTime = avgTimePerFile * filesRemaining
-		local speed = fileSize / (fileEndTime - fileStartTime + 0.01)
 
 		-- Format time
 		local function formatTime(seconds)
@@ -770,10 +794,13 @@ addStage(function()
 			end
 		end
 
-		statsLabel.text = string.format("%s remaining | %s left | %s/file",
+		-- Get remaining disk space
+		local diskSpaceRemaining = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
+
+		statsLabel.text = string.format("%s remaining | %s left | Free: %s",
 			formatTime(remainingTime),
 			filesRemaining .. " files",
-			formatSize(speed)
+			formatSize(diskSpaceRemaining)
 		)
 
 		-- Adding system versions data
