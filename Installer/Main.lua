@@ -39,7 +39,13 @@ local OSPath = "/"
 
 -- Checking for required components
 local function getComponentAddress(name)
-	local iter = component.list(name)
+	local ok, iter = pcall(component.list, name)
+	if not ok then
+		centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
+		computer.pullSignal(2)
+		computer.shutdown()
+		return nil
+	end
 	if _G.type(iter) == "function" then
 		local addr = iter()
 		if not addr then
@@ -306,7 +312,8 @@ do
 	end
 
 	-- Searching for appropriate temporary filesystem for storing libraries, images, etc
-	local fsList = component.list("filesystem")
+	local ok, fsList = pcall(component.list, "filesystem")
+	if not ok then fsList = {} end
 	if _G.type(fsList) == "function" then
 		for address in fsList do
 			local proxy = component.proxy(address)
@@ -687,9 +694,11 @@ local function updateStatusBar()
 	
 	-- If standard API failed, try component-based approach as fallback
 	if not batteryFound then
-		for address in component.list("battery") do
-			local success, proxy = pcall(component.proxy, address)
-			if success and proxy then
+		local ok, batteryIter = pcall(component.list, "battery")
+		if ok then
+			for address in batteryIter do
+				local success, proxy = pcall(component.proxy, address)
+				if success and proxy then
 				local cur, mx
 				
 				-- Try different battery API methods
@@ -770,7 +779,8 @@ local function updateStatusBar()
 	
 	-- Try network request first (as primary method)
 	local internetComponent
-	local internetIter = component.list("internet")
+	local ok, internetIter = pcall(component.list, "internet")
+	if not ok then internetIter = {} end
 	if _G.type(internetIter) == "function" then
 		internetComponent = internetIter()
 	elseif _G.type(internetIter) == "table" then
@@ -1139,7 +1149,8 @@ addStage(function()
 
 		diskLayout:removeChildren()
 
-		local fsList = component.list("filesystem")
+		local ok, fsList = pcall(component.list, "filesystem")
+		if not ok then fsList = {} end
 		if _G.type(fsList) == "function" then
 			for address in fsList do
 				local proxy = component.proxy(address)
