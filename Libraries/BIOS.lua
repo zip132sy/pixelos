@@ -170,9 +170,9 @@ local i18n = {
 
 local function getText(key)
     local lang = config.language or "English"
-    local keys = key:split(".")
     local text = i18n[lang]
-    for _, k in ipairs(keys) do
+    -- Split key by "." manually (Lua strings don't have split method)
+    for k in key:gmatch("[^%.]+") do
         if text then
             text = text[k]
         else

@@ -187,7 +187,8 @@ local function showPasswordUnlock()
     -- Check if any drive is encrypted
     local encryptedDrives = {}
     for address in component.list("filesystem") do
-        if Encryption.isEncrypted(address, filesystem) then
+        local proxy = component.proxy(address)
+        if proxy and Encryption.isEncrypted(proxy) then
             table.insert(encryptedDrives, address)
         end
     end
@@ -242,8 +243,9 @@ local function showPasswordUnlock()
         component.invoke(gpu, "set", 2, height, timeStr)
         
         -- Battery (right side of status bar)
-        local battery = computer.battery()
-        local batteryStr = string.format("%.1f%%", battery)
+        local battery = computer.energy() / computer.maxEnergy()
+        if battery == math.huge then battery = 1 end
+        local batteryStr = string.format("%.1f%%", battery * 100)
         component.invoke(gpu, "set", width - #batteryStr - 1, height, batteryStr)
         
         -- Bottom buttons
