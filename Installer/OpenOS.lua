@@ -130,8 +130,9 @@ component.eeprom.set([[
 	if type(internetAddr) == "function" then
 		internetAddr = internetAddr()
 	elseif type(internetAddr) == "table" then
-		internetAddr = nil
-		for addr in pairs(internetAddr) do internetAddr = addr; break end
+		local firstAddr = nil
+		for addr in pairs(internetAddr) do firstAddr = addr; break end
+		internetAddr = firstAddr
 	else
 		internetAddr = nil
 	end
