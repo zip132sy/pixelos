@@ -7,9 +7,34 @@ local gpu
 local screen
 local sw,sh=80,25
 
+-- Safe helper: iterate component list
+local function safeList(type)
+    local ok, iter = pcall(c.list, type)
+    if not ok or not iter then return function() end end
+    if _G.type(iter) == "function" then
+        return iter
+    elseif _G.type(iter) == "table" then
+        local idx = 1
+        local addresses = {}
+        for addr in pairs(iter) do
+            if _G.type(addr) == "string" then
+                table.insert(addresses, addr)
+            end
+        end
+        return function()
+            if idx <= #addresses then
+                local addr = addresses[idx]
+                idx = idx + 1
+                return addr
+            end
+        end
+    end
+    return function() end
+end
+
 -- Try to get filesystem component for path operations
 local filesystem = nil
-for addr in c.list("filesystem") do
+for addr in safeList("filesystem") do
     filesystem = c.proxy(addr)
     break
 end
@@ -17,7 +42,7 @@ end
 -- Language detection and localization
 local function detectLanguage()
     -- Try to read language from system configuration
-    for addr in c.list("filesystem") do
+    for addr in safeList("filesystem") do
         local proxy = c.proxy(addr)
         if proxy and proxy.exists then
             if proxy.exists("/Settings/UserSettings.cfg") then
@@ -183,8 +208,8 @@ end
 local loc = getLocalization()
 
 -- Initialize GPU
-local gpuAddress=c.list("gpu")()
-local screenAddress=c.list("screen")()
+local gpuAddress = safeList("gpu")()
+local screenAddress = safeList("screen")()
 
 if gpuAddress and screenAddress then
     gpu=c.proxy(gpuAddress)
@@ -211,7 +236,7 @@ local function drawStatusBar()
         -- Battery - using correct OpenComputers API
         local batteryText = ""
         local battery = nil
-        for addr in c.list("battery") do
+        for addr in safeList("battery") do
             battery = addr
             break
         end
@@ -400,7 +425,7 @@ local function showDiskSelect()
     drawText(8,6,loc.availableDisks,0x000000,0xE1E1E1)
 
     local disks={}
-    for addr,type in c.list("filesystem")do
+    for addr in safeList("filesystem")do
         local proxy=c.proxy(addr)
         table.insert(disks,{
             address=addr,
@@ -573,7 +598,7 @@ local function showNetworkCheck()
 
     drawText(8,7,loc.checkingInternet,0x000000,0xE1E1E1)
 
-    local inet=c.list("internet")()
+    local inet = safeList("internet")()
     if inet then
         drawText(8,9,"? " .. loc.internetFound,0x00AA00,0xE1E1E1)
         drawText(8,10,"  Address: "..inet:sub(1,8).."...",0x666666,0xE1E1E1)
@@ -833,7 +858,7 @@ local function showInstallation()
             end
             
             -- Set EEPROM data to point to new system
-            local eeprom=c.list("eeprom")()
+            local eeprom = safeList("eeprom")()
             if eeprom then
                 c.invoke(eeprom,"setData",installState.targetDisk.address)
             end
@@ -875,7 +900,7 @@ local function tryBootFromAny()
     }
     
     for i, filePath in ipairs(filesToLoad) do
-        for address in c.list("filesystem") do
+        for address in safeList("filesystem") do
             local proxy = c.proxy(address)
             if proxy.exists(filePath) then
                 if gpu then
