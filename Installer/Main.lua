@@ -367,6 +367,7 @@ local withoutPasswordSwitchAndLabel = newSwitchAndLabel(30, 0x66DB80, "", false)
 local wallpapersSwitchAndLabel = newSwitchAndLabel(30, 0xFF4980, "", true)
 local applicationsSwitchAndLabel = newSwitchAndLabel(30, 0x33DB80, "", true)
 local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
+local biosManagerSwitchAndLabel = newSwitchAndLabel(30, 0xFFDB80, "", true)
 
 local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
@@ -384,6 +385,7 @@ for i = 1, #files.localizations do
 		wallpapersSwitchAndLabel.label.text = localization.wallpapers
 		applicationsSwitchAndLabel.label.text = localization.applications
 		localizationsSwitchAndLabel.label.text = localization.languages
+		biosManagerSwitchAndLabel.label.text = localization.biosManager or "BIOS Manager"
 		acceptSwitchAndLabel.label.text = localization.accept
 	end
 end
@@ -590,6 +592,7 @@ addStage(function()
 	layout:addChild(wallpapersSwitchAndLabel)
 	layout:addChild(applicationsSwitchAndLabel)
 	layout:addChild(localizationsSwitchAndLabel)
+	layout:addChild(biosManagerSwitchAndLabel)
 end)
 
 -- License acception stage
@@ -689,6 +692,12 @@ addStage(function()
 	addToList(true, "requiredWallpapers")
 	addToList(applicationsSwitchAndLabel.switch.state, "optional")
 	addToList(wallpapersSwitchAndLabel.switch.state, "optionalWallpapers")
+
+	-- Add BIOS Manager files if enabled
+	if biosManagerSwitchAndLabel.switch.state then
+		table.insert(downloadList, "EFI/BIOS.lua")
+		table.insert(downloadList, "Libraries/Encryption.lua")
+	end
 
 	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}

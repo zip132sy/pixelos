@@ -9,6 +9,7 @@
 	screensavers = "屏幕保护",
 	applications = "第三方应用",
 	languages = "语言",
+	biosManager = "BIOS 管理器",
 	accept = "同意:",
 	showOriginalLicense = "显示原版许可证",
 	select = "请选择驱动器",

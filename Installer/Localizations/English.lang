@@ -9,6 +9,7 @@
 	screensavers = "Screensavers:",
 	applications = "Third party apps:",
 	languages = "Language packs:",
+	biosManager = "BIOS Manager:",
 	accept = "I accept this shit:",
 	showOriginalLicense = "Show Original MineOS License",
 	select = "Select disk for installation",
