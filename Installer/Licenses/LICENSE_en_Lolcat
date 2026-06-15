@@ -1,0 +1,46 @@
+# PixelOS License
+
+## Original MineOS License
+
+Copyright (c) 2015-2019 Maksim Primov
+
+DIS SOFTWARE IS LICENSED UNDR DA MIT LICENS. CICK HEER 4 MOAR INFO.
+
+## PixelOS Modifications
+
+Copyright (c) 2024-2025 PixelOS Development Team
+
+PixelOS IZ A MODIFIED VERSION OF MineOS, DESIGNED 2 PROVIDE
+ENHANCED COMPATIBILITY & ADDITIONAL FEATURES 4 TEH OpenComputers MOD.
+
+### Main Modifications:
+
+1. **Fold Craft Launcher Compatibility**
+   - Fics NullPointerException ERRORZ IN Android-based Minecraft ENVIRONMENTS
+   - Replaced Nativ Lua LIBRARIES WIT PURE LuaJ implementation
+   - Custom Unicode LIBRARY 4 BETTER COMPATIBILITY
+
+2. **Chinuz Language Support**
+   - Default language SET 2 CHINUZ
+   - IMPROVED localization SUPPORT
+
+3. **Installation Improvements**
+   - Graphical INSTALLATION WIZARD
+   - Progress INDICATORS & ANIMATIONS
+   - SIMPLIFIED installation PROCESS
+
+4. **Bug Fixes**
+   - FIXED getUnicodeFunctions() ERROR
+   - IMPROVED error HANDLING
+   - BETTER COMPATIBILITY WIT Various OpenComputers Versions
+
+### Acknowledgments
+
+PixelOS IZ BASED ON MineOS, CREATED BY Maksim Primov.
+WEE WUD LIEK 2 TANK TEH ORIGINAL MineOS DEVELOPMENT TEAM 4 CREATING
+DIS AMAZING OPERATING SYSTEM 4 OpenComputers.
+
+Original MineOS: https://github.com/MightyPirates/OpenComputers
+PixelOS: https://gitee.com/zip132sy/pixelos
+
+LOL OMG ITZ WORKIN!!1!

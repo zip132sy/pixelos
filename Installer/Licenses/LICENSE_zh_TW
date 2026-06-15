@@ -1,0 +1,71 @@
+# PixelOS 授權許可證
+
+## 原版 MineOS 授權許可證
+
+版權所有 (c) 2015-2019 Maksim Primov
+
+特此授予任何獲得本軟體及相關文檔檔案（以下簡稱「軟體」）副本的人免費許可，
+以不受限制的方式處理本軟體，包括但不限於使用、複製、修改、合併、發布、
+分發、再授權和/或銷售本軟體副本的權利，
+並允許向其提供本軟體的人這樣做，
+但須符合以下條件：
+
+上述版權聲明和本許可聲明應包含在
+本軟體的所有副本或重要部分中。
+
+本軟體按「原樣」提供，不作任何明示或暗示的保證，
+包括但不限於適銷性、特定用途適用性和不侵權的保證。
+在任何情況下，
+作者或版權持有人均不對因本軟體或本軟體的使用或其他交易引起的任何索賠、
+損害或其他責任承擔責任，
+無論是合同行為、侵權行為還是其他行為。
+
+## PixelOS 修改版
+
+版權所有 (c) 2024-2025 PixelOS 開發團隊
+
+PixelOS 是 MineOS 的修改版本，旨在為 OpenComputers 模組提供增強的相容性和額外功能。
+
+### 主要修改：
+
+1. **Fold Craft Launcher 相容性**
+   - 修復了 Android 環境下 Minecraft 的 NullPointerException 錯誤
+   - 使用純 LuaJ 實現替代原生 Lua 庫
+   - 自定義 Unicode 庫以提高相容性
+
+2. **中文語言支援**
+   - 預設語言設置為簡體中文
+   - 改進本地化支援
+
+3. **安裝改進**
+   - 圖形化安裝向導
+   - 進度指示器和動畫
+   - 簡化安裝流程
+
+4. **Bug 修復**
+   - 修復了 getUnicodeFunctions() 錯誤
+   - 改進錯誤處理
+   - 更好地相容各種 OpenComputers 版本
+
+### 致謝
+
+PixelOS 基於 Maksim Primov 創建的 MineOS。
+我們感謝原始 MineOS 開發團隊為 OpenComputers 創建了這個了不起的作業系統。
+
+原版 MineOS: https://github.com/MightyPirates/OpenComputers
+PixelOS: https://gitee.com/zip132sy/pixelos
+
+## 第三方庫
+
+本專案包含以下第三方庫：
+
+- **LuaJ**: 版權所有 (c) 2006-2014 Luaj 專案貢獻者
+  MIT 授權許可證
+  
+- **OpenComputers**: 版權所有 (c) 2013-2019 Florian 'Sangarius' Seidl
+  MIT 授權許可證
+
+- **MineOS**: 版權所有 (c) 2015-2019 Maksim Primov
+  MIT 授權許可證
+
+有關這些庫的更多資訊，請訪問它們各自的倉庫。
