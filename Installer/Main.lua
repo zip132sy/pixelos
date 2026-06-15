@@ -66,8 +66,8 @@ end
 
 -- Multiple repository URLs for fallback
 local repositoryURLs = {
-	"https://gitee.com/zip132sy/pixelos/raw/master/",
-	"https://raw.githubusercontent.com/zip132sy/pixelos/master/"
+	"https://raw.githubusercontent.com/zip132sy/pixelos/master/",
+	"https://gitee.com/zip132sy/pixelos/raw/master/"
 }
 
 local function rawRequest(url, chunkHandler)
