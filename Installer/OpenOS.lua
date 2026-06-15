@@ -2,28 +2,23 @@ local component = require("component")
 local computer = require("computer")
 local os = require("os")
 
--- Function to display messages in EEPROM environment
-local function displayMessage(message)
-	print(message)
-end
+local gpu = component.gpu
 
+-- Checking if computer is tough enough for PixelOS
 do
 	local potatoes = {}
 
-	local gpuAddr = component.list("gpu")()
-	if gpuAddr then
-		local gpu = component.proxy(gpuAddr)
-		if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
-			table.insert(potatoes, "Tier 3 graphics card and screen");
-		end
-	else
-		table.insert(potatoes, "Graphics card");
+	-- GPU/screen
+	if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+		table.insert(potatoes, "Tier 3 graphics card and screen");
 	end
 
+	-- RAM
 	if computer.totalMemory() < 2 * 1024 * 1024 then
 		table.insert(potatoes, "At least 2x tier 3.5 RAM modules");
 	end
 
+	-- HDD
 	do
 		local filesystemFound = false
 
@@ -39,42 +34,46 @@ do
 		end	
 	end
 
+	-- Internet
 	if not component.isAvailable("internet") then
 		table.insert(potatoes, "Internet card");
 	end
 
+	-- EEPROM
 	if not component.isAvailable("eeprom") then
 		table.insert(potatoes, "EEPROM");
 	end
 
+	-- SORRY BRO NOT TODAY
 	if #potatoes > 0 then
-		displayMessage("Your computer does not meet the minimum system requirements")
-		computer.shutdown()
+		print("Your computer does not meet the minimum system requirements:")
+
+		for i = 1, #potatoes do
+			print("  x " .. potatoes[i])
+		end
+
 		return
 	end
 end
 
+-- Checking if installer can be downloaded from Gitee
 do
-	displayMessage("Checking download server...")
-	
 	local success, result = pcall(component.internet.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
 
 	if not success then
 		if result then
 			if result:match("PKIX") then
-				displayMessage("Download server SSL certificate was rejected")
+				print("Download server SSL certificate was rejected")
 			else
-				displayMessage("Download server unavailable")
+				print("Download server is unavailable: " .. tostring(result))
 			end
 		else
-			displayMessage("Download server unavailable")
+			print("Download server is unavailable for unknown reasons")
 		end
-		computer.shutdown()
+
 		return
 	end
 
-	displayMessage("Connecting to server...")
-	
 	local deadline = computer.uptime() + 5
 	local message
 
@@ -95,77 +94,29 @@ do
 	result.close()
 
 	if not success then
-		displayMessage("Download server unavailable")
-		computer.shutdown()
+		print("Download server is unavailable. Check if gitee.com is not blocked")
 		return
 	end
-	
-	displayMessage("Server connection successful")
 end
 
--- Display installation started message
-displayMessage("Starting PixelOS installation...")
-
+-- Flashing EEPROM with tiny script that will run installer itself after reboot.
+-- It's necessary, because we need clean computer without OpenOS hooks to computer.pullSignal()
 component.eeprom.set([[
-	local function print(message)
-		local success, gpu = pcall(component.proxy, component.list("gpu")())
-		if success then
-			local success, screen = pcall(component.proxy, component.list("screen")())
-			if success then
-				gpu.bind(screen.address, true)
-				local w, h = gpu.getResolution()
-				gpu.setBackground(0x000000)
-				gpu.setForeground(0xFFFFFF)
-				gpu.fill(1, 1, w, h, " ")
-				local x = math.floor(w / 2 - #message / 2)
-				local y = math.floor(h / 2)
-				gpu.set(x, y, message)
-			end
-		end
-	end
+	local connection, data, chunk = component.proxy(component.list("internet")()).request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
 	
-	print("Starting PixelOS installation...")
-	
-	local internetAddr = nil
-	pcall(function()
-		local list = component.list("internet")
-		if type(list) == "function" then
-			internetAddr = list()
-		elseif type(list) == "table" then
-			for addr in pairs(list) do internetAddr = addr; break end
-		end
-	end)
-	if not internetAddr then
-		print("No internet card found")
-		computer.shutdown()
-	end
-	local internet = component.proxy(internetAddr)
-	local response, reason = internet.request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
-	
-	if response then
-		print("Downloading installer...")
-		local data = ""
-		while true do
-			local chunk, reason = response.read(math.huge)
-			if chunk then
-				data = data .. chunk
-			else
-				response.close()
-				break
-			end
-		end
+	while true do
+		chunk = connection.read(math.huge)
 		
-		print("Loading installer...")
-		local func, err = load(data)
-		if func then
-			print("Starting installer...")
-			func()
+		if chunk then
+			data = data .. chunk
 		else
-			print("Failed to load installer")
+			break
 		end
-	else
-		print("Failed to connect to server")
 	end
+	
+	connection.close()
+	
+	load(data)()
 ]])
 
 computer.shutdown(true)
