@@ -662,9 +662,10 @@ addStage(function()
 	-- Set BIOS to installation mode
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install")
 
-	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 2))
+	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 4))
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
-	local cyka = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local fileNameLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local statsLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -680,7 +681,7 @@ addStage(function()
 	local function addToList(state, key)
 		if state then
 			local selectedLocalization, path, localizationName = localizationComboBox:getItem(localizationComboBox.selectedItem).text
-			
+
 			for i = 1, #files[key] do
 				path = getData(files[key][i])
 
@@ -716,16 +717,64 @@ addStage(function()
 		table.insert(downloadList, "Libraries/Encryption.lua")
 	end
 
+	-- Calculate total files
+	local totalFiles = #downloadList
+	local totalSize = 0
+
 	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}
+	local startTime = computer.uptime()
+	local downloadedSize = 0
+
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
-		cyka.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
+		fileNameLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
 		workspace:draw()
 
 		-- Download file
+		local fileStartTime = computer.uptime()
 		download(path, OSPath .. path)
+		local fileEndTime = computer.uptime()
+
+		-- Estimate file size (rough estimate based on file name length)
+		local fileSize = string.len(path) * 100
+
+		-- Update stats
+		downloadedSize = downloadedSize + fileSize
+		local elapsedTime = computer.uptime() - startTime
+		local filesRemaining = totalFiles - i
+		local avgTimePerFile = elapsedTime / i
+		local remainingTime = avgTimePerFile * filesRemaining
+		local speed = fileSize / (fileEndTime - fileStartTime + 0.01)
+
+		-- Format time
+		local function formatTime(seconds)
+			if seconds < 60 then
+				return math.floor(seconds) .. "s"
+			elseif seconds < 3600 then
+				return math.floor(seconds / 60) .. "m " .. math.floor(seconds % 60) .. "s"
+			else
+				return math.floor(seconds / 3600) .. "h " .. math.floor((seconds % 3600) / 60) .. "m"
+			end
+		end
+
+		-- Format size
+		local function formatSize(bytes)
+			if bytes < 1024 then
+				return bytes .. " B"
+			elseif bytes < 1048576 then
+				return string.format("%.1f KB", bytes / 1024)
+			else
+				return string.format("%.1f MB", bytes / 1048576)
+			end
+		end
+
+		statsLabel.text = string.format("%s remaining | %s left | %s/file",
+			formatTime(remainingTime),
+			filesRemaining .. " files",
+			formatSize(speed)
+		)
 
 		-- Adding system versions data
 		if id then
