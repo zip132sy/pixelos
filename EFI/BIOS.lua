@@ -7,49 +7,19 @@ local gpu
 local screen
 local sw,sh=80,25
 
--- Safe helper: iterate component list (no type() dependency)
-local function safeList(componentType)
-    local ok, iter = pcall(c.list, componentType)
-    if not ok or not iter then return function() end end
-    
-    -- Test if iter is callable (function)
-    local testOk, firstAddr = pcall(iter)
-    if testOk and firstAddr then
-        -- It's a function iterator, return a wrapper that continues from first result
-        local returnedFirst = false
-        return function()
-            if not returnedFirst then
-                returnedFirst = true
-                return firstAddr
-            else
-                return iter()
-            end
-        end
-    elseif testOk and not firstAddr then
-        -- Function iterator but no components found
-        return function() end
+-- Simple component list iterator - directly use component.list like MineOS does
+local function getList(componentType)
+    local iter = c.list(componentType)
+    if iter then
+        return iter
     else
-        -- Not a function, try as table
-        local addresses = {}
-        for addr in pairs(iter) do
-            if addr and tostring(addr) then
-                addresses[#addresses + 1] = addr
-            end
-        end
-        local idx = 1
-        return function()
-            if idx <= #addresses then
-                local addr = addresses[idx]
-                idx = idx + 1
-                return addr
-            end
-        end
+        return function() end
     end
 end
 
 -- Try to get filesystem component for path operations
 local filesystem = nil
-for addr in safeList("filesystem") do
+for addr in getList("filesystem") do
     filesystem = c.proxy(addr)
     break
 end
@@ -57,7 +27,7 @@ end
 -- Language detection and localization
 local function detectLanguage()
     -- Try to read language from system configuration
-    for addr in safeList("filesystem") do
+    for addr in getList("filesystem") do
         local proxy = c.proxy(addr)
         if proxy and proxy.exists then
             if proxy.exists("/Settings/UserSettings.cfg") then
@@ -223,8 +193,8 @@ end
 local loc = getLocalization()
 
 -- Initialize GPU
-local gpuAddress = safeList("gpu")()
-local screenAddress = safeList("screen")()
+local gpuAddress = getList("gpu")()
+local screenAddress = getList("screen")()
 
 if gpuAddress and screenAddress then
     gpu=c.proxy(gpuAddress)
@@ -251,7 +221,7 @@ local function drawStatusBar()
         -- Battery - using correct OpenComputers API
         local batteryText = ""
         local battery = nil
-        for addr in safeList("battery") do
+        for addr in getList("battery") do
             battery = addr
             break
         end
@@ -440,7 +410,7 @@ local function showDiskSelect()
     drawText(8,6,loc.availableDisks,0x000000,0xE1E1E1)
 
     local disks={}
-    for addr in safeList("filesystem")do
+    for addr in getList("filesystem")do
         local proxy=c.proxy(addr)
         table.insert(disks,{
             address=addr,
@@ -613,7 +583,7 @@ local function showNetworkCheck()
 
     drawText(8,7,loc.checkingInternet,0x000000,0xE1E1E1)
 
-    local inet = safeList("internet")()
+    local inet = getList("internet")()
     if inet then
         drawText(8,9,"? " .. loc.internetFound,0x00AA00,0xE1E1E1)
         drawText(8,10,"  Address: "..inet:sub(1,8).."...",0x666666,0xE1E1E1)
@@ -873,7 +843,7 @@ local function showInstallation()
             end
             
             -- Set EEPROM data to point to new system
-            local eeprom = safeList("eeprom")()
+            local eeprom = getList("eeprom")()
             if eeprom then
                 c.invoke(eeprom,"setData",installState.targetDisk.address)
             end
@@ -915,7 +885,7 @@ local function tryBootFromAny()
     }
     
     for i, filePath in ipairs(filesToLoad) do
-        for address in safeList("filesystem") do
+        for address in getList("filesystem") do
             local proxy = c.proxy(address)
             if proxy.exists(filePath) then
                 if gpu then
