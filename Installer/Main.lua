@@ -39,41 +39,7 @@ local OSPath = "/"
 
 -- Checking for required components
 local function getComponentAddress(name)
-	local ok, iter = pcall(component.list, name)
-	if not ok then
-		centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
-		computer.pullSignal(2)
-		computer.shutdown()
-		return nil
-	end
-	if _G.type(iter) == "function" then
-		local addr = iter()
-		if not addr then
-			-- Show error message and shutdown
-			centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
-			computer.pullSignal(2)
-			computer.shutdown()
-			return nil
-		end
-		return addr
-	elseif _G.type(iter) == "table" then
-		for _, addr in pairs(iter) do
-			if _G.type(addr) == "string" then
-				return addr
-			end
-		end
-		-- Show error message and shutdown
-		centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
-		computer.pullSignal(2)
-		computer.shutdown()
-		return nil
-	else
-		-- Show error message and shutdown
-		centrizedText(title(), 0xFF0000, "Error: Required " .. name .. " component is missing")
-		computer.pullSignal(2)
-		computer.shutdown()
-		return nil
-	end
+	return component.list(name)() or error("Required " .. name .. " component is missing")
 end
 
 local EEPROMAddress, internetAddress, GPUAddress =
@@ -312,25 +278,11 @@ do
 	end
 
 	-- Searching for appropriate temporary filesystem for storing libraries, images, etc
-	local ok, fsList = pcall(component.list, "filesystem")
-	if not ok then fsList = {} end
-	if _G.type(fsList) == "function" then
-		for address in fsList do
-			local proxy = component.proxy(address)
-			if proxy.spaceTotal() >= 2 * 1024 * 1024 then
-				temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
-				break
-			end
-		end
-	elseif _G.type(fsList) == "table" then
-		for _, address in pairs(fsList) do
-			if _G.type(address) == "string" then
-				local proxy = component.proxy(address)
-				if proxy.spaceTotal() >= 2 * 1024 * 1024 then
-					temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
-					break
-				end
-			end
+	for address in component.list("filesystem") do
+		local proxy = component.proxy(address)
+		if proxy.spaceTotal() >= 2 * 1024 * 1024 then
+			temporaryFilesystemProxy, selectedFilesystemProxy = proxy, proxy
+			break
 		end
 	end
 
@@ -593,7 +545,7 @@ local function addImage(before, after, name)
 
 	local picture
 	local imageData = loadImage(name)
-	if _G.type(imageData) == "table" then
+	if imageData then
 		picture = layout:addChild(GUI.image(1, 1, imageData))
 		picture.height = picture.height + after
 	else
@@ -703,7 +655,7 @@ local function updateStatusBar()
 				
 				-- Try different battery API methods
 				-- Method 1: Newer OpenComputers API (getEnergy/getMaxEnergy)
-				if _G.type(proxy.getEnergy) == "function" and _G.type(proxy.getMaxEnergy) == "function" then
+				if proxy.getEnergy and proxy.getMaxEnergy then
 					local success1, value1 = pcall(proxy.getEnergy, proxy)
 					local success2, value2 = pcall(proxy.getMaxEnergy, proxy)
 					if success1 and success2 and value1 and value2 and value2 > 0 then
@@ -779,17 +731,9 @@ local function updateStatusBar()
 	
 	-- Try network request first (as primary method)
 	local internetComponent
-	local ok, internetIter = pcall(component.list, "internet")
-	if not ok then internetIter = {} end
-	if _G.type(internetIter) == "function" then
-		internetComponent = internetIter()
-	elseif _G.type(internetIter) == "table" then
-		for _, addr in pairs(internetIter) do
-			if _G.type(addr) == "string" then
-				internetComponent = addr
-				break
-			end
-		end
+	for addr in component.list("internet") do
+		internetComponent = addr
+		break
 	end
 	if internetComponent then
 		local success, internet = pcall(component.proxy, internetComponent)
@@ -1149,31 +1093,14 @@ addStage(function()
 
 		diskLayout:removeChildren()
 
-		local ok, fsList = pcall(component.list, "filesystem")
-		if not ok then fsList = {} end
-		if _G.type(fsList) == "function" then
-			for address in fsList do
-				local proxy = component.proxy(address)
-				if proxy.spaceTotal() >= 1 * 1024 * 1024 then
-					addDisk(
-						proxy,
-						proxy.spaceTotal() < 1 * 1024 * 1024 and HDDImage or HDDImage,
-						proxy.isReadOnly() or proxy.spaceTotal() < 2 * 1024 * 1024
-					)
-				end
-			end
-		elseif _G.type(fsList) == "table" then
-			for _, address in pairs(fsList) do
-				if _G.type(address) == "string" then
-					local proxy = component.proxy(address)
-					if proxy.spaceTotal() >= 1 * 1024 * 1024 then
-						addDisk(
-							proxy,
-							proxy.spaceTotal() < 1 * 1024 * 1024 and HDDImage or HDDImage,
-							proxy.isReadOnly() or proxy.spaceTotal() < 2 * 1024 * 1024
-						)
-					end
-				end
+		for address in component.list("filesystem") do
+			local proxy = component.proxy(address)
+			if proxy.spaceTotal() >= 1 * 1024 * 1024 then
+				addDisk(
+					proxy,
+					proxy.spaceTotal() < 1 * 1024 * 1024 and floppyImage or HDDImage,
+					proxy.isReadOnly() or proxy.spaceTotal() < 2 * 1024 * 1024
+				)
 			end
 		end
 
@@ -1412,7 +1339,7 @@ addStage(function()
 	local downloadList = {}
 
 	local function getData(item)
-		if _G.type(item) == "table" then
+		if item.path then
 			return item.path, item.id, item.version, item.shortcut
 		else
 			return item
@@ -1711,7 +1638,7 @@ addStage(function()
 	layout:removeChildren()
 	-- Use the BIOS_Manager.pic icon
 	local biosManagerImage = loadImage("BIOS_Manager")
-	if _G.type(biosManagerImage) == "table" then
+	if biosManagerImage then
 		layout:addChild(GUI.image(math.floor(layout.width / 2 - biosManagerImage[1] / 2), 2, biosManagerImage))
 	else
 		addImage(0, 1, "EEPROM")
