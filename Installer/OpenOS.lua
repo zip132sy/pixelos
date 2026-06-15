@@ -2,15 +2,18 @@ local component = require("component")
 local computer = require("computer")
 local os = require("os")
 
-local gpu = component.gpu
-
 -- Checking if computer is tough enough for PixelOS
 do
 	local potatoes = {}
 
 	-- GPU/screen
-	if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+	if not component.isAvailable("gpu") then
 		table.insert(potatoes, "Tier 3 graphics card and screen");
+	else
+		local gpu = component.gpu
+		if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+			table.insert(potatoes, "Tier 3 graphics card and screen");
+		end
 	end
 
 	-- RAM
