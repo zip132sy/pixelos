@@ -2,13 +2,15 @@
 -- This code runs from EEPROM after reboot
 -- Graphical installation interface
 
-local c,co=component,computer
+local c = component or {}
+local co = computer or {}
 local gpu
 local screen
 local sw,sh=80,25
 
 -- Simple component list iterator - directly use component.list like MineOS does
 local function getList(componentType)
+    if not c.list then return function() end end
     local iter = c.list(componentType)
     if iter then
         return iter
