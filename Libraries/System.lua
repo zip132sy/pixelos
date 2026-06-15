@@ -96,6 +96,14 @@ function system.getDefaultUserSettings()
 		interfaceBlurRadius = 3,
 		interfaceBlurTransparency = 0.6,
 
+		interfaceStatusBarEnabled = true,
+		interfaceStatusBarShowBattery = true,
+		interfaceStatusBarShowRAM = true,
+		interfaceStatusBarShowCPU = false,
+		interfaceStatusBarShowDisk = true,
+		interfaceStatusBarShowArchitecture = true,
+		interfaceStatusBarDiskDisplays = {},
+
 		filesShowExtension = false,
 		filesShowHidden = false,
 		filesShowApplicationIcon = true,
@@ -2924,10 +2932,35 @@ function system.updateDesktop()
 		end
 	end
 
+	-- Architecture widget
+	local archWidget, archText = system.addMenuWidget(system.menuWidget(1))
+	archWidget.draw = function(archWidget)
+		screen.drawText(archWidget.x, 1, 0x787878, archText)
+	end
+
+	-- Disk capacity widgets (one per filesystem)
+	local diskWidgets = {}
+	for address in component.list("filesystem") do
+		local proxy = component.proxy(address)
+		local diskKey = address:sub(1, 8)
+		local diskWidget, diskWidgetText = system.addMenuWidget(system.menuWidget(1))
+		diskWidget.draw = function(diskWidget)
+			screen.drawText(diskWidget.x, 1, 0x787878, diskWidgetText)
+		end
+		diskWidgets[diskKey] = {
+			widget = diskWidget,
+			text = diskWidgetText,
+			proxy = proxy,
+			address = address,
+		}
+	end
+
 	function system.updateMenuWidgets()
 		dateWidgetText = os.date(userSettings.timeFormat, userSettings.timeRealTimestamp and system.getTime() or nil)
 		dateWidget.width = unicode.len(dateWidgetText)
 
+		-- Battery widget
+		local showBattery = userSettings.interfaceStatusBarShowBattery ~= false
 		batteryWidgetPercent = computer.energy() / computer.maxEnergy()
 		
 		if batteryWidgetPercent == math.huge then
@@ -2936,9 +2969,60 @@ function system.updateDesktop()
 		
 		batteryWidgetText = math.ceil(batteryWidgetPercent * 100) .. "% "
 		batteryWidget.width = #batteryWidgetText + 4
+		batteryWidget.hidden = not showBattery
 
+		-- RAM widget
+		local showRAM = userSettings.interfaceStatusBarShowRAM ~= false
 		local totalMemory = computer.totalMemory()
 		RAMPercent = (totalMemory - computer.freeMemory()) / totalMemory
+		RAMWidget.hidden = not showRAM
+
+		-- Architecture widget
+		local showArch = userSettings.interfaceStatusBarShowArchitecture ~= false
+		if showArch then
+			-- Detect architecture
+			local arch = "Lua 5.3"
+			if _VERSION then
+				arch = _VERSION
+			end
+			-- Check if LuaJIT
+			if jit then
+				arch = jit.version
+			end
+			archText = arch .. " "
+			archWidget.width = unicode.len(archText)
+		end
+		archWidget.hidden = not showArch
+
+		-- Disk capacity widgets
+		local showDisk = userSettings.interfaceStatusBarShowDisk ~= false
+		if not userSettings.interfaceStatusBarDiskDisplays then
+			userSettings.interfaceStatusBarDiskDisplays = {}
+		end
+
+		for diskKey, diskInfo in pairs(diskWidgets) do
+			local diskVisible = showDisk and userSettings.interfaceStatusBarDiskDisplays[diskKey] ~= false
+			if diskVisible then
+				local proxy = diskInfo.proxy
+				local used = proxy.spaceUsed()
+				local total = proxy.spaceTotal()
+				local free = total - used
+				local percent = total > 0 and math.ceil(used / total * 100) or 0
+				local label = proxy.getLabel() or diskKey
+				-- Shorten label if too long
+				if unicode.len(label) > 6 then
+					label = unicode.sub(label, 1, 6) .. ".."
+				end
+				local text = label .. ":" .. percent .. "% "
+				diskInfo.widget.width = unicode.len(text)
+				-- Update draw function with current text
+				local currentText = text
+				diskInfo.widget.draw = function(w)
+					screen.drawText(w.x, 1, percent > 80 and 0xFF9240 or 0x787878, currentText)
+				end
+			end
+			diskInfo.widget.hidden = not diskVisible
+		end
 	end
 
 	local lastWindowHandled

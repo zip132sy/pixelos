@@ -31,6 +31,11 @@ module.onTouch = function()
 	local progressBar = window.contentLayout:addChild(GUI.progressBar(1, 1, 36, 0x66DB80, 0xE1E1E1, 0xA5A5A5, 100, true, true, "", "%"))
 	progressBar.height = 2
 
+	-- Read/Write toggle switch
+	window.contentLayout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.disksReadWriteMode or "Read/Write Mode"))
+
+	local rwSwitch = window.contentLayout:addChild(GUI.switchAndLabel(1, 1, 36, 8, 0x66DB80, 0x1E1E1E, 0xE1E1E1, 0x878787, localization.disksReadWrite or "Read/Write", true))
+
 	local layout = window.contentLayout:addChild(GUI.layout(1, 1, 36, 1, 1, 1))
 	layout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
 
@@ -55,6 +60,9 @@ module.onTouch = function()
 		spaceTotalKV.value = ": " .. string.format("%.2f", total / 1024 / 1024) .. " MB"
 		spaceUsedKV.value = ": " .. string.format("%.2f", used / 1024 / 1024) .. " MB"
 		spaceFreeKV.value = ": " .. string.format("%.2f", free / 1024 / 1024) .. " MB"
+
+		-- Sync switch state with actual disk read-only status
+		rwSwitch.switch.state = not proxy.isReadOnly()
 	end
 
 	local function fill()
@@ -76,6 +84,27 @@ module.onTouch = function()
 
 	comboBox.onItemSelected = function()
 		currentAddress = getProxy().address
+		update()
+		workspace:draw()
+	end
+
+	rwSwitch.switch.onStateChanged = function()
+		local proxy = getProxy()
+		if rwSwitch.switch.state then
+			-- Try to set read-write
+			local success, reason = pcall(proxy.setReadOnly, false)
+			if not success then
+				rwSwitch.switch.state = false
+				GUI.alert(localization.disksCannotChangeToRW or "Cannot change to Read/Write mode")
+			end
+		else
+			-- Try to set read-only
+			local success, reason = pcall(proxy.setReadOnly, true)
+			if not success then
+				rwSwitch.switch.state = true
+				GUI.alert(localization.disksCannotChangeToRO or "Cannot change to Read-Only mode")
+			end
+		end
 		update()
 		workspace:draw()
 	end

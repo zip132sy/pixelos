@@ -1,4 +1,4 @@
-﻿-- PixelOS BIOS Installer v3.0
+-- PixelOS BIOS Installer v3.0
 -- This code runs from EEPROM after reboot
 -- Graphical installation interface
 
@@ -19,22 +19,24 @@ local function detectLanguage()
     -- Try to read language from system configuration
     for addr in c.list("filesystem") do
         local proxy = c.proxy(addr)
-        if proxy.exists("/Settings/UserSettings.cfg") then
-            local handle = proxy.open("/Settings/UserSettings.cfg", "r")
-            if handle then
-                local content = ""
-                local chunk
-                repeat
-                    chunk = proxy.read(handle, 1024)
-                    if chunk then content = content .. chunk end
-                until not chunk
-                proxy.close(handle)
-                
-                -- Try to parse language from config
-                if content:find("ChineseSimplified") then
-                    return "zh_CN"
-                elseif content:find("English") then
-                    return "en_US"
+        if proxy and proxy.exists then
+            if proxy.exists("/Settings/UserSettings.cfg") then
+                local handle = proxy.open("/Settings/UserSettings.cfg", "r")
+                if handle then
+                    local content = ""
+                    local chunk
+                    repeat
+                        chunk = proxy.read(handle, 1024)
+                        if chunk then content = content .. chunk end
+                    until not chunk
+                    proxy.close(handle)
+                    
+                    -- Try to parse language from config
+                    if content:find("ChineseSimplified") then
+                        return "zh_CN"
+                    elseif content:find("English") then
+                        return "en_US"
+                    end
                 end
             end
         end

@@ -28,6 +28,32 @@ return {
 
 		local diskSwitch = content:addChild(GUI.switchAndLabel(1, 1, 20, 6, 0x66DB80, 0x2D2D2D, (localization.showDisk or "Show Disk") .. ":", userSettings.interfaceStatusBarShowDisk ~= false))
 
+		local archSwitch = content:addChild(GUI.switchAndLabel(1, 1, 20, 6, 0x66DB80, 0x2D2D2D, (localization.showArchitecture or "Show Architecture") .. ":", userSettings.interfaceStatusBarShowArchitecture ~= false))
+
+		-- Per-disk display toggles
+		content:addChild(GUI.text(1, 1, 0x2D2D2D, (localization.diskDisplaySettings or "Disk Display Settings") .. ":"))
+
+		local diskTogglesLayout = content:addChild(GUI.layout(1, 1, window.contentLayout.width, 1, 1, 1))
+		diskTogglesLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
+		diskTogglesLayout:setSpacing(1, 1, 2)
+
+		-- Initialize disk display settings if not exists
+		if not userSettings.interfaceStatusBarDiskDisplays then
+			userSettings.interfaceStatusBarDiskDisplays = {}
+		end
+
+		local diskSwitches = {}
+		for address in component.list("filesystem") do
+			local proxy = component.proxy(address)
+			local label = proxy.getLabel() or address:sub(1, 8)
+			local diskKey = address:sub(1, 8)
+			local isShown = userSettings.interfaceStatusBarDiskDisplays[diskKey] ~= false
+			local diskSw = diskTogglesLayout:addChild(GUI.switchAndLabel(1, 1, 36, 6, 0x66DB80, 0x2D2D2D, label .. ": ", isShown))
+			diskSwitches[diskKey] = diskSw
+		end
+
+		diskTogglesLayout.height = math.max(1, #diskTogglesLayout.children * 2)
+
 		local applyButton = content:addChild(GUI.button(1, 1, 20, 3, 0x666666, 0xFFFFFF, 0x333333, 0xFFFFFF, localization.apply or "Apply"))
 		applyButton.onTouch = function()
 			userSettings.interfaceStatusBarEnabled = statusBarSwitch.switch.state
@@ -35,6 +61,12 @@ return {
 			userSettings.interfaceStatusBarShowRAM = ramSwitch.switch.state
 			userSettings.interfaceStatusBarShowCPU = cpuSwitch.switch.state
 			userSettings.interfaceStatusBarShowDisk = diskSwitch.switch.state
+			userSettings.interfaceStatusBarShowArchitecture = archSwitch.switch.state
+
+			-- Save per-disk display settings
+			for diskKey, sw in pairs(diskSwitches) do
+				userSettings.interfaceStatusBarDiskDisplays[diskKey] = sw.switch.state
+			end
 
 			system.saveUserSettings()
 			system.updateMenuWidgets()
@@ -51,6 +83,10 @@ return {
 			ramSwitch.switch.state = true
 			cpuSwitch.switch.state = true
 			diskSwitch.switch.state = true
+			archSwitch.switch.state = true
+			for diskKey, sw in pairs(diskSwitches) do
+				sw.switch.state = true
+			end
 
 			workspace:draw()
 		end
