@@ -7,20 +7,36 @@ local gpu
 local screen
 local sw,sh=80,25
 
--- Safe helper: iterate component list
-local function safeList(type)
-    local ok, iter = pcall(c.list, type)
+-- Safe helper: iterate component list (no type() dependency)
+local function safeList(componentType)
+    local ok, iter = pcall(c.list, componentType)
     if not ok or not iter then return function() end end
-    if _G.type(iter) == "function" then
-        return iter
-    elseif _G.type(iter) == "table" then
-        local idx = 1
-        local addresses = {}
-        for addr in pairs(iter) do
-            if _G.type(addr) == "string" then
-                table.insert(addresses, addr)
+    
+    -- Test if iter is callable (function)
+    local testOk, firstAddr = pcall(iter)
+    if testOk and firstAddr then
+        -- It's a function iterator, return a wrapper that continues from first result
+        local returnedFirst = false
+        return function()
+            if not returnedFirst then
+                returnedFirst = true
+                return firstAddr
+            else
+                return iter()
             end
         end
+    elseif testOk and not firstAddr then
+        -- Function iterator but no components found
+        return function() end
+    else
+        -- Not a function, try as table
+        local addresses = {}
+        for addr in pairs(iter) do
+            if addr and tostring(addr) then
+                addresses[#addresses + 1] = addr
+            end
+        end
+        local idx = 1
         return function()
             if idx <= #addresses then
                 local addr = addresses[idx]
@@ -29,7 +45,6 @@ local function safeList(type)
             end
         end
     end
-    return function() end
 end
 
 -- Try to get filesystem component for path operations
