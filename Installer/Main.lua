@@ -599,8 +599,25 @@ end)
 addStage(function()
 	checkLicense()
 
-	local lines = text.wrap({request("LICENSE")}, layout.width - 2)
-	local textBox = layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 3, 0xF0F0F0, 0x696969, lines, 1, 1, 1))
+	-- Get the current language
+	local currentLang = localizationComboBox:getItem(localizationComboBox.selectedItem).text
+	local licenseFile = "LICENSE_en_US"
+	if currentLang == "Chinese" or currentLang == "中文" then
+		licenseFile = "LICENSE_zh_CN"
+	end
+
+	local lines = text.wrap({request(licenseFile)}, layout.width - 2)
+	local textBox = layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 5, 0xF0F0F0, 0x696969, lines, 1, 1, 1))
+
+	-- Add MineOS License button
+	local mineOSLicenseButton = layout:addChild(GUI.button(1, layout.height - 3, 20, 1, 0xD2D2D2, 0x696969, 0xF0F0F0, 0x696969, localization.showOriginalLicense))
+	mineOSLicenseButton.onTouch = function()
+		-- Show original MineOS license in a modal
+		local mineOSLines = text.wrap({request("Installer/Licenses/MineOS_Original_LICENSE")}, layout.width - 2)
+		layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 3, 0xF0F0F0, 0x696969, mineOSLines, 1, 1, 1))
+		mineOSLicenseButton.hidden = true
+		workspace:draw()
+	end
 
 	layout:addChild(acceptSwitchAndLabel)
 end)
