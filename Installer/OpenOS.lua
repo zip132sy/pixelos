@@ -2,18 +2,38 @@ local component = require("component")
 local computer = require("computer")
 local os = require("os")
 
+-- Safe helper: get first component address of given type, or nil
+local function getComponentAddress(type)
+	local ok, iter = pcall(component.list, type)
+	if not ok then return nil end
+	if type(iter) == "function" then
+		return iter()
+	elseif type(iter) == "table" then
+		for addr in pairs(iter) do return addr end
+	end
+	return nil
+end
+
+-- Safe helper: get proxy for first component of given type, or nil
+local function getComponentProxy(type)
+	local addr = getComponentAddress(type)
+	if addr then
+		local ok, proxy = pcall(component.proxy, addr)
+		if ok then return proxy end
+	end
+	return nil
+end
+
 -- Checking if computer is tough enough for PixelOS
 do
 	local potatoes = {}
 
 	-- GPU/screen
-	if not component.isAvailable("gpu") then
+	local gpu = getComponentProxy("gpu")
+	if not gpu then
 		table.insert(potatoes, "Tier 3 graphics card and screen");
-	else
-		local gpu = component.gpu
-		if gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
-			table.insert(potatoes, "Tier 3 graphics card and screen");
-		end
+	elseif gpu.getDepth() < 8 or gpu.maxResolution() < 160 then
+		table.insert(potatoes, "Tier 3 graphics card and screen");
 	end
 
 	-- RAM
@@ -38,12 +58,12 @@ do
 	end
 
 	-- Internet
-	if not component.isAvailable("internet") then
+	if not getComponentAddress("internet") then
 		table.insert(potatoes, "Internet card");
 	end
 
 	-- EEPROM
-	if not component.isAvailable("eeprom") then
+	if not getComponentAddress("eeprom") then
 		table.insert(potatoes, "EEPROM");
 	end
 
@@ -61,7 +81,13 @@ end
 
 -- Checking if installer can be downloaded from Gitee
 do
-	local success, result = pcall(component.internet.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
+	local internet = getComponentProxy("internet")
+	if not internet then
+		print("Internet card not available")
+		return
+	end
+
+	local success, result = pcall(internet.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
 
 	if not success then
 		if result then
@@ -104,7 +130,9 @@ end
 
 -- Flashing EEPROM with tiny script that will run installer itself after reboot.
 -- It's necessary, because we need clean computer without OpenOS hooks to computer.pullSignal()
-component.eeprom.set([[
+local eeprom = getComponentProxy("eeprom")
+if eeprom then
+	eeprom.set([[
 	local connection, data, chunk = component.proxy(component.list("internet")()).request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
 	
 	while true do
@@ -121,5 +149,6 @@ component.eeprom.set([[
 	
 	load(data)()
 ]])
+end
 
 computer.shutdown(true)
