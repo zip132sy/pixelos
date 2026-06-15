@@ -32,7 +32,7 @@ local weatherIcons = {
 }
 
 local config = {
-	lastCityName = "Санкт-Петербург"
+	lastCityName = "Beijing"
 }
 
 local locale = system.getCurrentScriptLocalization()
