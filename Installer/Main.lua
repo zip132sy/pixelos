@@ -77,12 +77,19 @@ local function getFileSize(url)
 		end)
 		
 		for attempt = 1, 3 do
-			local internetHandle = component.invoke(internetAddress, "request", fullURL)
+			local internetHandle, reason = component.invoke(internetAddress, "request", fullURL)
 			if internetHandle then
-				-- Read headers to get content-length
-				local size = internetHandle.totalSize or 0
+				local total = 0
+				while true do
+					local chunk = internetHandle.read(math.huge)
+					if chunk then
+						total = total + #chunk
+					else
+						break
+					end
+				end
 				internetHandle.close()
-				if size > 0 then return size end
+				if total > 0 then return total end
 			end
 			if attempt < 3 then
 				computer.pullSignal(0.5)
@@ -251,12 +258,18 @@ local function downloadWithProgress(url, path, current, total)
 			shortName = shortName:sub(1, 22) .. "..."
 		end
 		
+		-- Get actual file size first
+		local fileSize = getFileSize(url)
+		if fileSize == 0 then
+			fileSize = string.len(path) * 100
+		end
+		
 		-- Speed tracking variables
 		local downloadStartTime = computer.uptime()
 		local totalBytes = 0
 		
 		centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
-		centrizedText(title() + 1, 0x878787, "0 B / ?")
+		centrizedText(title() + 1, 0x878787, string.format("0 B / %s", formatSizeShort(fileSize)))
 		
 		-- Wrapper for chunk handler to track speed
 		local function chunkHandler(chunk, chunkSize)
@@ -276,9 +289,8 @@ local function downloadWithProgress(url, path, current, total)
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
 				centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr))
-				-- Show current/total (using average file size as estimate)
-				local estTotal = total * 51200  -- Average file size estimate: 50KB
-				centrizedText(title() + 1, 0x878787, string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(estTotal)))
+				-- Show current/total with actual file size
+				centrizedText(title() + 1, 0x878787, string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize)))
 			end
 		end
 		
@@ -289,8 +301,6 @@ local function downloadWithProgress(url, path, current, total)
 		error("File opening failed: " .. tostring(reason))
 	end
 end
-
--- (formatSizeShort is defined above)
 
 -- First, we need a big ass file list with localizations, applications, wallpapers
 progress(0)
