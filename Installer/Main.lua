@@ -320,7 +320,12 @@ local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- After that we could download required libraries for installer from it
 for i = 1, #files.installerFiles do
-	downloadWithProgress(files.installerFiles[i], installerPath .. files.installerFiles[i], i, #files.installerFiles)
+	local fileSize = 0
+	local size = getFileSize(files.installerFiles[i])
+	if size > 0 then
+		fileSize = size
+	end
+	downloadWithProgress(files.installerFiles[i], installerPath .. files.installerFiles[i], i, #files.installerFiles, fileSize)
 end
 
 -- Initializing simple package system for loading system libraries
