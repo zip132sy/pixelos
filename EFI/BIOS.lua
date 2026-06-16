@@ -23,8 +23,8 @@ local function bt(d)
  if not h then dt(math.floor(w/2)-6,math.floor(h/2)+3,"Cannot open",0xFF0000,0x2D2D2D)co.sleep(2)co.shutdown(true)return end
  local data=""local ch repeat ch=d.p.read(h,math.huge)data=data..(ch or"")until not ch d.p.close(h)
  local e=gl("eeprom")()if e then c.invoke(e,"setData",d.a)end
- local f=load(data,"="..fn)if not f then dt(math.floor(w/2)-6,math.floor(h/2)+3,"Load fail",0xFF0000,0x2D2D2D)co.sleep(2)co.shutdown(true)return end
- local ok,err=pcall(f)if not ok then clr()ds()dt(math.floor(w/2)-8,math.floor(h/2),"Boot fail",0xFF0000,0x2D2D2D)dt(math.floor(w/2)-13,math.floor(h/2)+2,"Press any key",0x878787,0x2D2D2D)co.pullSignal()else while true do co.pullSignal()end end
+ local f,err=load(data,"="..fn)if not f then dt(math.floor(w/2)-6,math.floor(h/2)+3,"Load fail: "..tostring(err),0xFF0000,0x2D2D2D)co.sleep(3)co.shutdown(true)return end
+ pcall(f)
 end
 local function lm()
  for a in gl("filesystem")do local p=c.proxy(a)if p and p.exists and p.exists("/BIOS/Manager.lua")then local h=p.open("/BIOS/Manager.lua","rb")
@@ -34,16 +34,34 @@ local function lm()
 end
 local function mn()
  local d=gd()local si=1 local t=#d+2
- while true do
-  clr()ds()dt(2,1,"PixelOS BIOS - Boot Menu",0xFFFFFF,0x1E1E1E)dt(2,h,"Up/Down Enter F12",0x878787,0x1E1E1E)
+ local tmo=5
+ while tmo>=0 do
+  clr()ds()
+  dt(2,1,"PixelOS BIOS - Boot Menu",0xFFFFFF,0x1E1E1E)
+  local hint="F12:Manager | Enter:Boot | Up/Down:Select"
+  dt(2,h,hint,0x878787,0x1E1E1E)
+  local countdown="Auto boot in "..tmo.."s..."
+  dt(math.floor(w/2)-#countdown/2,h-1,countdown,0xFFDB80,0x2D2D2D)
   for i,v in ipairs(d)do local y=3+i if y<h-1 then local s=i==si if s then g.setBackground(0x007ACC)g.fill(2,y,w-2,1," ")end
    dt(4,y,(s and">"or" ")..v.l,s and 0xFFFFFF or 0xCCCCCC,s and 0x007ACC or 0x2D2D2D)dt(w-#v.t-2,y,"["..v.t.."]",s and 0xAADDFF or 0x888888,s and 0x007ACC or 0x2D2D2D)end end
-  local r=3+#d+1 if r<h then local s=si==#d+1 if s then g.setBackground(0x007ACC)g.fill(2,r,w-2,1," ")end dt(4,r,(s and">"or" ").."Reboot",s and 0xFFFFFF or 0xCCCCCC,s and 0x007ACC or 0x2D2D2D)end
-  local s=3+#d+2 if s<h then local x=si==#d+2 if x then g.setBackground(0x007ACC)g.fill(2,s,w-2,1," ")end dt(4,s,(x and">"or" ").."Shutdown",x and 0xFFFFFF or 0xCCCCCC,x and 0x007ACC or 0x2D2D2D)end
-  local e={co.pullSignal()}if e and e[1]=="key_down"then
-   if e[4]==200 and si>1 then si=si-1 elseif e[4]==208 and si<t then si=si+1 elseif e[4]==88 then lm()return
-   elseif e[4]==28 then if si<=#d then bt(d[si])return elseif si==#d+1 then co.shutdown(false)else co.shutdown(true)end end
+  local r=3+#d+1 if r<h-1 then local s=si==#d+1 if s then g.setBackground(0x007ACC)g.fill(2,r,w-2,1," ")end dt(4,r,(s and">"or" ").."Reboot",s and 0xFFFFFF or 0xCCCCCC,s and 0x007ACC or 0x2D2D2D)end
+  local s=3+#d+2 if s<h-1 then local x=si==#d+2 if x then g.setBackground(0x007ACC)g.fill(2,s,w-2,1," ")end dt(4,s,(x and">"or" ").."Shutdown",x and 0xFFFFFF or 0xCCCCCC,x and 0x007ACC or 0x2D2D2D)end
+  for i=1,10 do
+   local e={co.pullSignal("key_down")}
+   if e and e[1]=="key_down"then
+    if e[4]==200 and si>1 then si=si-1
+    elseif e[4]==208 and si<t then si=si+1
+    elseif e[4]==87 or e[4]==88 then lm()return
+    elseif e[4]==28 then
+     if si<=#d then bt(d[si])return
+     elseif si==#d+1 then co.shutdown(false)
+     else co.shutdown(true)end
+    end
+    tmo=5
+   end
   end
+  tmo=tmo-1
  end
+ if #d>0 then bt(d[1])end
 end
 pcall(mn)
