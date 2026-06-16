@@ -223,13 +223,14 @@ local function downloadWithProgress(url, path, current, total)
 		local totalBytes = 0
 		
 		centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
+		centrizedText(title() + 1, 0x878787, "0 B / ?")
 		
 		-- Wrapper for chunk handler to track speed
 		local function chunkHandler(chunk, chunkSize)
 			selectedFilesystemProxy.write(fileHandle, chunk)
 			totalBytes = totalBytes + chunkSize
 			
-			-- Update speed display every 0.5 seconds
+			-- Update speed display
 			local elapsed = computer.uptime() - downloadStartTime
 			if elapsed > 0 then
 				local speed = math.floor(totalBytes / elapsed)
@@ -242,6 +243,7 @@ local function downloadWithProgress(url, path, current, total)
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
 				centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr))
+				centrizedText(title() + 1, 0x878787, string.format("%d B downloaded", totalBytes))
 			end
 		end
 		
@@ -728,7 +730,8 @@ addStage(function()
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
 	local fileNameLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	local fileSizeLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0xFFDB80, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	local statsLabel = container:addChild(GUI.label(1, 4, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local currentFileSizeLabel = container:addChild(GUI.label(1, 4, container.width, 1, 0xC3C3C3, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local statsLabel = container:addChild(GUI.label(1, 5, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -833,7 +836,7 @@ addStage(function()
 			fileSize = string.len(path) * 100
 		end
 
-		-- Update file size label
+		-- Update file size label - shows current file size and total accumulated
 		fileSizeLabel.text = string.format("%s: %s  |  %s: %s / %s (%d / %d)",
 			fileSizeText,
 			formatSize(fileSize),
@@ -843,6 +846,8 @@ addStage(function()
 			i,
 			totalFiles
 		)
+		-- Show current file size and estimated total in a separate label
+		currentFileSizeLabel.text = "Current: " .. formatSize(fileSize) .. " | Total est: " .. formatSize(totalSize)
 		workspace:draw()
 
 		-- Update stats
