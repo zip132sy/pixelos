@@ -32,36 +32,26 @@ local function lm()
  end end
  dt(math.floor(w/2)-9,math.floor(h/2),"Mgr not found",0xFF0000,0x2D2D2D)co.sleep(2)
 end
-local function mn()
- local d=gd()local si=1 local t=#d+2
- local tmo=5
+local function quickBoot()
+ local d=gd()
+ local si=1 local t=#d+2
+ local tmo=10
  while tmo>=0 do
   clr()ds()
-  dt(2,1,"PixelOS BIOS - Boot Menu",0xFFFFFF,0x1E1E1E)
-  local hint="F12:Manager | Enter:Boot | Up/Down:Select"
-  dt(2,h,hint,0x878787,0x1E1E1E)
+  dt(2,1,"PixelOS BIOS",0xFFFFFF,0x1E1E1E)
+  dt(2,h,"F12: BIOS Manager",0x878787,0x1E1E1E)
   local countdown="Auto boot in "..tmo.."s..."
-  dt(math.floor(w/2)-#countdown/2,h-1,countdown,0xFFDB80,0x2D2D2D)
-  for i,v in ipairs(d)do local y=3+i if y<h-1 then local s=i==si if s then g.setBackground(0x007ACC)g.fill(2,y,w-2,1," ")end
-   dt(4,y,(s and">"or" ")..v.l,s and 0xFFFFFF or 0xCCCCCC,s and 0x007ACC or 0x2D2D2D)dt(w-#v.t-2,y,"["..v.t.."]",s and 0xAADDFF or 0x888888,s and 0x007ACC or 0x2D2D2D)end end
-  local r=3+#d+1 if r<h-1 then local s=si==#d+1 if s then g.setBackground(0x007ACC)g.fill(2,r,w-2,1," ")end dt(4,r,(s and">"or" ").."Reboot",s and 0xFFFFFF or 0xCCCCCC,s and 0x007ACC or 0x2D2D2D)end
-  local s=3+#d+2 if s<h-1 then local x=si==#d+2 if x then g.setBackground(0x007ACC)g.fill(2,s,w-2,1," ")end dt(4,s,(x and">"or" ").."Shutdown",x and 0xFFFFFF or 0xCCCCCC,x and 0x007ACC or 0x2D2D2D)end
-  for i=1,10 do
+  dt(math.floor(w/2)-#countdown/2,math.floor(h/2),countdown,0xFFDB80,0x2D2D2D)
+  local hint="Last boot: "..(d[1]and d[1].l or"none")
+  dt(math.floor(w/2)-#hint/2,math.floor(h/2)+1,hint,0x696969,0x2D2D2D)
+  for i=1,5 do
    local e={co.pullSignal("key_down")}
    if e and e[1]=="key_down"then
-    if e[4]==200 and si>1 then si=si-1
-    elseif e[4]==208 and si<t then si=si+1
-    elseif e[4]==87 or e[4]==88 then lm()return
-    elseif e[4]==28 then
-     if si<=#d then bt(d[si])return
-     elseif si==#d+1 then co.shutdown(false)
-     else co.shutdown(true)end
-    end
-    tmo=5
+    if e[4]==87 or e[4]==88 then lm()return end
    end
   end
   tmo=tmo-1
  end
  if #d>0 then bt(d[1])end
 end
-pcall(mn)
+pcall(quickBoot)
