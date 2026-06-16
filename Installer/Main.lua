@@ -852,26 +852,10 @@ addStage(function()
 			fileSize = string.len(path) * 100
 		end
 
-		-- Update file size label - shows current file size and total accumulated
-		fileSizeLabel.text = string.format("%s: %s  |  %s: %s / %s (%d / %d)",
-			fileSizeText,
-			formatSize(fileSize),
-			totalProgressText,
-			formatSize(downloadedSize + fileSize),
-			formatSize(totalSize),
-			i,
-			totalFiles
-		)
-		-- Show current file size and estimated total in a separate label
-		currentFileSizeLabel.text = string.format("Current: %s | Total: %s / %s (%d / %d)",
-			formatSize(fileSize), formatSize(downloadedSize), formatSize(totalSize), i, totalFiles)
-		workspace:draw()
-
-		-- Update stats
+		-- Update stats first
 		downloadedSize = downloadedSize + fileSize
 		totalDownloadedBytes = downloadedSize
 		-- Estimate total: actual downloaded + average file size * remaining files
-		-- For first file, use current file size as average estimate
 		local avgFileSize
 		if i == 1 then
 			avgFileSize = fileSize
@@ -883,6 +867,20 @@ addStage(function()
 		local filesRemaining = totalFiles - i
 		local avgTimePerFile = elapsedTime / i
 		local remainingTime = avgTimePerFile * filesRemaining
+
+		-- Now update labels (after totalSize is calculated)
+		fileSizeLabel.text = string.format("%s: %s  |  %s: %s / %s (%d / %d)",
+			fileSizeText,
+			formatSize(fileSize),
+			totalProgressText,
+			formatSize(downloadedSize),
+			formatSize(totalSize),
+			i,
+			totalFiles
+		)
+		currentFileSizeLabel.text = string.format("Current: %s | Total: %s / %s (%d / %d)",
+			formatSize(fileSize), formatSize(downloadedSize), formatSize(totalSize), i, totalFiles)
+		workspace:draw()
 
 		-- Format time
 		local function formatTime(seconds)
@@ -949,7 +947,7 @@ addStage(function()
 		layout:removeChildren()
 		addImage(1, 1, "EEPROM")
 		addTitle(0xFFDB80, localization.biosManager or "BIOS Manager")
-		layout:addChild(GUI.label(1, 1, layout.width, 1, 0x969696, localization.installing)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		layout:addChild(GUI.label(1, 1, layout.width, 1, 0x969696, localization.installing or "Installing")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 		workspace:draw()
 		computer.pullSignal(1)
 	end
