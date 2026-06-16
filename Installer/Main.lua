@@ -66,7 +66,6 @@ end
 
 -- Multiple repository URLs for fallback
 local repositoryURLs = {
-	"https://raw.githubusercontent.com/zip132sy/pixelos/master/",
 	"https://gitee.com/zip132sy/pixelos/raw/master/"
 }
 
@@ -106,7 +105,7 @@ local function rawRequest(url, chunkHandler)
 			
 			-- Wait a moment before retrying
 			if attempt < 3 then
-				os.sleep(0.5)
+				computer.pullSignal(0.5)
 			end
 		end
 		
