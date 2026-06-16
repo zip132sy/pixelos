@@ -66,17 +66,16 @@ end
 
 -- Multiple repository URLs for fallback
 local repositoryURLs = {
-	"https://gitee.com/zip132sy/pixelos/raw/master/"
+	"https://gitee.com/zip132sy/pixelos/raw/master/",
+	"https://raw.githubusercontent.com/zip132sy/pixelos/master/"
 }
 
 local function rawRequest(url, chunkHandler)
-	-- Try each repository URL in order, with retry logic
 	for i, repoURL in ipairs(repositoryURLs) do
 		local fullURL = repoURL .. url:gsub("([^%w%-%_%.%~])", function(char)
 			return string.format("%%%02X", string.byte(char))
 		end)
 		
-		-- Retry up to 3 times for transient failures
 		for attempt = 1, 3 do
 			local internetHandle, reason = component.invoke(internetAddress, "request", fullURL)
 			
@@ -99,21 +98,25 @@ local function rawRequest(url, chunkHandler)
 				
 				internetHandle.close()
 				if success then
-					return  -- Success
+					return
 				end
 			end
 			
-			-- Wait a moment before retrying
 			if attempt < 3 then
 				computer.pullSignal(0.5)
 			end
 		end
 		
-		-- All retries for this URL failed, try next URL
 		if i < #repositoryURLs then
-			-- Continue to next URL
 		else
-			error("Internet request failed: " .. tostring(reason or "unknown"))
+			local errorMsg = "Internet request failed"
+			if reason then
+				errorMsg = errorMsg .. ": " .. tostring(reason)
+			else
+				errorMsg = errorMsg .. ": Could not connect to server. Check network card and try again."
+			end
+			errorMsg = errorMsg .. "\nURL: " .. fullURL
+			error(errorMsg)
 		end
 	end
 end
