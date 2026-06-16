@@ -800,8 +800,20 @@ addStage(function()
 		download(path, OSPath .. path)
 		local fileEndTime = computer.uptime()
 
-		-- Estimate file size (rough estimate based on file name length)
-		local fileSize = string.len(path) * 100
+		-- Get actual file size after download
+		local fileSize = 0
+		local fileProxy = selectedFilesystemProxy
+		local targetPath = OSPath .. path
+		-- Try to get the actual file size
+		local handle = fileProxy.open(targetPath, "rb")
+		if handle then
+			fileProxy.seek(handle, "end")
+			fileSize = fileProxy.tell(handle)
+			fileProxy.close(handle)
+		end
+		if fileSize == 0 then
+			fileSize = string.len(path) * 100
+		end
 
 		-- Update stats
 		downloadedSize = downloadedSize + fileSize
