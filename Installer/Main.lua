@@ -71,42 +71,50 @@ local repositoryURLs = {
 }
 
 local function rawRequest(url, chunkHandler)
-	-- Try each repository URL in order
+	-- Try each repository URL in order, with retry logic
 	for i, repoURL in ipairs(repositoryURLs) do
 		local fullURL = repoURL .. url:gsub("([^%w%-%_%.%~])", function(char)
 			return string.format("%%%02X", string.byte(char))
 		end)
 		
-		local internetHandle, reason = component.invoke(internetAddress, "request", fullURL)
-		
-		if internetHandle then
-			local chunk, reason
-			while true do
-				chunk, reason = internetHandle.read(math.huge)	
-				
-				if chunk then
-					chunkHandler(chunk)
-				else
-					if reason then
-						-- Try next URL if available
-						if i < #repositoryURLs then
-							break
-						else
-							error("Internet request failed: " .. tostring(reason))
+		-- Retry up to 3 times for transient failures
+		for attempt = 1, 3 do
+			local internetHandle, reason = component.invoke(internetAddress, "request", fullURL)
+			
+			if internetHandle then
+				local chunk, readReason
+				local success = true
+				while true do
+					chunk, readReason = internetHandle.read(math.huge)	
+					
+					if chunk then
+						chunkHandler(chunk)
+					else
+						if readReason then
+							success = false
+							reason = readReason
 						end
+						break
 					end
-					break
+				end
+				
+				internetHandle.close()
+				if success then
+					return  -- Success
 				end
 			end
 			
-			internetHandle.close()
-			if not reason then
-				return  -- Success
+			-- Wait a moment before retrying
+			if attempt < 3 then
+				os.sleep(0.5)
 			end
-		elseif i < #repositoryURLs then
-			-- Try next URL
+		end
+		
+		-- All retries for this URL failed, try next URL
+		if i < #repositoryURLs then
+			-- Continue to next URL
 		else
-			error("Connection failed: " .. url)
+			error("Internet request failed: " .. tostring(reason or "unknown"))
 		end
 	end
 end
@@ -481,6 +489,9 @@ addStage(function()
 			break
 		end
 	end
+	-- Set comboBox selection to Chinese by default
+	localizationComboBox.selectedItem = defaultIndex
+	workspace:draw()
 	localizationComboBox:getItem(defaultIndex).onTouch()
 end)
 
