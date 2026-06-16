@@ -86,7 +86,7 @@ local function rawRequest(url, chunkHandler)
 					chunk, readReason = internetHandle.read(math.huge)	
 					
 					if chunk then
-						chunkHandler(chunk)
+						chunkHandler(chunk, #chunk)
 					else
 						if readReason then
 							success = false
@@ -214,14 +214,38 @@ local function downloadWithProgress(url, path, current, total)
 	if fileHandle then
 		-- Show current download info
 		local shortName = filesystemName(path)
-		if #shortName > 30 then
-			shortName = shortName:sub(1, 27) .. "..."
+		if #shortName > 25 then
+			shortName = shortName:sub(1, 22) .. "..."
 		end
+		
+		-- Speed tracking variables
+		local downloadStartTime = computer.uptime()
+		local totalBytes = 0
+		
 		centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
 		
-		rawRequest(url, function(chunk)
+		-- Wrapper for chunk handler to track speed
+		local function chunkHandler(chunk, chunkSize)
 			selectedFilesystemProxy.write(fileHandle, chunk)
-		end)
+			totalBytes = totalBytes + chunkSize
+			
+			-- Update speed display every 0.5 seconds
+			local elapsed = computer.uptime() - downloadStartTime
+			if elapsed > 0 then
+				local speed = math.floor(totalBytes / elapsed)
+				local speedStr
+				if speed < 1024 then
+					speedStr = speed .. " B/s"
+				elseif speed < 1048576 then
+					speedStr = string.format("%.1f KB/s", speed / 1024)
+				else
+					speedStr = string.format("%.1f MB/s", speed / 1048576)
+				end
+				centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr))
+			end
+		end
+		
+		rawRequest(url, chunkHandler)
 		
 		selectedFilesystemProxy.close(fileHandle)
 	else
