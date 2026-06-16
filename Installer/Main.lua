@@ -206,6 +206,17 @@ local function checkNetwork()
 	return false
 end
 
+-- Format size short (for download progress)
+local function formatSizeShort(bytes)
+	if bytes < 1024 then
+		return bytes .. " B"
+	elseif bytes < 1048576 then
+		return string.format("%.1f KB", bytes / 1024)
+	else
+		return string.format("%.1f MB", bytes / 1048576)
+	end
+end
+
 -- Display download progress with filename
 local function downloadWithProgress(url, path, current, total)
 	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
@@ -257,16 +268,7 @@ local function downloadWithProgress(url, path, current, total)
 	end
 end
 
--- Format size short (for download progress)
-local function formatSizeShort(bytes)
-	if bytes < 1024 then
-		return bytes .. " B"
-	elseif bytes < 1048576 then
-		return string.format("%.1f KB", bytes / 1024)
-	else
-		return string.format("%.1f MB", bytes / 1048576)
-	end
-end
+-- (formatSizeShort is defined above)
 
 -- First, we need a big ass file list with localizations, applications, wallpapers
 progress(0)
