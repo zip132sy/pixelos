@@ -45,16 +45,6 @@ local function title()
 	return y + 2
 end
 
-local function progress(value)
-	local width = 26
-	local x, y, part = centrize(width), title(), math.ceil(width * value)
-	
-	component.invoke(GPUAddress, "setForeground", 0x878787)
-	component.invoke(GPUAddress, "set", x, y, string.rep("─", part))
-	component.invoke(GPUAddress, "setForeground", 0xC3C3C3)
-	component.invoke(GPUAddress, "set", x + part, y, string.rep("─", width - part))
-end
-
 local function filesystemPath(path)
 	return path:match("^(.+%/).") or ""
 end
@@ -249,7 +239,7 @@ local function formatSizeShort(bytes)
 	end
 end
 
--- Display download progress with filename
+-- Display download progress with filename (no progress bar, text only)
 local function downloadWithProgress(url, path, current, total)
 	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
 	
@@ -306,7 +296,6 @@ local function downloadWithProgress(url, path, current, total)
 end
 
 -- First, we need a big ass file list with localizations, applications, wallpapers
-progress(0)
 centrizedText(title(), 0x2D2D2D, "Checking network...")
 if not checkNetwork() then
 	error("Network connection failed. Please check your internet card and try again.")
@@ -315,7 +304,6 @@ local files = deserialize(request(installerURL .. "Files.cfg"))
 
 -- After that we could download required libraries for installer from it
 for i = 1, #files.installerFiles do
-	progress(i / #files.installerFiles)
 	downloadWithProgress(files.installerFiles[i], installerPath .. files.installerFiles[i], i, #files.installerFiles)
 end
 
