@@ -252,7 +252,7 @@ local function formatSizeShort(bytes)
 end
 
 -- Display download progress with filename (no progress bar, text only)
-local function downloadWithProgress(url, path, current, total)
+local function downloadWithProgress(url, path, current, total, fileSize)
 	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
 	
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
@@ -267,8 +267,14 @@ local function downloadWithProgress(url, path, current, total)
 		local downloadStartTime = computer.uptime()
 		local totalBytes = 0
 		
-		centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
-		centrizedText(title() + 1, 0x878787, "0 B")
+		-- Show initial progress
+		if fileSize and fileSize > 0 then
+			centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
+			centrizedText(title() + 1, 0x878787, string.format("0 B / %s", formatSizeShort(fileSize)))
+		else
+			centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
+			centrizedText(title() + 1, 0x878787, "0 B")
+		end
 		
 		-- Wrapper for chunk handler to track speed
 		local function chunkHandler(chunk, chunkSize)
@@ -288,7 +294,11 @@ local function downloadWithProgress(url, path, current, total)
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
 				centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr))
-				centrizedText(title() + 1, 0x878787, formatSizeShort(totalBytes))
+				if fileSize and fileSize > 0 then
+					centrizedText(title() + 1, 0x878787, string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize)))
+				else
+					centrizedText(title() + 1, 0x878787, formatSizeShort(totalBytes))
+				end
 			end
 		end
 		
@@ -851,13 +861,24 @@ addStage(function()
 	end
 
 	-- Download loop
+	local versions = {}
 	local startTime = computer.uptime()
 	local downloadedSize = 0
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
+		-- Get file size first
+		local fileSize = 0
+		local size = getFileSize(path)
+		if size > 0 then
+			fileSize = size
+		end
+
 		-- Download file with progress and get actual size
-		local fileSize = downloadWithProgress(path, OSPath .. path, i, totalFiles)
+		local downloadedBytes = downloadWithProgress(path, OSPath .. path, i, totalFiles, fileSize)
+		if fileSize == 0 then
+			fileSize = downloadedBytes
+		end
 
 		-- Update stats
 		downloadedSize = downloadedSize + fileSize
