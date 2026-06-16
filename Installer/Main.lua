@@ -243,7 +243,9 @@ local function downloadWithProgress(url, path, current, total)
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
 				centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr))
-				centrizedText(title() + 1, 0x878787, string.format("%d B downloaded", totalBytes))
+				-- Show current/total (using average file size as estimate)
+				local estTotal = total * 51200  -- Average file size estimate: 50KB
+				centrizedText(title() + 1, 0x878787, string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(estTotal)))
 			end
 		end
 		
@@ -252,6 +254,17 @@ local function downloadWithProgress(url, path, current, total)
 		selectedFilesystemProxy.close(fileHandle)
 	else
 		error("File opening failed: " .. tostring(reason))
+	end
+end
+
+-- Format size short (for download progress)
+local function formatSizeShort(bytes)
+	if bytes < 1024 then
+		return bytes .. " B"
+	elseif bytes < 1048576 then
+		return string.format("%.1f KB", bytes / 1024)
+	else
+		return string.format("%.1f MB", bytes / 1048576)
 	end
 end
 
@@ -847,13 +860,16 @@ addStage(function()
 			totalFiles
 		)
 		-- Show current file size and estimated total in a separate label
-		currentFileSizeLabel.text = "Current: " .. formatSize(fileSize) .. " | Total est: " .. formatSize(totalSize)
+		currentFileSizeLabel.text = string.format("Current: %s | Total: %s / %s (%d / %d)",
+			formatSize(fileSize), formatSize(downloadedSize), formatSize(totalSize), i, totalFiles)
 		workspace:draw()
 
 		-- Update stats
 		downloadedSize = downloadedSize + fileSize
 		totalDownloadedBytes = downloadedSize
-		totalSize = downloadedSize + (totalFiles - i) * (downloadedSize / math.max(i, 1))
+		-- Estimate total: actual downloaded + average file size * remaining files
+		local avgFileSize = downloadedSize / i
+		totalSize = downloadedSize + (totalFiles - i) * avgFileSize
 		local elapsedTime = computer.uptime() - startTime
 		local filesRemaining = totalFiles - i
 		local avgTimePerFile = elapsedTime / i
