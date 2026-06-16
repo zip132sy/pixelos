@@ -642,7 +642,7 @@ addStage(function()
 		licenseFile = "LICENSE_zh_CN"
 	end
 
-	local lines = text.wrap({request(licenseFile)}, layout.width - 2)
+	local lines = text.wrap({request("Installer/Licenses/" .. licenseFile)}, layout.width - 2)
 	local textBox = layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 5, 0xF0F0F0, 0x696969, lines, 1, 1, 1))
 
 	-- Add MineOS License button
