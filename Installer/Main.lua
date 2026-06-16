@@ -752,6 +752,7 @@ addStage(function()
 	-- Add BIOS Manager files if enabled
 	if biosManagerSwitchAndLabel.switch.state then
 		table.insert(downloadList, "EFI/BIOS.lua")
+		table.insert(downloadList, "BIOS/Manager.lua")
 		table.insert(downloadList, "Libraries/Encryption.lua")
 	end
 
