@@ -773,12 +773,11 @@ addStage(function()
 	-- Set BIOS to installation mode
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install")
 
-	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 5))
+	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 4))
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
 	local fileNameLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	local fileSizeLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x00FF00, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	local currentFileSizeLabel = container:addChild(GUI.label(1, 4, container.width, 1, 0xC3C3C3, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	local statsLabel = container:addChild(GUI.label(1, 5, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local statsLabel = container:addChild(GUI.label(1, 4, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -918,19 +917,28 @@ addStage(function()
 		local filesRemaining = totalFiles - i
 		local avgTimePerFile = elapsedTime / i
 		local remainingTime = avgTimePerFile * filesRemaining
+		
+		-- Calculate download speed
+		local speed = math.floor(downloadedSize / elapsedTime)
+		local speedStr
+		if speed < 1024 then
+			speedStr = speed .. " B/s"
+		elseif speed < 1048576 then
+			speedStr = string.format("%.1f KB/s", speed / 1024)
+		else
+			speedStr = string.format("%.1f MB/s", speed / 1048576)
+		end
 
 		-- Now update labels (after totalSize is calculated)
-		fileSizeLabel.text = string.format("%s: %s  |  %s: %s / %s (%d / %d)",
+		fileSizeLabel.text = string.format("%s: %s  |  Total: %s / %s (%d / %d) @ %s",
 			fileSizeText,
 			formatSize(fileSize),
-			totalProgressText,
 			formatSize(downloadedSize),
 			formatSize(totalSize),
 			i,
-			totalFiles
+			totalFiles,
+			speedStr
 		)
-		currentFileSizeLabel.text = string.format("Current: %s | Total: %s / %s (%d / %d)",
-			formatSize(fileSize), formatSize(downloadedSize), formatSize(totalSize), i, totalFiles)
 		workspace:draw()
 
 		-- Format time
