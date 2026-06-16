@@ -70,6 +70,28 @@ local repositoryURLs = {
 	"https://raw.githubusercontent.com/zip132sy/pixelos/master/"
 }
 
+local function getFileSize(url)
+	for i, repoURL in ipairs(repositoryURLs) do
+		local fullURL = repoURL .. url:gsub("([^%w%-%_%.%~])", function(char)
+			return string.format("%%%02X", string.byte(char))
+		end)
+		
+		for attempt = 1, 3 do
+			local internetHandle = component.invoke(internetAddress, "request", fullURL)
+			if internetHandle then
+				-- Read headers to get content-length
+				local size = internetHandle.totalSize or 0
+				internetHandle.close()
+				if size > 0 then return size end
+			end
+			if attempt < 3 then
+				computer.pullSignal(0.5)
+			end
+		end
+	end
+	return 0
+end
+
 local function rawRequest(url, chunkHandler)
 	for i, repoURL in ipairs(repositoryURLs) do
 		local fullURL = repoURL .. url:gsub("([^%w%-%_%.%~])", function(char)
@@ -825,9 +847,32 @@ addStage(function()
 	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}
 	local startTime = computer.uptime()
-
+	
+	-- Phase 1: Pre-fetch all file sizes
+	fileNameLabel.text = text.limit("Calculating sizes...", container.width, "center")
+	workspace:draw()
+	
+	local fileSizes = {}
+	local totalSize = 0
+	for i = 1, #downloadList do
+		path = getData(downloadList[i])
+		local size = getFileSize(path)
+		if size == 0 then
+			size = string.len(path) * 100  -- Fallback estimate
+		end
+		fileSizes[i] = size
+		totalSize = totalSize + size
+		
+		-- Show progress
+		fileSizeLabel.text = string.format("%d / %d files", i, totalFiles)
+		workspace:draw()
+	end
+	
+	-- Phase 2: Actual download with accurate progress
+	local downloadedSize = 0
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
+		local fileSize = fileSizes[i]
 
 		fileNameLabel.text = text.limit(downloadingText .. " \"" .. path .. "\"", container.width, "center")
 		workspace:draw()
@@ -837,32 +882,9 @@ addStage(function()
 		download(path, OSPath .. path)
 		local fileEndTime = computer.uptime()
 
-		-- Get actual file size after download
-		local fileSize = 0
-		local fileProxy = selectedFilesystemProxy
-		local targetPath = OSPath .. path
-		-- Try to get the actual file size
-		local handle = fileProxy.open(targetPath, "rb")
-		if handle then
-			fileProxy.seek(handle, "end")
-			fileSize = fileProxy.tell(handle)
-			fileProxy.close(handle)
-		end
-		if fileSize == 0 then
-			fileSize = string.len(path) * 100
-		end
-
-		-- Update stats first
+		-- Update stats
 		downloadedSize = downloadedSize + fileSize
 		totalDownloadedBytes = downloadedSize
-		-- Estimate total: actual downloaded + average file size * remaining files
-		local avgFileSize
-		if i == 1 then
-			avgFileSize = fileSize
-		else
-			avgFileSize = downloadedSize / i
-		end
-		totalSize = downloadedSize + (totalFiles - i) * avgFileSize
 		local elapsedTime = computer.uptime() - startTime
 		local filesRemaining = totalFiles - i
 		local avgTimePerFile = elapsedTime / i
