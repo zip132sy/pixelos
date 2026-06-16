@@ -173,7 +173,6 @@ local function showPasswordUnlock()
     
     local keyboard = require("Keyboard")
     local event = require("event")
-    local os = require("os")
     
     local password = ""
     local maxLength = 32

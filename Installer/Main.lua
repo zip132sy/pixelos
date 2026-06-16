@@ -839,6 +839,11 @@ addStage(function()
 	layout:removeChildren()
 	addImage(1, 1, "EEPROM")
 	addTitle(0x969696, localization.flashing)
+	
+	if biosManagerSwitchAndLabel.switch.state then
+		layout:addChild(GUI.label(1, 1, layout.width, 1, 0xFFDB80, localization.biosManager or "BIOS Manager")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	end
+	
 	workspace:draw()
 	
 	component.invoke(EEPROMAddress, "set", request(EFIURL))
