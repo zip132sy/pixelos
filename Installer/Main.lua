@@ -865,6 +865,10 @@ addStage(function()
 		end
 	end
 
+	-- Hide GUI window during download
+	window.isHidden = true
+	workspace:draw()
+
 	-- Download loop
 	local versions = {}
 	local startTime = computer.uptime()
@@ -959,6 +963,10 @@ addStage(function()
 		progressBar.value = math.floor(i / #downloadList * 100)
 		workspace:draw()
 	end
+
+	-- Show GUI window after download
+	window.isHidden = false
+	workspace:draw()
 
 	-- Flashing EEPROM
 	layout:removeChildren()
