@@ -803,8 +803,10 @@ addStage(function()
 	local totalFiles = #downloadList
 	local totalSize = 0
 	local totalDownloadedBytes = 0
+	local downloadedSize = 0
 
-	-- Localization strings
+	-- Localization strings (with fallbacks to prevent nil errors)
+	local installingText = localization.installing or "Installing"
 	local downloadingText = localization.downloading or "Downloading"
 	local fileSizeText = localization.fileSize or "File size"
 	local totalProgressText = localization.totalProgress or "Total"
@@ -823,7 +825,6 @@ addStage(function()
 	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}
 	local startTime = computer.uptime()
-	local downloadedSize = 0
 
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
@@ -870,7 +871,13 @@ addStage(function()
 		downloadedSize = downloadedSize + fileSize
 		totalDownloadedBytes = downloadedSize
 		-- Estimate total: actual downloaded + average file size * remaining files
-		local avgFileSize = downloadedSize / i
+		-- For first file, use current file size as average estimate
+		local avgFileSize
+		if i == 1 then
+			avgFileSize = fileSize
+		else
+			avgFileSize = downloadedSize / i
+		end
 		totalSize = downloadedSize + (totalFiles - i) * avgFileSize
 		local elapsedTime = computer.uptime() - startTime
 		local filesRemaining = totalFiles - i
