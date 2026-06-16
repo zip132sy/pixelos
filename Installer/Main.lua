@@ -32,8 +32,8 @@ end
 local function centrizedText(y, color, text)
 	local textWidth = #text
 	local x = math.floor((screenWidth - textWidth) / 2)
-	-- Only clear the area where text will be written, not the whole line
-	component.invoke(GPUAddress, "fill", x, y, textWidth, 1, " ")
+	-- Clear the entire line first to prevent overlapping
+	component.invoke(GPUAddress, "fill", 1, y, screenWidth, 1, " ")
 	component.invoke(GPUAddress, "setForeground", color)
 	component.invoke(GPUAddress, "set", x, y, text)
 end
