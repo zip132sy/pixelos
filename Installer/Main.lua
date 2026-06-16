@@ -30,9 +30,12 @@ local function centrize(width)
 end
 
 local function centrizedText(y, color, text)
-	component.invoke(GPUAddress, "fill", 1, y, screenWidth, 1, " ")
+	local textWidth = #text
+	local x = math.floor((screenWidth - textWidth) / 2)
+	-- Only clear the area where text will be written, not the whole line
+	component.invoke(GPUAddress, "fill", x, y, textWidth, 1, " ")
 	component.invoke(GPUAddress, "setForeground", color)
-	component.invoke(GPUAddress, "set", centrize(#text), y, text)
+	component.invoke(GPUAddress, "set", x, y, text)
 end
 
 local function title()
