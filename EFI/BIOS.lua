@@ -86,41 +86,42 @@ local function loadMgr()
 end
 local function bootMenu()
  local d=getDevices()
- if #d==0 then
-  clr()ds()
-  dt(math.floor(w/2)-7,math.floor(h/2),"未找到可启动设备",0xFF0000,0x2D2D2D)
-  dt(math.floor(w/2)-5,math.floor(h/2)+2,"按任意键关机",0x878787,0x2D2D2D)
-  co.pullSignal()co.shutdown(true)return
- end
  local si=1
- local menuH=math.min(#d+4,h-2)
+ local total=#d+2
  while true do
   clr()ds()
   dt(2,1,"PixelOS BIOS - 启动菜单",0xFFFFFF,0x1E1E1E)
-  dt(2,h,"↑↓ 选择  Enter 启动  F12 管理器",0x878787,0x1E1E1E)
+  dt(2,h,"↑↓ 选择  Enter 确认  F12 管理器",0x878787,0x1E1E1E)
   for i,v in ipairs(d)do
    local y=3+i
-   if y<h then
+   if y<h-1 then
     local sel=i==si
     if sel then g.setBackground(0x007ACC)g.fill(2,y,w-2,1," ")end
     dt(4,y,(sel and">"or" ")..v.l,sel and 0xFFFFFF or 0xCCCCCC,sel and 0x007ACC or 0x2D2D2D)
     dt(w-#v.t-2,y,"["..v.t.."]",sel and 0xAADDFF or 0x888888,sel and 0x007ACC or 0x2D2D2D)
    end
   end
-  local ey=3+#d+1
-  if ey<h then
+  local ry=3+#d+1
+  if ry<h then
    local sel=si==#d+1
-   if sel then g.setBackground(0x007ACC)g.fill(2,ey,w-2,1," ")end
-   dt(4,ey,(sel and">"or" ").."BIOS 管理器",sel and 0xFFFFFF or 0xCCCCCC,sel and 0x007ACC or 0x2D2D2D)
+   if sel then g.setBackground(0x007ACC)g.fill(2,ry,w-2,1," ")end
+   dt(4,ry,(sel and">"or" ").."重启",sel and 0xFFFFFF or 0xCCCCCC,sel and 0x007ACC or 0x2D2D2D)
+  end
+  local sy=3+#d+2
+  if sy<h then
+   local sel=si==#d+2
+   if sel then g.setBackground(0x007ACC)g.fill(2,sy,w-2,1," ")end
+   dt(4,sy,(sel and">"or" ").."关机",sel and 0xFFFFFF or 0xCCCCCC,sel and 0x007ACC or 0x2D2D2D)
   end
   local e={co.pullSignal()}
   if e and e[1]=="key_down"then
    if e[4]==200 and si>1 then si=si-1
-   elseif e[4]==208 and si<#d+1 then si=si+1
+   elseif e[4]==208 and si<total then si=si+1
    elseif e[4]==88 then loadMgr()return
    elseif e[4]==28 then
     if si<=#d then autoBoot(d[si])return
-    else loadMgr()return end
+    elseif si==#d+1 then co.shutdown(false)
+    else co.shutdown(true)end
    end
   end
  end
