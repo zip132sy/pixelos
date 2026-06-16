@@ -1,8 +1,10 @@
-local c=component or {} local co=computer or {}
+local c=component or {}
+local co=computer or {}
 local gpu,sw,sh=nil,80,25
 local function gl(t)local i=c.list(t)return i or function()end end
 local loc={t="PixelOS",sb="选择:",nb="无启动",pr="任意键",bt="启动",pwd="密码:",inv="无效"}
-local ga=gl("gpu")() local sa=gl("screen")()
+local ga=gl("gpu")()
+local sa=gl("screen")()
 if ga and sa then gpu=c.proxy(ga) gpu.bind(sa) sw,sh=gpu.getResolution()end
 local function clr()if gpu then gpu.setBackground(0x2D2D2D)gpu.fill(1,1,sw,sh," ")end end
 local function dt(x,y,t,f,b)if gpu then if f then gpu.setForeground(f)end if b then gpu.setBackground(b)end gpu.set(x,y,t)end end
@@ -18,7 +20,9 @@ local function inpPwd()
  dt(math.floor(sw/2)-#line/2,math.floor(sh/2),line,0xFFFFFF,0x2D2D2D)
  local e={co.pullSignal()}
  if e[1]=="key_down"then
- if e[4]==28 then return p elseif e[4]==14 then p=p:sub(1,-2)else local ch=string.char(e[3])if ch:match("^[%w%d%p%s]+")then p=p..ch end end
+ if e[4]==28 then return p
+ elseif e[4]==14 then p=p:sub(1,-2)
+ else local ch=string.char(e[3])if ch:match("^[%w%d%p%s]+")then p=p..ch end end
  end
  end
 end
@@ -63,9 +67,12 @@ local function sm()
  for i,v in ipairs(mi)do local y=4+i if i==si then dt(2,y,v.t,0xE1E1E1,0x878787)else dt(2,y,v.t,0x878787,0x2D2D2D)end end
  local e={co.pullSignal()}
  if e[1]=="key_down"then
- if e[4]==200 and si>1 then si=si-1 elseif e[4]==208 and si<#mi then si=si+1 elseif e[4]==28 then
+ if e[4]==200 and si>1 then si=si-1
+ elseif e[4]==208 and si<#mi then si=si+1
+ elseif e[4]==28 then
  local s=mi[si]
- if s.a=="sd"then co.shutdown(true)return elseif s.d then bt(s.d)return end
+ if s.a=="sd"then co.shutdown(true)return
+ elseif s.d then bt(s.d)return end
  end
  end
  end
