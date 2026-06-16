@@ -251,7 +251,7 @@ local function formatSizeShort(bytes)
 	end
 end
 
--- Display download progress with filename (no progress bar, text only)
+-- Display download progress with filename (text only, for loading phase)
 local function downloadWithProgress(url, path, current, total, fileSize)
 	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
 	
@@ -299,6 +299,66 @@ local function downloadWithProgress(url, path, current, total, fileSize)
 				else
 					centrizedText(title() + 1, 0x878787, formatSizeShort(totalBytes))
 				end
+			end
+		end
+		
+		rawRequest(url, chunkHandler)
+		
+		selectedFilesystemProxy.close(fileHandle)
+		return totalBytes  -- Return actual downloaded size
+	else
+		error("File opening failed: " .. tostring(reason))
+	end
+end
+
+-- Download with GUI label updates (for installation phase)
+local function downloadWithGUIProgress(url, path, current, total, fileSize, nameLabel, sizeLabel, drawCallback)
+	selectedFilesystemProxy.makeDirectory(filesystemPath(path))
+	
+	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
+	if fileHandle then
+		-- Show current download info
+		local shortName = filesystemName(path)
+		if #shortName > 25 then
+			shortName = shortName:sub(1, 22) .. "..."
+		end
+		
+		-- Speed tracking variables
+		local downloadStartTime = computer.uptime()
+		local totalBytes = 0
+		
+		-- Update GUI labels
+		nameLabel.text = string.format("Downloading: %s (%d/%d)", shortName, current, total)
+		if fileSize and fileSize > 0 then
+			sizeLabel.text = string.format("0 B / %s", formatSizeShort(fileSize))
+		else
+			sizeLabel.text = "0 B"
+		end
+		
+		-- Wrapper for chunk handler to track speed
+		local function chunkHandler(chunk, chunkSize)
+			selectedFilesystemProxy.write(fileHandle, chunk)
+			totalBytes = totalBytes + chunkSize
+			
+			-- Update GUI display
+			local elapsed = computer.uptime() - downloadStartTime
+			if elapsed > 0 then
+				local speed = math.floor(totalBytes / elapsed)
+				local speedStr
+				if speed < 1024 then
+					speedStr = speed .. " B/s"
+				elseif speed < 1048576 then
+					speedStr = string.format("%.1f KB/s", speed / 1024)
+				else
+					speedStr = string.format("%.1f MB/s", speed / 1048576)
+				end
+				nameLabel.text = string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr)
+				if fileSize and fileSize > 0 then
+					sizeLabel.text = string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize))
+				else
+					sizeLabel.text = formatSizeShort(totalBytes)
+				end
+				drawCallback()
 			end
 		end
 		
@@ -780,16 +840,17 @@ addStage(function()
 
 	-- Downloading files
 	layout:removeChildren()
-	addImage(3, 2, "Downloading")
+	addImage(1, 1, "Downloading")
+	addTitle(0x969696, localization.installing or "Installing")
 
 	-- Set BIOS to installation mode
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install")
 
-	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 4))
+	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 5))
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
 	local fileNameLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	local fileSizeLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x00FF00, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	local statsLabel = container:addChild(GUI.label(1, 4, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local statsLabel = container:addChild(GUI.label(1, 5, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -865,10 +926,6 @@ addStage(function()
 		end
 	end
 
-	-- Hide GUI window during download
-	window.isHidden = true
-	workspace:draw()
-
 	-- Download loop
 	local versions = {}
 	local startTime = computer.uptime()
@@ -884,7 +941,7 @@ addStage(function()
 		end
 
 		-- Download file with progress and get actual size
-		local downloadedBytes = downloadWithProgress(path, OSPath .. path, i, totalFiles, fileSize)
+		local downloadedBytes = downloadWithGUIProgress(path, OSPath .. path, i, totalFiles, fileSize, fileNameLabel, fileSizeLabel, function() workspace:draw() end)
 		if fileSize == 0 then
 			fileSize = downloadedBytes
 		end
@@ -909,19 +966,7 @@ addStage(function()
 			speedStr = string.format("%.1f MB/s", speed / 1048576)
 		end
 
-		-- Now update labels (after totalSize is calculated)
-		fileSizeLabel.text = string.format("%s: %s  |  Total: %s / %s (%d / %d) @ %s",
-			fileSizeText,
-			formatSize(fileSize),
-			formatSize(downloadedSize),
-			formatSize(totalSize),
-			i,
-			totalFiles,
-			speedStr
-		)
-		workspace:draw()
-
-		-- Format time
+		-- Update final stats label
 		local function formatTime(seconds)
 			if seconds < 60 then
 				return math.floor(seconds) .. "s"
@@ -963,10 +1008,6 @@ addStage(function()
 		progressBar.value = math.floor(i / #downloadList * 100)
 		workspace:draw()
 	end
-
-	-- Show GUI window after download
-	window.isHidden = false
-	workspace:draw()
 
 	-- Flashing EEPROM
 	layout:removeChildren()
