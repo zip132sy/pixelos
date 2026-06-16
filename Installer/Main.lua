@@ -230,12 +230,24 @@ end
 
 -- Format size short (for download progress)
 local function formatSizeShort(bytes)
-	if bytes < 1024 then
-		return bytes .. " B"
+	if bytes < 0 then
+		return "0 B"
+	elseif bytes < 1024 then
+		return math.floor(bytes) .. " B"
 	elseif bytes < 1048576 then
-		return string.format("%.1f KB", bytes / 1024)
+		local kb = bytes / 1024
+		if kb < 10 then
+			return string.format("%.1f KB", kb)
+		else
+			return string.format("%.0f KB", kb)
+		end
 	else
-		return string.format("%.1f MB", bytes / 1048576)
+		local mb = bytes / 1048576
+		if mb < 10 then
+			return string.format("%.1f MB", mb)
+		else
+			return string.format("%.0f MB", mb)
+		end
 	end
 end
 
