@@ -237,12 +237,10 @@
 	ReadOnly = "只读",
 	ReadWrite = "读写",
 	ToggleReadOnly = "切换只读/读写",
-	BootManager = "启动管理器",
 	SetAsBoot = "设为启动盘",
 	CurrentBoot = "当前启动盘",
 	
 	-- 应用名称翻译
-	AppBootManager = "启动管理器",
 	AppSystemUpdate = "系统更新",
 	AppBiosTool = "BIOS 工具",
 	AppErrorReporter = "错误报告",

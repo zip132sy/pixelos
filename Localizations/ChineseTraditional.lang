@@ -191,7 +191,6 @@
 	ReadOnly = "只讀",
 	ReadWrite = "讀寫",
 	ToggleReadOnly = "切換只讀/讀寫",
-	BootManager = "啟動管理器",
 	SetAsBoot = "設為啟動盤",
 	CurrentBoot = "當前啟動盤",
 	
