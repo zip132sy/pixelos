@@ -173,6 +173,7 @@ local function showPasswordUnlock()
     
     local keyboard = require("Keyboard")
     local event = require("event")
+    local os = os
     
     local password = ""
     local maxLength = 32
@@ -311,7 +312,7 @@ local function showPasswordUnlock()
             -- Check reboot button
             if y == height - 2 and x >= math.floor(width / 2) + 8 and x <= math.floor(width / 2) + 15 then
                 computer.shutdown(false)
-                os.sleep(0.1)
+                computer.pullSignal(0.1)
                 computer.start()
             end
         end
@@ -322,9 +323,9 @@ end
 local unlocked = showPasswordUnlock()
 if not unlocked then
     -- User cancelled or failed, reboot
-    os.sleep(2)
+    computer.pullSignal(2)
     computer.shutdown(false)
-    os.sleep(0.1)
+    computer.pullSignal(0.1)
     computer.start()
 end
 

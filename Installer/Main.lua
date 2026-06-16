@@ -839,16 +839,28 @@ addStage(function()
 	layout:removeChildren()
 	addImage(1, 1, "EEPROM")
 	addTitle(0x969696, localization.flashing)
-	
-	if biosManagerSwitchAndLabel.switch.state then
-		layout:addChild(GUI.label(1, 1, layout.width, 1, 0xFFDB80, localization.biosManager or "BIOS Manager")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	end
-	
 	workspace:draw()
 	
-	component.invoke(EEPROMAddress, "set", request(EFIURL))
-	component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+	if biosManagerSwitchAndLabel.switch.state then
+		component.invoke(EEPROMAddress, "set", request("EFI/BIOS.lua"))
+		component.invoke(EEPROMAddress, "setLabel", "PixelOS BIOS")
+	else
+		component.invoke(EEPROMAddress, "set", request(EFIURL))
+		component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+	end
+	
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
+
+
+	-- Installing BIOS Manager (if enabled)
+	if biosManagerSwitchAndLabel.switch.state then
+		layout:removeChildren()
+		addImage(1, 1, "EEPROM")
+		addTitle(0xFFDB80, localization.biosManager or "BIOS Manager")
+		layout:addChild(GUI.label(1, 1, layout.width, 1, 0x969696, localization.installing)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		workspace:draw()
+		computer.pullSignal(1)
+	end
 
 
 	-- Saving system versions
