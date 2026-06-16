@@ -823,9 +823,9 @@ addStage(function()
 
 	-- Calculate total files
 	local totalFiles = #downloadList
-	local totalSize = 0
 	local totalDownloadedBytes = 0
 	local downloadedSize = 0
+	local totalSize = 0  -- Will be calculated during download
 
 	-- Localization strings (with fallbacks to prevent nil errors)
 	local installingText = localization.installing or "Installing"
@@ -844,30 +844,8 @@ addStage(function()
 		end
 	end
 
-	-- Downloading files from created list
-	local versions, path, id, version, shortcut = {}
-	local startTime = computer.uptime()
-	
-	-- Pre-fetch sizes for files 2 to total (first file will get size after download)
-	fileNameLabel.text = text.limit("Preparing...", container.width, "center")
-	workspace:draw()
-	
-	local fileSizes = {}
-	local totalSize = 0
-	for i = 2, #downloadList do
-		path = getData(downloadList[i])
-		local size = getFileSize(path)
-		if size == 0 then
-			size = string.len(path) * 100
-		end
-		fileSizes[i] = size
-		totalSize = totalSize + size
-		
-		fileSizeLabel.text = string.format("%d / %d", i - 1, totalFiles - 1)
-		workspace:draw()
-	end
-	
 	-- Download loop
+	local startTime = computer.uptime()
 	local downloadedSize = 0
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
@@ -880,26 +858,20 @@ addStage(function()
 		download(path, OSPath .. path)
 		local fileEndTime = computer.uptime()
 
-		-- Get file size (first file: get after download, others: use pre-fetched)
+		-- Get actual file size after download
 		local fileSize = 0
-		if i == 1 then
-			-- First file: get actual size after download
-			local fileProxy = selectedFilesystemProxy
-			local targetPath = OSPath .. path
-			local handle = fileProxy.open(targetPath, "rb")
-			if handle then
-				fileProxy.seek(handle, "end")
-				fileSize = fileProxy.tell(handle)
-				fileProxy.close(handle)
-			end
-			if fileSize == 0 then
-				fileSize = string.len(path) * 100
-			end
-			totalSize = totalSize + fileSize  -- Add first file size to total
-		else
-			-- Other files: use pre-fetched size
-			fileSize = fileSizes[i]
+		local fileProxy = selectedFilesystemProxy
+		local targetPath = OSPath .. path
+		local handle = fileProxy.open(targetPath, "rb")
+		if handle then
+			fileProxy.seek(handle, "end")
+			fileSize = fileProxy.tell(handle)
+			fileProxy.close(handle)
 		end
+		if fileSize == 0 then
+			fileSize = string.len(path) * 100
+		end
+		totalSize = totalSize + fileSize
 
 		-- Update stats
 		downloadedSize = downloadedSize + fileSize
