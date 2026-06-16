@@ -23,7 +23,7 @@ local locale = {
     shutdown = "关机",
     reboot = "重启",
     exit = "退出",
-    hint = "↑↓ 选择  Enter 确认  Esc 返回",
+    hint = "↑↓ 选择  Enter 确认  Esc 返回  F12 BIOS",
     bootDevice = "启动设备",
     systemType = "系统类型",
     setPassword = "设置密码",
@@ -33,7 +33,18 @@ local locale = {
     confirmPassword = "确认密码:",
     passwordMismatch = "密码不匹配",
     passwordChanged = "密码已更改",
-    passwordCleared = "密码已清除"
+    passwordCleared = "密码已清除",
+    sysInfo = "系统信息",
+    totalMem = "总内存: ",
+    usedMem = "已用内存: ",
+    freeMem = "可用内存: ",
+    compAddr = "计算机地址: ",
+    uptime = "运行时间: ",
+    maxEnergy = "最大能量: ",
+    currentEnergy = "当前能量: ",
+    bootPriority = "启动优先级: ",
+    lastBoot = "上次启动: ",
+    biosVersion = "BIOS 版本: 1.0"
 }
 
 -- 颜色定义
@@ -256,6 +267,64 @@ local function bootDevice(device)
     computer.shutdown(false)
 end
 
+-- 系统信息页面
+local function sysInfoPage()
+    while true do
+        drawScreen()
+        drawTitleBar()
+        drawHint()
+        
+        drawText(4, 3, locale.sysInfo, colors.text)
+        
+        local totalMem = computer.totalMemory()
+        local freeMem = computer.freeMemory()
+        local usedMem = totalMem - freeMem
+        local uptime = computer.uptime()
+        local maxEnergy = computer.maxEnergy()
+        local currentEnergy = math.floor(computer.energy())
+        local compAddr = computer.address()
+        
+        local eeprom = component.eeprom
+        local bootPriority = eeprom and eeprom.getData() or "未设置"
+        if type(bootPriority) == "string" and #bootPriority > 18 then
+            bootPriority = bootPriority:sub(1, 18) .. "..."
+        end
+        
+        local uptimeStr
+        if uptime >= 60 then
+            local minutes = math.floor(uptime / 60)
+            local seconds = math.floor(uptime % 60)
+            uptimeStr = minutes .. " 分钟 " .. seconds .. " 秒"
+        else
+            uptimeStr = math.floor(uptime) .. " 秒"
+        end
+        
+        local infoY = 5
+        drawText(4, infoY, locale.totalMem .. totalMem, colors.text) infoY = infoY + 1
+        drawText(4, infoY, locale.usedMem .. usedMem, colors.text) infoY = infoY + 1
+        drawText(4, infoY, locale.freeMem .. freeMem, colors.text) infoY = infoY + 1
+        
+        infoY = infoY + 1
+        drawText(4, infoY, locale.compAddr .. compAddr:sub(1, 18), colors.text) infoY = infoY + 1
+        drawText(4, infoY, locale.uptime .. uptimeStr, colors.text) infoY = infoY + 1
+        
+        infoY = infoY + 1
+        drawText(4, infoY, locale.maxEnergy .. maxEnergy, colors.text) infoY = infoY + 1
+        drawText(4, infoY, locale.currentEnergy .. currentEnergy, colors.text) infoY = infoY + 1
+        
+        infoY = infoY + 1
+        drawText(4, infoY, locale.bootPriority .. tostring(bootPriority), colors.text) infoY = infoY + 1
+        
+        infoY = infoY + 2
+        drawCenteredText(infoY, locale.biosVersion, colors.hint)
+        
+        local event = {computer.pullSignal()}
+        if event[1] == "key_down" and event[4] == 27 then
+            return
+        end
+    end
+end
+
 -- 主菜单
 local function mainMenu()
     local devices = getBootDevices()
@@ -268,7 +337,6 @@ local function mainMenu()
         drawTitleBar()
         drawHint()
         
-        -- 标题
         drawText(4, 3, locale.selectBoot, colors.text)
         
         if #devices == 0 then
@@ -278,10 +346,8 @@ local function mainMenu()
             return
         end
         
-        -- 计算菜单起始位置
         local menuStartY = 5
         
-        -- 绘制设备列表
         for i, device in ipairs(devices) do
             local y = menuStartY + i - 1
             local displayText = device.label .. " [" .. device.systemType .. "]"
@@ -291,29 +357,26 @@ local function mainMenu()
             drawMenuItem(y, displayText, i == selectedIndex)
         end
         
-        -- 添加分隔线
         local separatorY = menuStartY + #devices
         gpu.setBackground(colors.titleBar)
         gpu.fill(2, separatorY, w - 2, 1, " ")
         
-        -- 添加选项
-        drawMenuItem(separatorY + 1, locale.reboot, false)
-        drawMenuItem(separatorY + 2, locale.shutdown, false)
-        drawMenuItem(separatorY + 3, locale.exit, false)
+        drawMenuItem(separatorY + 1, locale.sysInfo, false)
+        drawMenuItem(separatorY + 2, locale.reboot, false)
+        drawMenuItem(separatorY + 3, locale.shutdown, false)
+        drawMenuItem(separatorY + 4, locale.exit, false)
         
-        -- 处理事件
         local event = {computer.pullSignal()}
         
         if event[1] == "key_down" then
             local key = event[4]
             
-            if key == 200 and selectedIndex > 1 then -- 上
+            if key == 200 and selectedIndex > 1 then
                 selectedIndex = selectedIndex - 1
-            elseif key == 208 and selectedIndex < #devices then -- 下
+            elseif key == 208 and selectedIndex < #devices + 4 then
                 selectedIndex = selectedIndex + 1
-            elseif key == 28 then -- Enter
+            elseif key == 28 then
                 if selectedIndex <= #devices then
-                    -- 检查是否加密
                     local device = devices[selectedIndex]
                     if isEncrypted(device.proxy) then
                         local storedPwd = getStoredPassword(device.proxy)
@@ -331,13 +394,15 @@ local function mainMenu()
                         bootDevice(device)
                     end
                 elseif selectedIndex == #devices + 1 then
-                    computer.shutdown(false) -- 重启
+                    sysInfoPage()
                 elseif selectedIndex == #devices + 2 then
-                    computer.shutdown(true) -- 关机
+                    computer.shutdown(false)
+                elseif selectedIndex == #devices + 3 then
+                    computer.shutdown(true)
                 else
-                    return -- 退出
+                    return
                 end
-            elseif key == 27 then -- Esc
+            elseif key == 27 then
                 return
             end
         end
