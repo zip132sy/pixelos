@@ -75,6 +75,8 @@ local function autoBoot()
   dt(math.floor(w/2)-8,math.floor(h/2),"启动失败",0xFF0000,0x2D2D2D)
   dt(math.floor(w/2)-15,math.floor(h/2)+2,"按任意键返回 BIOS",0x878787,0x2D2D2D)
   co.pullSignal()
+ else
+  while true do co.pullSignal()end
  end
 end
 local function loadMgr()
@@ -85,7 +87,7 @@ local function loadMgr()
    if h then
     local data=""local ch repeat ch=px.read(h,math.huge)data=data..(ch or"")until not ch px.close(h)
     local fn,err=load(data,"=/BIOS/Manager.lua")
-    if fn then pcall(fn)return true end
+    if fn then pcall(fn)while true do co.pullSignal()end end
    end
   end
  end
@@ -97,13 +99,12 @@ dt(math.floor(w/2)-11,math.floor(h/2)-2,"按 F12 进入 PixelOS BIOS",0xFFFFFF,0
 local tmo=5
 while tmo>0 do
  dt(math.floor(w/2)-1,math.floor(h/2),tmo.."s",0x00FF00,0x2D2D2D)
- dt(math.floor(w/2)-8,math.floor(h/2)+1,"Enter-启动 Esc-跳过",0x878787,0x2D2D2D)
+ dt(math.floor(w/2)-6,math.floor(h/2)+1,"Enter-启动",0x878787,0x2D2D2D)
  for i=1,20 do
   local e={co.pullSignal()}
   if e and e[1]=="key_down"then
    if e[4]==88 then loadMgr()return
-   elseif e[4]==28 then autoBoot()return
-   elseif e[4]==27 then tmo=0 break end
+   elseif e[4]==28 then autoBoot()return end
   end
  end
  tmo=tmo-1

@@ -415,6 +415,8 @@ local function main()
     drawTitleBar()
     
     mainMenu()
+    
+    computer.shutdown(false)
 end
 
 -- 运行
