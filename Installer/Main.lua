@@ -724,10 +724,11 @@ addStage(function()
 	-- Set BIOS to installation mode
 	component.invoke(EEPROMAddress, "setLabel", "PixelOS Install")
 
-	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 4))
+	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 5))
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
 	local fileNameLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-	local statsLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local fileSizeLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0xFFDB80, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local statsLabel = container:addChild(GUI.label(1, 4, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
 	-- Creating final filelist of things to download
 	local downloadList = {}
@@ -783,6 +784,23 @@ addStage(function()
 	-- Calculate total files
 	local totalFiles = #downloadList
 	local totalSize = 0
+	local totalDownloadedBytes = 0
+
+	-- Localization strings
+	local downloadingText = localization.downloading or "Downloading"
+	local fileSizeText = localization.fileSize or "File size"
+	local totalProgressText = localization.totalProgress or "Total"
+
+	-- Format size function
+	local function formatSize(bytes)
+		if bytes < 1024 then
+			return bytes .. " B"
+		elseif bytes < 1048576 then
+			return string.format("%.1f KB", bytes / 1024)
+		else
+			return string.format("%.1f MB", bytes / 1048576)
+		end
+	end
 
 	-- Downloading files from created list
 	local versions, path, id, version, shortcut = {}
@@ -792,7 +810,7 @@ addStage(function()
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
-		fileNameLabel.text = text.limit(localization.installing .. " \"" .. path .. "\"", container.width, "center")
+		fileNameLabel.text = text.limit(downloadingText .. " \"" .. path .. "\"", container.width, "center")
 		workspace:draw()
 
 		-- Download file
@@ -815,8 +833,22 @@ addStage(function()
 			fileSize = string.len(path) * 100
 		end
 
+		-- Update file size label
+		fileSizeLabel.text = string.format("%s: %s  |  %s: %s / %s (%d / %d)",
+			fileSizeText,
+			formatSize(fileSize),
+			totalProgressText,
+			formatSize(downloadedSize + fileSize),
+			formatSize(totalSize),
+			i,
+			totalFiles
+		)
+		workspace:draw()
+
 		-- Update stats
 		downloadedSize = downloadedSize + fileSize
+		totalDownloadedBytes = downloadedSize
+		totalSize = downloadedSize + (totalFiles - i) * (downloadedSize / math.max(i, 1))
 		local elapsedTime = computer.uptime() - startTime
 		local filesRemaining = totalFiles - i
 		local avgTimePerFile = elapsedTime / i
@@ -833,17 +865,6 @@ addStage(function()
 			end
 		end
 
-		-- Format size
-		local function formatSize(bytes)
-			if bytes < 1024 then
-				return bytes .. " B"
-			elseif bytes < 1048576 then
-				return string.format("%.1f KB", bytes / 1024)
-			else
-				return string.format("%.1f MB", bytes / 1048576)
-			end
-		end
-
 		-- Get remaining disk space
 		local diskSpaceRemaining = selectedFilesystemProxy.spaceTotal() - selectedFilesystemProxy.spaceUsed()
 
@@ -852,6 +873,7 @@ addStage(function()
 			filesRemaining .. " files",
 			formatSize(diskSpaceRemaining)
 		)
+		workspace:draw()
 
 		-- Adding system versions data
 		if id then
