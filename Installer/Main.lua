@@ -251,18 +251,12 @@ local function downloadWithProgress(url, path, current, total)
 			shortName = shortName:sub(1, 22) .. "..."
 		end
 		
-		-- Get actual file size first
-		local fileSize = getFileSize(url)
-		if fileSize == 0 then
-			fileSize = string.len(path) * 100
-		end
-		
 		-- Speed tracking variables
 		local downloadStartTime = computer.uptime()
 		local totalBytes = 0
 		
 		centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
-		centrizedText(title() + 1, 0x878787, string.format("0 B / %s", formatSizeShort(fileSize)))
+		centrizedText(title() + 1, 0x878787, "0 B")
 		
 		-- Wrapper for chunk handler to track speed
 		local function chunkHandler(chunk, chunkSize)
@@ -282,14 +276,14 @@ local function downloadWithProgress(url, path, current, total)
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
 				centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr))
-				-- Show current/total with actual file size
-				centrizedText(title() + 1, 0x878787, string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize)))
+				centrizedText(title() + 1, 0x878787, formatSizeShort(totalBytes))
 			end
 		end
 		
 		rawRequest(url, chunkHandler)
 		
 		selectedFilesystemProxy.close(fileHandle)
+		return totalBytes  -- Return actual downloaded size
 	else
 		error("File opening failed: " .. tostring(reason))
 	end
@@ -850,32 +844,13 @@ addStage(function()
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
 
-		fileNameLabel.text = text.limit(downloadingText .. " \"" .. path .. "\"", container.width, "center")
-		workspace:draw()
-
-		-- Download file
-		local fileStartTime = computer.uptime()
-		download(path, OSPath .. path)
-		local fileEndTime = computer.uptime()
-
-		-- Get actual file size after download
-		local fileSize = 0
-		local fileProxy = selectedFilesystemProxy
-		local targetPath = OSPath .. path
-		local handle = fileProxy.open(targetPath, "rb")
-		if handle then
-			fileProxy.seek(handle, "end")
-			fileSize = fileProxy.tell(handle)
-			fileProxy.close(handle)
-		end
-		if fileSize == 0 then
-			fileSize = string.len(path) * 100
-		end
-		totalSize = totalSize + fileSize
+		-- Download file with progress and get actual size
+		local fileSize = downloadWithProgress(path, OSPath .. path, i, totalFiles)
 
 		-- Update stats
 		downloadedSize = downloadedSize + fileSize
 		totalDownloadedBytes = downloadedSize
+		totalSize = totalSize + fileSize
 		local elapsedTime = computer.uptime() - startTime
 		local filesRemaining = totalFiles - i
 		local avgTimePerFile = elapsedTime / i
