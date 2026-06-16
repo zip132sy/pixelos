@@ -858,31 +858,29 @@ addStage(function()
 	local versions, path, id, version, shortcut = {}
 	local startTime = computer.uptime()
 	
-	-- Phase 1: Pre-fetch all file sizes
-	fileNameLabel.text = text.limit("Calculating sizes...", container.width, "center")
+	-- Pre-fetch sizes for files 2 to total (first file will get size after download)
+	fileNameLabel.text = text.limit("Preparing...", container.width, "center")
 	workspace:draw()
 	
 	local fileSizes = {}
 	local totalSize = 0
-	for i = 1, #downloadList do
+	for i = 2, #downloadList do
 		path = getData(downloadList[i])
 		local size = getFileSize(path)
 		if size == 0 then
-			size = string.len(path) * 100  -- Fallback estimate
+			size = string.len(path) * 100
 		end
 		fileSizes[i] = size
 		totalSize = totalSize + size
 		
-		-- Show progress
-		fileSizeLabel.text = string.format("%d / %d files", i, totalFiles)
+		fileSizeLabel.text = string.format("%d / %d", i - 1, totalFiles - 1)
 		workspace:draw()
 	end
 	
-	-- Phase 2: Actual download with accurate progress
+	-- Download loop
 	local downloadedSize = 0
 	for i = 1, #downloadList do
 		path, id, version, shortcut = getData(downloadList[i])
-		local fileSize = fileSizes[i]
 
 		fileNameLabel.text = text.limit(downloadingText .. " \"" .. path .. "\"", container.width, "center")
 		workspace:draw()
@@ -891,6 +889,27 @@ addStage(function()
 		local fileStartTime = computer.uptime()
 		download(path, OSPath .. path)
 		local fileEndTime = computer.uptime()
+
+		-- Get file size (first file: get after download, others: use pre-fetched)
+		local fileSize = 0
+		if i == 1 then
+			-- First file: get actual size after download
+			local fileProxy = selectedFilesystemProxy
+			local targetPath = OSPath .. path
+			local handle = fileProxy.open(targetPath, "rb")
+			if handle then
+				fileProxy.seek(handle, "end")
+				fileSize = fileProxy.tell(handle)
+				fileProxy.close(handle)
+			end
+			if fileSize == 0 then
+				fileSize = string.len(path) * 100
+			end
+			totalSize = totalSize + fileSize  -- Add first file size to total
+		else
+			-- Other files: use pre-fetched size
+			fileSize = fileSizes[i]
+		end
 
 		-- Update stats
 		downloadedSize = downloadedSize + fileSize
