@@ -1,6 +1,6 @@
 
 local
-	stringsMineOSEFI,
+	stringsPixelOSEFI,
 	stringsChangeLabel,
 	stringsKeyDown,
 	stringsComponentAdded,
@@ -176,7 +176,7 @@ function(...)
 	local result, reason = load(...)
 
 	if result then
-		result, reason = xpcall(result, debug.traceback)
+		result, reason = xpcall(result, function(err) return err end)
 
 		if result then
 			return
@@ -458,7 +458,7 @@ while uptime() < deadline do
 			end))
 		end
 
-		menu(stringsMineOSEFI, utilities)
+		menu(stringsPixelOSEFI, utilities)
 	end
 end
 

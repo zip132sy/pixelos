@@ -122,7 +122,26 @@ local function getLocalization()
         save = "保存",
         delete = "删除",
         edit = "编辑",
-        add = "添加"
+        add = "添加",
+        diskSpace = "磁盘空间需求:",
+        baseSystem = "基础系统:",
+        additional = "附加项:",
+        total = "总计:",
+        available = "可用空间:",
+        warningSpace = "警告: 空间不足，建议至少 ",
+        languagePack = "语言包",
+        thirdPartyApps = "第三方应用",
+        tabletMode = "平板模式",
+        wallpaper = "壁纸",
+        errorSpace = "错误：磁盘空间不足",
+        needAtLeast = "需要至少 ",
+        kbAvailable = " KB 可用空间",
+        currentAvailable = "当前可用空间：",
+        pressAnyKey = "按任意键继续...",
+        installingFiles = "正在安装文件：",
+        remainingFiles = "剩余文件：",
+        estimatedSize = "约需空间：",
+        remainingTime = "剩余时间："
     }
     
     local en_US = {
@@ -181,7 +200,26 @@ local function getLocalization()
         save = "Save",
         delete = "Delete",
         edit = "Edit",
-        add = "Add"
+        add = "Add",
+        diskSpace = "Disk space required:",
+        baseSystem = "Base system:",
+        additional = "Additional:",
+        total = "Total:",
+        available = "Available:",
+        warningSpace = "WARNING: Insufficient space, need at least ",
+        languagePack = "Language Pack",
+        thirdPartyApps = "Third-party Apps",
+        tabletMode = "Tablet Mode",
+        wallpaper = "Wallpaper",
+        errorSpace = "ERROR: Insufficient disk space",
+        needAtLeast = "Need at least ",
+        kbAvailable = " KB available",
+        currentAvailable = "Current available: ",
+        pressAnyKey = "Press any key to continue...",
+        installingFiles = "Installing file: ",
+        remainingFiles = "Remaining files: ",
+        estimatedSize = "Estimated size: ",
+        remainingTime = "Remaining time: "
     }
     
     if lang == "zh_CN" then
@@ -628,30 +666,30 @@ local function showNetworkCheck()
     end
     
     -- Display disk space information
-    drawText(8,17,"磁盘空间需求:",0x000000,0xE1E1E1)
-    drawText(8,18,"  基础系统: " .. baseSize .. " KB",0x666666,0xE1E1E1)
-    drawText(8,19,"  附加项: " .. additionalSize .. " KB",0x666666,0xE1E1E1)
-    drawText(8,20,"  总计: " .. totalSize .. " KB",0x3366CC,0xE1E1E1)
-    drawText(8,21,"  可用空间: " .. availableSpace .. " KB",0x00AA00,0xE1E1E1)
+    drawText(8,17,loc.diskSpace,0x000000,0xE1E1E1)
+    drawText(8,18,"  " .. loc.baseSystem .. " " .. baseSize .. " KB",0x666666,0xE1E1E1)
+    drawText(8,19,"  " .. loc.additional .. " " .. additionalSize .. " KB",0x666666,0xE1E1E1)
+    drawText(8,20,"  " .. loc.total .. " " .. totalSize .. " KB",0x3366CC,0xE1E1E1)
+    drawText(8,21,"  " .. loc.available .. " " .. availableSpace .. " KB",0x00AA00,0xE1E1E1)
     
     if availableSpace < totalSize * 1.2 then -- 20% buffer
-        drawText(8,22,"  警告: 空间不足，建议至少 " .. math.floor(totalSize * 1.2) .. " KB",0xFF0000,0xE1E1E1)
+        drawText(8,22,"  " .. loc.warningSpace .. math.floor(totalSize * 1.2) .. " KB",0xFF0000,0xE1E1E1)
     end
 
     -- Additional options
-    drawText(8,24,"附加项:",0x000000,0xE1E1E1)
+    drawText(8,24,loc.additional .. ":",0x000000,0xE1E1E1)
     
     local langCb = drawButton(10,25,3,1,installState.languagePack and "X" or "",installState.languagePack)
-    drawText(14,25,"语言包",0x000000,0xE1E1E1)
+    drawText(14,25,loc.languagePack,0x000000,0xE1E1E1)
     
     local appsCb = drawButton(10,26,3,1,installState.thirdPartyApps and "X" or "",installState.thirdPartyApps)
-    drawText(14,26,"第三方应用",0x000000,0xE1E1E1)
+    drawText(14,26,loc.thirdPartyApps,0x000000,0xE1E1E1)
     
     local tabletCb = drawButton(10,27,3,1,installState.tabletMode and "X" or "",installState.tabletMode)
-    drawText(14,27,"平板模式",0x000000,0xE1E1E1)
+    drawText(14,27,loc.tabletMode,0x000000,0xE1E1E1)
     
     local wallCb = drawButton(10,28,3,1,installState.wallpaper and "X" or "",installState.wallpaper)
-    drawText(14,28,"壁纸",0x000000,0xE1E1E1)
+    drawText(14,28,loc.wallpaper,0x000000,0xE1E1E1)
 
     local backBtn=drawButton(10,sh-4,10,3,loc.back,false)
     local nextBtn=drawButton(sw-20,sh-4,10,3,loc.next,true)
@@ -690,10 +728,10 @@ local function showNetworkCheck()
                         clear(0x2D2D2D)
                         drawStatusBar()
                         drawBox(math.floor(sw/2)-25,math.floor(sh/2)-5,50,10,0xE1E1E1,true)
-                        drawText(math.floor(sw/2)-12,math.floor(sh/2)-3,"错误：磁盘空间不足",0xFF0000,0xE1E1E1)
-                        drawText(math.floor(sw/2)-20,math.floor(sh/2)-1,"需要至少 " .. math.floor(totalSize * 1.2) .. " KB 可用空间",0x000000,0xE1E1E1)
-                        drawText(math.floor(sw/2)-15,math.floor(sh/2)+1,"当前可用空间：" .. availableSpace .. " KB",0x000000,0xE1E1E1)
-                        drawText(math.floor(sw/2)-12,math.floor(sh/2)+3,"按任意键继续...",0x666666,0xE1E1E1)
+                        drawText(math.floor(sw/2)-12,math.floor(sh/2)-3,loc.errorSpace,0xFF0000,0xE1E1E1)
+                        drawText(math.floor(sw/2)-20,math.floor(sh/2)-1,loc.needAtLeast .. math.floor(totalSize * 1.2) .. loc.kbAvailable,0x000000,0xE1E1E1)
+                        drawText(math.floor(sw/2)-15,math.floor(sh/2)+1,loc.currentAvailable .. availableSpace .. " KB",0x000000,0xE1E1E1)
+                        drawText(math.floor(sw/2)-12,math.floor(sh/2)+3,loc.pressAnyKey,0x666666,0xE1E1E1)
                         waitClick()
                         return 4 -- Stay on this screen
                     end
@@ -777,10 +815,10 @@ local function showInstallation()
                     clear(0x2D2D2D)
                     drawStatusBar()
                     drawBox(math.floor(sw/2)-25,math.floor(sh/2)-5,50,10,0xE1E1E1,true)
-                    drawText(math.floor(sw/2)-12,math.floor(sh/2)-3,"错误：磁盘空间不足",0xFF0000,0xE1E1E1)
-                    drawText(math.floor(sw/2)-20,math.floor(sh/2)-1,"需要至少 " .. math.floor(totalSize * 1.2) .. " KB 可用空间",0x000000,0xE1E1E1)
-                    drawText(math.floor(sw/2)-15,math.floor(sh/2)+1,"当前可用空间：" .. availableSpace .. " KB",0x000000,0xE1E1E1)
-                    drawText(math.floor(sw/2)-12,math.floor(sh/2)+3,"按任意键继续...",0x666666,0xE1E1E1)
+                    drawText(math.floor(sw/2)-12,math.floor(sh/2)-3,loc.errorSpace,0xFF0000,0xE1E1E1)
+                    drawText(math.floor(sw/2)-20,math.floor(sh/2)-1,loc.needAtLeast .. math.floor(totalSize * 1.2) .. loc.kbAvailable,0x000000,0xE1E1E1)
+                    drawText(math.floor(sw/2)-15,math.floor(sh/2)+1,loc.currentAvailable .. availableSpace .. " KB",0x000000,0xE1E1E1)
+                    drawText(math.floor(sw/2)-12,math.floor(sh/2)+3,loc.pressAnyKey,0x666666,0xE1E1E1)
                     waitClick()
                     return
                 end
@@ -800,9 +838,9 @@ local function showInstallation()
                 
                 -- Draw progress bar with all info
                 drawProgressBar(10, 15, sw - 20, percent, 
-                    "正在安装文件：" .. i .. "/" .. totalFiles,
-                    "剩余文件：" .. remainingFiles .. "  约需空间：" .. estimatedSize .. "KB",
-                    "剩余时间：" .. remainingText)
+                    loc.installingFiles .. i .. "/" .. totalFiles,
+                    loc.remainingFiles .. remainingFiles .. "  " .. loc.estimatedSize .. estimatedSize .. "KB",
+                    loc.remainingTime .. remainingText)
                 
                 computer.pullSignal(0.1)  -- Use computer API instead of os.sleep
             end
@@ -859,7 +897,7 @@ local function executeString(...)
     local result, reason = load(...) 
     
     if result then 
-        result, reason = xpcall(result, debug.traceback) 
+        result, reason = xpcall(result, function(err) return err end) 
         
         if result then 
             return 
@@ -973,7 +1011,7 @@ local function main()
             clear(0x2D2D2D)
             drawText(2, 3, "Critical error: " .. tostring(err), 0xFF0000, 0x2D2D2D)
             drawText(2, 5, "Attempting to boot from any available disk...", 0xFFFFFF, 0x2D2D2D)
-            co.sleep(2)
+            co.pullSignal(2)
         end
         tryBootFromAny()
     end
