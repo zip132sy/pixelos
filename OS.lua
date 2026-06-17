@@ -161,6 +161,26 @@ package.loaded.computer = computer
 package.loaded.component = component
 package.loaded.unicode = unicode
 
+-- Boot error display
+local function showBootError(message)
+    local gpu = component.list("gpu")()
+    local screenAddr = component.list("screen")()
+    if gpu and screenAddr then
+        component.invoke(gpu, "bind", screenAddr)
+        local w, h = component.invoke(gpu, "getResolution")
+        component.invoke(gpu, "setBackground", 0x1E1E1E)
+        component.invoke(gpu, "fill", 1, 1, w, h, " ")
+        component.invoke(gpu, "setForeground", 0xFF0000)
+        component.invoke(gpu, "set", math.floor((w - #message) / 2), math.floor(h / 2), message)
+        component.invoke(gpu, "setForeground", 0x888888)
+        component.invoke(gpu, "set", math.floor((w - 30) / 2), math.floor(h / 2) + 2, "Press any key to reboot...")
+    end
+    computer.pullSignal()
+    computer.shutdown(false)
+    computer.pullSignal(0.1)
+    computer.start()
+end
+
 -- Password Unlock Screen
 local function showPasswordUnlock()
     local gpu = component.list("gpu")()
@@ -194,7 +214,7 @@ local function showPasswordUnlock()
     end
     
     if #encryptedDrives == 0 then
-        return false  -- No encrypted drives, skip unlock screen
+        return false
     end
     
     local passwordHash = nil
@@ -209,7 +229,7 @@ local function showPasswordUnlock()
     end
     
     if not passwordHash then
-        return false  -- No BIOS password set, skip unlock screen
+        return false
     end
     
     local function draw()
@@ -285,7 +305,7 @@ local function showPasswordUnlock()
                 -- Verify password
                 local inputHash = Encryption.hashPassword(password)
                 if inputHash == passwordHash then
-                    return true  -- Password correct
+                    return true
                 else
                     password = ""
                     draw()
@@ -318,83 +338,88 @@ local function showPasswordUnlock()
 end
 
 -- Show password unlock screen after boot
-local unlocked = showPasswordUnlock()
+local unlocked, err = pcall(showPasswordUnlock)
 if not unlocked then
-    -- User cancelled or failed, reboot
-    computer.pullSignal(2)
-    computer.shutdown(false)
-    computer.pullSignal(0.1)
-    computer.start()
+    showBootError("Unlock error: " .. tostring(err))
+elseif unlocked == false then
+    -- No password protection, continue booting
 end
 
 ---------------------------------------- Main loop ----------------------------------------
 
 -- Creating OS workspace, which contains every window/menu/etc.
-local workspace = GUI.workspace()
-system.setWorkspace(workspace)
+local function main()
+    local workspace = GUI.workspace()
+    system.setWorkspace(workspace)
 
--- "double_touch" event handler
-local doubleTouchInterval, doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = 0.3
-event.addHandler(
-	function(signalType, componentAddress, x, y, button, user)
-		if signalType == "touch" then
-			local uptime = computer.uptime()
-			
-			if doubleTouchX == x and doubleTouchY == y and doubleTouchButton == button and doubleTouchcomponentAddress == componentAddress and uptime - doubleTouchUptime <= doubleTouchInterval then
-				computer.pushSignal("double_touch", componentAddress, x, y, button, user)
-				event.skip("touch")
-			end
+    -- "double_touch" event handler
+    local doubleTouchInterval, doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = 0.3
+    event.addHandler(
+        function(signalType, componentAddress, x, y, button, user)
+            if signalType == "touch" then
+                local uptime = computer.uptime()
+                
+                if doubleTouchX == x and doubleTouchY == y and doubleTouchButton == button and doubleTouchcomponentAddress == componentAddress and uptime - doubleTouchUptime <= doubleTouchInterval then
+                    computer.pushSignal("double_touch", componentAddress, x, y, button, user)
+                    event.skip("touch")
+                end
 
-			doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = x, y, button, uptime, componentAddress
-		end
-	end
-)
+                doubleTouchX, doubleTouchY, doubleTouchButton, doubleTouchUptime, doubleTouchcomponentAddress = x, y, button, uptime, componentAddress
+            end
+        end
+    )
 
--- Screen component attaching/detaching event handler
-event.addHandler(
-	function(signalType, componentAddress, componentType)
-		if (signalType == "component_added" or signalType == "component_removed") and componentType == "screen" then
-			local GPUAddress = screen.getGPUAddress()
+    -- Screen component attaching/detaching event handler
+    event.addHandler(
+        function(signalType, componentAddress, componentType)
+            if (signalType == "component_added" or signalType == "component_removed") and componentType == "screen" then
+                local GPUAddress = screen.getGPUAddress()
 
-			local function bindScreen(address)
-				screen.setScreenAddress(address, false)
-				screen.setColorDepth(screen.getMaxColorDepth())
+                local function bindScreen(address)
+                    screen.setScreenAddress(address, false)
+                    screen.setColorDepth(screen.getMaxColorDepth())
 
-				workspace:draw()
-			end
+                    workspace:draw()
+                end
 
-			if signalType == "component_added" then
-				if not component.invoke(GPUAddress, "getScreen") then
-					bindScreen(componentAddress)
-				end
-			else
-				if not component.invoke(GPUAddress, "getScreen") then
-					local address = component.list("screen")()
-					
-					if address then
-						bindScreen(address)
-					end
-				end
-			end
-		end
-	end
-)
+                if signalType == "component_added" then
+                    if not component.invoke(GPUAddress, "getScreen") then
+                        bindScreen(componentAddress)
+                    end
+                else
+                    if not component.invoke(GPUAddress, "getScreen") then
+                        local address = component.list("screen")()
+                        
+                        if address then
+                            bindScreen(address)
+                        end
+                    end
+                end
+            end
+        end
+    )
 
--- Logging in
-system.authorize()
+    -- Logging in
+    system.authorize()
 
--- Main loop with UI regeneration after errors 
-while true do
-	local success, path, line, traceback = system.call(workspace.start, workspace, 0)
-	
-	if success then
-		break
-	else
-		system.updateWorkspace()
-		system.updateDesktop()
-		workspace:draw()
-		
-		system.error(path, line, traceback)
-		workspace:draw()
-	end
+    -- Main loop with UI regeneration after errors 
+    while true do
+        local success, path, line, traceback = system.call(workspace.start, workspace, 0)
+        
+        if success then
+            break
+        else
+            system.updateWorkspace()
+            system.updateDesktop()
+            workspace:draw()
+            
+            system.error(path, line, traceback)
+            workspace:draw()
+        end
+    end
+end
+
+local ok, err = pcall(main)
+if not ok then
+    showBootError("Main loop error: " .. tostring(err))
 end
