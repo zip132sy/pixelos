@@ -917,11 +917,15 @@ addStage(function()
 	addToList(applicationsSwitchAndLabel.switch.state, "optional")
 	addToList(wallpapersSwitchAndLabel.switch.state, "optionalWallpapers")
 
-	-- Add BIOS files only if Manager is enabled
+	-- Add BIOS files
 	if biosManagerSwitchAndLabel.switch.state then
+		-- Custom BIOS with Manager
 		table.insert(downloadList, "EFI/BIOS.lua")
 		table.insert(downloadList, "BIOS/Manager.lua")
 		table.insert(downloadList, "Libraries/Encryption.lua")
+	else
+		-- Original Minified EFI
+		table.insert(downloadList, "EFI/Minified.lua")
 	end
 
 	-- Calculate total files
@@ -1040,11 +1044,11 @@ addStage(function()
 	if biosManagerSwitchAndLabel.switch.state then
 		component.invoke(EEPROMAddress, "set", request("EFI/BIOS.lua"))
 		component.invoke(EEPROMAddress, "setLabel", "PixelOS BIOS")
-		component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 	else
-		-- Directly boot system without BIOS
-		computer.shutdown(true)
+		component.invoke(EEPROMAddress, "set", request("EFI/Minified.lua"))
+		component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
 	end
+	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 	
 	-- Installing BIOS Manager (if enabled)
 	if biosManagerSwitchAndLabel.switch.state then
