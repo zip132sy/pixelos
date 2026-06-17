@@ -219,8 +219,8 @@ end
 
 -- Network connectivity check
 local function checkNetwork()
-	-- Try to connect to a simple URL to test network
-	local testHandle = component.invoke(internetAddress, "request", "http://example.com")
+	-- Try to connect to the project repository to test network
+	local testHandle = component.invoke(internetAddress, "request", "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
 	if testHandle then
 		testHandle.close()
 		return true
@@ -774,7 +774,7 @@ addStage(function()
 	end
 
 	local estimatedSize = calculateEstimatedSize()
-	local sizeLabel = layout:addChild(GUI.label(1, 1, layout.width, 1, 0x696969, ""))
+	local sizeLabel = layout:addChild(GUI.label(1, 1, layout.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	sizeLabel.text = "Estimated size: " .. formatSize(estimatedSize)
 
 	-- Update size when switches change
@@ -784,10 +784,10 @@ addStage(function()
 		workspace:draw()
 	end
 
-	wallpapersSwitchAndLabel.switch.onChange = updateSize
-	applicationsSwitchAndLabel.switch.onChange = updateSize
-	localizationsSwitchAndLabel.switch.onChange = updateSize
-	biosManagerSwitchAndLabel.switch.onChange = updateSize
+	wallpapersSwitchAndLabel.switch.onStateChanged = updateSize
+	applicationsSwitchAndLabel.switch.onStateChanged = updateSize
+	localizationsSwitchAndLabel.switch.onStateChanged = updateSize
+	biosManagerSwitchAndLabel.switch.onStateChanged = updateSize
 end)
 
 -- License acception stage
@@ -807,18 +807,21 @@ addStage(function()
 	-- Add MineOS License button
 	local mineOSLicenseButton = layout:addChild(GUI.button(1, layout.height - 3, 20, 1, 0xD2D2D2, 0x696969, 0xF0F0F0, 0x696969, localization.showOriginalLicense))
 	mineOSLicenseButton.onTouch = function()
-		-- Create a modal window for original license
-		local modalWindow = workspace:addChild(GUI.window(math.floor(workspace.width / 2 - 40 / 2), math.floor(workspace.height / 2 - 18 / 2), 40, 18, "Original License"))
+		-- Create a modal window for original license with background panel and only close button
+		local modalWindow = workspace:addChild(GUI.filledWindow(math.floor(workspace.width / 2 - 40 / 2), math.floor(workspace.height / 2 - 18 / 2), 40, 18, GUI.WINDOW_BACKGROUND_PANEL_COLOR))
 		
-		-- Add scrollable text box
-		local scrollableTextBox = modalWindow:addChild(GUI.textBox(2, 2, modalWindow.width - 4, modalWindow.height - 5, 0xF0F0F0, 0x696969, text.wrap({request("Installer/Licenses/MineOS_Original_LICENSE")}, modalWindow.width - 4), 1, 0, 0, true, true))
+		-- Hide minimize and maximize buttons, keep only close button (red dot in top-left corner)
+		modalWindow.actionButtons.minimize.hidden = true
+		modalWindow.actionButtons.maximize.hidden = true
 		
-		-- Add close button
-		local closeButton = modalWindow:addChild(GUI.button(math.floor(modalWindow.width / 2 - 8 / 2), modalWindow.height - 2, 8, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, "Close"))
-		closeButton.onTouch = function()
+		-- Set close button handler
+		modalWindow.actionButtons.close.onTouch = function()
 			modalWindow:remove()
 			workspace:draw()
 		end
+		
+		-- Add scrollable text box (content starts below title bar)
+		local scrollableTextBox = modalWindow:addChild(GUI.textBox(3, 3, modalWindow.width - 4, modalWindow.height - 4, 0xF0F0F0, 0x696969, text.wrap({request("Installer/Licenses/MineOS_Original_LICENSE")}, modalWindow.width - 4), 1, 0, 0, true, true))
 		
 		workspace:draw()
 	end

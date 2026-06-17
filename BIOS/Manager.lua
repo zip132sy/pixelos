@@ -1,18 +1,25 @@
 -- ============================================================
 -- BIOS Manager - 完整的 BIOS 设置界面
+-- 功能：启动设备管理、重命名、设置默认、查看信息、更改顺序
 -- ============================================================
 
-local component = require("component")
-local computer = require("computer")
-local unicode = require("unicode")
+local component = component
+local computer = computer
+local unicode = unicode
+if not unicode then
+	pcall(function() unicode = require("unicode") end)
+end
+if type(unicode) ~= "table" then
+	unicode = { wlen = function(s) return #s end }
+end
 
--- GPU 和屏幕设置
 local gpu = component.gpu
 local screen = component.screen
-gpu.bind(screen.address)
-local w, h = gpu.getResolution()
+if gpu and screen then
+	gpu.bind(screen.address)
+end
+local w, h = gpu and gpu.getResolution() or 80, 25
 
--- 本地化文本
 local locale = {
     title = "BIOS 设置",
     selectBoot = "选择启动项",
@@ -23,7 +30,7 @@ local locale = {
     shutdown = "关机",
     reboot = "重启",
     exit = "退出",
-    hint = "↑↓ 选择  Enter 确认  Esc 返回  F12 BIOS",
+    hint = "↑↓ 选择  Enter 确认  Esc 返回",
     bootDevice = "启动设备",
     systemType = "系统类型",
     setPassword = "设置密码",
@@ -44,10 +51,17 @@ local locale = {
     currentEnergy = "当前能量: ",
     bootPriority = "启动优先级: ",
     lastBoot = "上次启动: ",
-    biosVersion = "BIOS 版本: 1.0"
+    biosVersion = "BIOS 版本: 1.0",
+    rename = "重命名",
+    setDefault = "设为默认",
+    moveUp = "上移",
+    moveDown = "下移",
+    bootLocation = "引导位置: ",
+    confirmRename = "输入新名称:",
+    renamed = "已重命名!",
+    defaultSet = "已设为默认!"
 }
 
--- 颜色定义
 local colors = {
     background = 0x2D2D2D,
     titleBar = 0x1E1E1E,
@@ -59,7 +73,6 @@ local colors = {
     success = 0x44FF44
 }
 
--- 哈希函数
 local function hashPassword(password)
     local hash = 1
     for i = 1, #password do
@@ -68,7 +81,6 @@ local function hashPassword(password)
     return tostring(hash)
 end
 
--- 检查磁盘是否加密
 local function isEncrypted(diskProxy)
     if diskProxy and diskProxy.exists then
         return diskProxy.exists("/.bios_pwd")
@@ -76,7 +88,6 @@ local function isEncrypted(diskProxy)
     return false
 end
 
--- 获取保存的密码
 local function getStoredPassword(diskProxy)
     if not isEncrypted(diskProxy) then
         return nil
@@ -97,33 +108,28 @@ local function getStoredPassword(diskProxy)
     return nil
 end
 
--- 绘制标题栏
 local function drawTitleBar()
     gpu.setBackground(colors.titleBar)
     gpu.fill(1, 1, w, 1, " ")
     gpu.set(2, 1, locale.title)
 end
 
--- 绘制屏幕
 local function drawScreen()
     gpu.setBackground(colors.background)
     gpu.fill(1, 1, w, h, " ")
 end
 
--- 绘制文本
 local function drawText(x, y, text, foreground, background)
     if foreground then gpu.setForeground(foreground) end
     if background then gpu.setBackground(background) end
     gpu.set(x, y, text)
 end
 
--- 居中绘制文本
 local function drawCenteredText(y, text, foreground, background)
     local x = math.floor((w - #text) / 2) + 1
     drawText(x, y, text, foreground, background)
 end
 
--- 绘制选择项
 local function drawMenuItem(y, text, selected)
     if selected then
         gpu.setBackground(colors.selectionBg)
@@ -136,7 +142,6 @@ local function drawMenuItem(y, text, selected)
     gpu.set(4, y, (selected and "> " or "  ") .. text)
 end
 
--- 绘制提示栏
 local function drawHint()
     gpu.setBackground(colors.titleBar)
     gpu.setForeground(colors.hint)
@@ -146,7 +151,6 @@ local function drawHint()
     gpu.set(x, h, hintText)
 end
 
--- 获取所有可启动设备
 local function getBootDevices()
     local devices = {}
     local eeprom = component.eeprom
@@ -159,7 +163,6 @@ local function getBootDevices()
             local hasInit = proxy.exists("/init.lua")
             
             if hasOS or hasInit then
-                -- 检测系统类型
                 local systemType = "Unknown"
                 if hasOS then
                     local handle = proxy.open("/OS.lua", "r")
@@ -198,7 +201,6 @@ local function getBootDevices()
         end
     end
     
-    -- 排序：默认启动项优先，然后按标签排序
     table.sort(devices, function(a, b)
         if a.isBootDefault ~= b.isBootDefault then
             return a.isBootDefault
@@ -209,7 +211,6 @@ local function getBootDevices()
     return devices
 end
 
--- 密码输入界面
 local function passwordInput()
     drawScreen()
     drawTitleBar()
@@ -233,9 +234,9 @@ local function passwordInput()
         if event[1] == "key_down" then
             local key = event[4]
             
-            if key == 28 then -- Enter
+            if key == 28 then
                 return password
-            elseif key == 14 then -- Backspace
+            elseif key == 14 then
                 if #password > 0 then
                     password = password:sub(1, -2)
                 end
@@ -244,30 +245,61 @@ local function passwordInput()
     end
 end
 
--- 启动设备
+local function textInput(prompt)
+    drawScreen()
+    drawTitleBar()
+    drawHint()
+    
+    drawCenteredText(math.floor(h / 2) - 2, prompt, colors.text)
+    
+    local text = ""
+    
+    while true do
+        gpu.fill(2, math.floor(h / 2), w - 2, 1, " ")
+        drawCenteredText(math.floor(h / 2), text, colors.text)
+        
+        local event = {computer.pullSignal()}
+        
+        if event[1] == "key_down" then
+            local key = event[4]
+            
+            if key == 28 then
+                return text
+            elseif key == 14 then
+                if #text > 0 then
+                    text = text:sub(1, -2)
+                end
+            elseif key >= 32 and key <= 126 then
+                text = text .. string.char(key)
+            end
+        end
+    end
+end
+
 local function bootDevice(device)
     drawScreen()
     drawTitleBar()
     drawCenteredText(math.floor(h / 2), "正在保存启动项...", colors.text)
     
-    -- 保存启动地址到 EEPROM
     local eeprom = component.eeprom
     if eeprom then
         eeprom.setData(device.address)
     end
     
-    -- 提示即将重启
     drawScreen()
     drawTitleBar()
-    drawCenteredText(math.floor(h / 2), "启动项已保存!", colors.success)
+    drawCenteredText(math.floor(h / 2), locale.defaultSet, colors.success)
     drawCenteredText(math.floor(h / 2) + 2, "即将启动: " .. device.label .. " [" .. device.systemType .. "]", colors.text)
-    os.sleep(2)
     
-    -- 重启电脑
+    if _G._B then
+        os.sleep(1)
+        return
+    end
+    
+    os.sleep(2)
     computer.shutdown(false)
 end
 
--- 系统信息页面
 local function sysInfoPage()
     while true do
         drawScreen()
@@ -325,7 +357,106 @@ local function sysInfoPage()
     end
 end
 
--- 主菜单
+-- 设备详情菜单
+local function deviceMenu(device)
+    local menuItems = {
+        { text = locale.setDefault, action = "default" },
+        { text = locale.rename, action = "rename" },
+        { text = locale.moveUp, action = "up" },
+        { text = locale.moveDown, action = "down" },
+        { text = "启动", action = "boot" },
+        { text = locale.exit, action = "exit" }
+    }
+    
+    local selected = 1
+    
+    while true do
+        drawScreen()
+        drawTitleBar()
+        drawHint()
+        
+        drawText(4, 3, device.label .. " [" .. device.systemType .. "]", colors.text)
+        drawText(4, 4, locale.bootLocation .. device.address:sub(1, 18) .. "...", colors.hint)
+        
+        if device.isBootDefault then
+            drawText(4, 5, "★ 当前默认启动", colors.success)
+        end
+        
+        local menuStartY = 7
+        for i, item in ipairs(menuItems) do
+            local y = menuStartY + i - 1
+            drawMenuItem(y, item.text, i == selected)
+        end
+        
+        local event = {computer.pullSignal()}
+        if event[1] == "key_down" then
+            local key = event[4]
+            
+            if key == 200 and selected > 1 then
+                selected = selected - 1
+            elseif key == 208 and selected < #menuItems then
+                selected = selected + 1
+            elseif key == 28 then
+                local action = menuItems[selected].action
+                
+                if action == "default" then
+                    local eeprom = component.eeprom
+                    if eeprom then
+                        eeprom.setData(device.address)
+                    end
+                    drawScreen()
+                    drawTitleBar()
+                    drawCenteredText(math.floor(h / 2), locale.defaultSet, colors.success)
+                    os.sleep(1)
+                    return
+                elseif action == "rename" then
+                    local newName = textInput(locale.confirmRename)
+                    if newName and #newName > 0 then
+                        pcall(device.proxy.setLabel, newName)
+                        drawScreen()
+                        drawTitleBar()
+                        drawCenteredText(math.floor(h / 2), locale.renamed, colors.success)
+                        os.sleep(1)
+                        return
+                    end
+                elseif action == "up" then
+                    drawScreen()
+                    drawTitleBar()
+                    drawCenteredText(math.floor(h / 2), "移动顺序功能开发中", colors.hint)
+                    os.sleep(1)
+                elseif action == "down" then
+                    drawScreen()
+                    drawTitleBar()
+                    drawCenteredText(math.floor(h / 2), "移动顺序功能开发中", colors.hint)
+                    os.sleep(1)
+                elseif action == "boot" then
+                    if isEncrypted(device.proxy) then
+                        local storedPwd = getStoredPassword(device.proxy)
+                        local inputPwd = hashPassword(passwordInput())
+                        
+                        if inputPwd == storedPwd then
+                            bootDevice(device)
+                            return
+                        else
+                            drawScreen()
+                            drawTitleBar()
+                            drawCenteredText(math.floor(h / 2), locale.wrongPassword, colors.error)
+                            os.sleep(2)
+                        end
+                    else
+                        bootDevice(device)
+                        return
+                    end
+                elseif action == "exit" then
+                    return
+                end
+            elseif key == 27 then
+                return
+            end
+        end
+    end
+end
+
 local function mainMenu()
     local devices = getBootDevices()
     local selectedIndex = 1
@@ -377,25 +508,13 @@ local function mainMenu()
                 selectedIndex = selectedIndex + 1
             elseif key == 28 then
                 if selectedIndex <= #devices then
-                    local device = devices[selectedIndex]
-                    if isEncrypted(device.proxy) then
-                        local storedPwd = getStoredPassword(device.proxy)
-                        local inputPwd = hashPassword(passwordInput())
-                        
-                        if inputPwd == storedPwd then
-                            bootDevice(device)
-                        else
-                            drawScreen()
-                            drawTitleBar()
-                            drawCenteredText(math.floor(h / 2), locale.wrongPassword, colors.error)
-                            computer.pullSignal(2)
-                        end
-                    else
-                        bootDevice(device)
-                    end
+                    deviceMenu(devices[selectedIndex])
                 elseif selectedIndex == #devices + 1 then
                     sysInfoPage()
                 elseif selectedIndex == #devices + 2 then
+                    if _G._B then
+                        return
+                    end
                     computer.shutdown(false)
                 elseif selectedIndex == #devices + 3 then
                     computer.shutdown(true)
@@ -409,15 +528,16 @@ local function mainMenu()
     end
 end
 
--- 主程序
 local function main()
     drawScreen()
     drawTitleBar()
-    
     mainMenu()
+    
+    if _G._B then
+        return
+    end
     
     computer.shutdown(false)
 end
 
--- 运行
 pcall(main)
