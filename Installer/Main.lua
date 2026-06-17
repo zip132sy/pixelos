@@ -334,19 +334,14 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 			local displayPath = path
 			
 			if #displayPath > maxPathLen then
-				scrollCounter = scrollCounter + 1
-				if scrollCounter >= 5 then
-					scrollCounter = 0
-					scrollOffset = scrollOffset + 1
-					if scrollOffset > #path - maxPathLen + 3 then
-						scrollOffset = 0
-					end
+				local headLen = math.floor(maxPathLen * 0.4)
+				local tailLen = maxPathLen - headLen - 3
+				if headLen < 5 then headLen = 5 end
+				if tailLen < 10 then tailLen = 10 end
+				if headLen + tailLen + 3 > maxPathLen then
+					tailLen = maxPathLen - headLen - 3
 				end
-				local startPos = math.max(1, #path - maxPathLen + 4 - scrollOffset)
-				displayPath = "..." .. path:sub(startPos)
-				if #displayPath > maxPathLen then
-					displayPath = displayPath:sub(1, maxPathLen)
-				end
+				displayPath = path:sub(1, headLen) .. "..." .. path:sub(#path - tailLen + 1)
 			end
 			
 			nameLabel.text = string.format("Installing: %s%s", displayPath, suffix)
