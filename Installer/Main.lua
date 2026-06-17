@@ -917,9 +917,9 @@ addStage(function()
 	addToList(applicationsSwitchAndLabel.switch.state, "optional")
 	addToList(wallpapersSwitchAndLabel.switch.state, "optionalWallpapers")
 
-	-- Add BIOS files (always install BIOS, Manager is optional)
-	table.insert(downloadList, "EFI/BIOS.lua")
+	-- Add BIOS files only if Manager is enabled
 	if biosManagerSwitchAndLabel.switch.state then
+		table.insert(downloadList, "EFI/BIOS.lua")
 		table.insert(downloadList, "BIOS/Manager.lua")
 		table.insert(downloadList, "Libraries/Encryption.lua")
 	end
@@ -1036,17 +1036,16 @@ addStage(function()
 	addTitle(0x969696, localization.flashing)
 	workspace:draw()
 	
-	-- Always flash the BIOS
-	component.invoke(EEPROMAddress, "set", request("EFI/BIOS.lua"))
+	-- Only flash BIOS if Manager is enabled
 	if biosManagerSwitchAndLabel.switch.state then
+		component.invoke(EEPROMAddress, "set", request("EFI/BIOS.lua"))
 		component.invoke(EEPROMAddress, "setLabel", "PixelOS BIOS")
+		component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 	else
-		component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+		-- Directly boot system without BIOS
+		computer.shutdown(true)
 	end
 	
-	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
-
-
 	-- Installing BIOS Manager (if enabled)
 	if biosManagerSwitchAndLabel.switch.state then
 		layout:removeChildren()
