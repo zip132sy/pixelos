@@ -25,10 +25,21 @@ local function bt(d)
  local f=load(data,"="..fn)if f then pcall(f)return true end return false
 end
 local function lm()
- for a in gl("filesystem")do local p=c.proxy(a)if p and p.exists and p.exists("/BIOS/Manager.lua")then local h=p.open("/BIOS/Manager.lua","rb")
-  if h then local data=""local ch repeat ch=p.read(h,math.huge)data=data..(ch or"")until not ch p.close(h)local f=load(data,"=/BIOS/Manager.lua")if f then pcall(f)while true do co.pullSignal()end end end
+ for a in gl("filesystem")do local p=c.proxy(a)if p then
+  if p.exists("/BIOS/Manager.lua")then
+   local h=p.open("/BIOS/Manager.lua","rb")
+   if h then
+    local data=""local ch repeat ch=p.read(h,math.huge)data=data..(ch or"")until not ch p.close(h)
+    local f=load(data,"=/BIOS/Manager.lua")
+    if f then pcall(f)while true do co.pullSignal()end end
+   end
+  end
  end end
- clr()ds()dt(math.floor(w/2)-9,math.floor(h/2),"Mgr not found",0xFF0000,0x2D2D2D)co.sleep(2)
+ clr()ds()
+ dt(2,h-2,"Press any key to continue...",0x696969,0x2D2D2D)
+ dt(math.floor(w/2)-9,math.floor(h/2),"Mgr not found",0xFF0000,0x2D2D2D)
+ dt(math.floor(w/2)-12,math.floor(h/2)+1,"F12: Retry",0xFFDB80,0x2D2D2D)
+ local e={co.pullSignal()}
 end
 local function qb()
  local d=gd()local tmo=10
@@ -39,7 +50,6 @@ local function qb()
   local lp=d[1]and d[1].l or"none"
   local cd="Auto boot in "..tmo.."s... Last: "..lp
   dt(math.floor(w/2)-math.floor(#cd/2),math.floor(h/2),cd,0xFFDB80,0x2D2D2D)
-  -- Wait 1 second and check for key press
   for i=1,20 do
    local e={co.pullSignal(0.05)}
    if e and e[1]=="key_down"then
