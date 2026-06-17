@@ -257,10 +257,10 @@ local function downloadWithProgress(url, path, current, total, fileSize)
 	
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
 	if fileHandle then
-		-- Show current download info
-		local shortName = filesystemName(path)
-		if #shortName > 25 then
-			shortName = shortName:sub(1, 22) .. "..."
+		-- Show full path where file will be installed
+		local displayPath = path
+		if #displayPath > 50 then
+			displayPath = "..." .. displayPath:sub(#displayPath - 46)
 		end
 		
 		-- Speed tracking variables
@@ -269,10 +269,10 @@ local function downloadWithProgress(url, path, current, total, fileSize)
 		
 		-- Show initial progress
 		if fileSize and fileSize > 0 then
-			centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
+			centrizedText(title(), 0x2D2D2D, string.format("Loading: %s (%d/%d)", displayPath, current, total))
 			centrizedText(title() + 1, 0x878787, string.format("0 B / %s", formatSizeShort(fileSize)))
 		else
-			centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d)", shortName, current, total))
+			centrizedText(title(), 0x2D2D2D, string.format("Loading: %s (%d/%d)", displayPath, current, total))
 			centrizedText(title() + 1, 0x878787, "0 B")
 		end
 		
@@ -293,7 +293,7 @@ local function downloadWithProgress(url, path, current, total, fileSize)
 				else
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
-				centrizedText(title(), 0x2D2D2D, string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr))
+				centrizedText(title(), 0x2D2D2D, string.format("Loading: %s (%d/%d) @ %s", displayPath, current, total, speedStr))
 				if fileSize and fileSize > 0 then
 					centrizedText(title() + 1, 0x878787, string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize)))
 				else
@@ -317,10 +317,10 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 	
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
 	if fileHandle then
-		-- Show current download info
-		local shortName = filesystemName(path)
-		if #shortName > 25 then
-			shortName = shortName:sub(1, 22) .. "..."
+		-- Show full path where file will be installed
+		local displayPath = path
+		if #displayPath > 50 then
+			displayPath = "..." .. displayPath:sub(#displayPath - 46)
 		end
 		
 		-- Speed tracking variables
@@ -328,7 +328,7 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 		local totalBytes = 0
 		
 		-- Update GUI labels
-		nameLabel.text = string.format("Downloading: %s (%d/%d)", shortName, current, total)
+		nameLabel.text = string.format("Installing: %s (%d/%d)", displayPath, current, total)
 		if fileSize and fileSize > 0 then
 			sizeLabel.text = string.format("0 B / %s", formatSizeShort(fileSize))
 		else
@@ -352,7 +352,7 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 				else
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
-				nameLabel.text = string.format("Downloading: %s (%d/%d) @ %s", shortName, current, total, speedStr)
+				nameLabel.text = string.format("Installing: %s (%d/%d) @ %s", displayPath, current, total, speedStr)
 				if fileSize and fileSize > 0 then
 					sizeLabel.text = string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize))
 				else
@@ -917,9 +917,9 @@ addStage(function()
 	addToList(applicationsSwitchAndLabel.switch.state, "optional")
 	addToList(wallpapersSwitchAndLabel.switch.state, "optionalWallpapers")
 
-	-- Add BIOS Manager files if enabled
+	-- Add BIOS files (always install BIOS, Manager is optional)
+	table.insert(downloadList, "EFI/BIOS.lua")
 	if biosManagerSwitchAndLabel.switch.state then
-		table.insert(downloadList, "EFI/BIOS.lua")
 		table.insert(downloadList, "BIOS/Manager.lua")
 		table.insert(downloadList, "Libraries/Encryption.lua")
 	end
@@ -1036,11 +1036,11 @@ addStage(function()
 	addTitle(0x969696, localization.flashing)
 	workspace:draw()
 	
+	-- Always flash the BIOS
+	component.invoke(EEPROMAddress, "set", request("EFI/BIOS.lua"))
 	if biosManagerSwitchAndLabel.switch.state then
-		component.invoke(EEPROMAddress, "set", request("EFI/BIOS.lua"))
 		component.invoke(EEPROMAddress, "setLabel", "PixelOS BIOS")
 	else
-		component.invoke(EEPROMAddress, "set", request(EFIURL))
 		component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
 	end
 	
