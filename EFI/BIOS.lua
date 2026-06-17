@@ -38,9 +38,10 @@ local function qb()
   dt(2,h,"F12: BIOS Manager",0x878787,0x1E1E1E)
   local lp=d[1]and d[1].l or"none"
   local cd="Auto boot in "..tmo.."s... Last: "..lp
-  dt(math.floor(w/2)-#cd/2,math.floor(h/2),cd,0xFFDB80,0x2D2D2D)
-  for i=1,10 do
-   local e={co.pullSignal("key_down")}
+  dt(math.floor(w/2)-math.floor(#cd/2),math.floor(h/2),cd,0xFFDB80,0x2D2D2D)
+  -- Wait 1 second and check for key press
+  for i=1,20 do
+   local e={co.pullSignal(0.05)}
    if e and e[1]=="key_down"then
     if e[4]==87 or e[4]==88 then lm()return end
    end
