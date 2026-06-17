@@ -522,7 +522,7 @@ local withoutPasswordSwitchAndLabel = newSwitchAndLabel(30, 0x66DB80, "", false)
 local wallpapersSwitchAndLabel = newSwitchAndLabel(30, 0xFF4980, "", true)
 local applicationsSwitchAndLabel = newSwitchAndLabel(30, 0x33DB80, "", true)
 local localizationsSwitchAndLabel = newSwitchAndLabel(30, 0x33B6FF, "", true)
-local biosManagerSwitchAndLabel = newSwitchAndLabel(30, 0x00FF00, "", true)
+local biosManagerSwitchAndLabel = newSwitchAndLabel(30, 0xFFDB80, "", true)
 
 local acceptSwitchAndLabel = newSwitchAndLabel(30, 0x9949FF, "", false)
 
