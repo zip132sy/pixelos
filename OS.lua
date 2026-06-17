@@ -161,19 +161,19 @@ package.loaded.computer = computer
 package.loaded.component = component
 package.loaded.unicode = unicode
 
--- Boot error display
+-- Boot error display - same format as Minified EFI
 local function showBootError(message)
     local gpu = component.list("gpu")()
     local screenAddr = component.list("screen")()
     if gpu and screenAddr then
         component.invoke(gpu, "bind", screenAddr)
         local w, h = component.invoke(gpu, "getResolution")
-        component.invoke(gpu, "setBackground", 0x1E1E1E)
+        component.invoke(gpu, "setBackground", 0x2D2D2D)
         component.invoke(gpu, "fill", 1, 1, w, h, " ")
         component.invoke(gpu, "setForeground", 0xFF0000)
         component.invoke(gpu, "set", math.floor((w - #message) / 2), math.floor(h / 2), message)
-        component.invoke(gpu, "setForeground", 0x888888)
-        component.invoke(gpu, "set", math.floor((w - 30) / 2), math.floor(h / 2) + 2, "Press any key to reboot...")
+        component.invoke(gpu, "setForeground", 0x696969)
+        component.invoke(gpu, "set", 2, h - 2, "Press any key...")
     end
     computer.pullSignal()
     computer.shutdown(false)
