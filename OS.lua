@@ -259,7 +259,7 @@ local function showPasswordUnlock()
         
         -- Instructions
         component.invoke(gpu, "setForeground", 0x888888)
-        local hint = "Enter password | ESC to cancel"
+        local hint = "Enter 确认输入密码"
         component.invoke(gpu, "set", math.floor((width - #hint) / 2), math.floor(height / 2) + 2, hint)
     end
     
@@ -295,8 +295,6 @@ local function showPasswordUnlock()
                     password = string.sub(password, 1, -2)
                     draw()
                 end
-            elseif key == keyboard.keys.escape then
-                return false
             elseif char and #password < maxLength then
                 password = password .. string.char(char)
                 draw()

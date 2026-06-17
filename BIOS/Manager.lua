@@ -1,6 +1,7 @@
 -- ============================================================
 -- BIOS Manager - 完整的 BIOS 设置界面
--- 功能：启动设备管理、重命名、设置默认、查看信息、更改顺序
+-- 注意：运行在 Minecraft Mod (OpenComputers) 中，ESC 键被 Minecraft 截获
+-- 因此使用 Backspace(14) 作为退出键
 -- ============================================================
 
 local component = component
@@ -20,6 +21,9 @@ if gpu and screen then
 end
 local w, h = gpu and gpu.getResolution() or 80, 25
 
+-- Backspace = 14 退出键 (ESC 被 Minecraft 截获)
+local EXIT_KEY = 14
+
 local locale = {
     title = "BIOS 设置",
     selectBoot = "选择启动项",
@@ -30,7 +34,8 @@ local locale = {
     shutdown = "关机",
     reboot = "重启",
     exit = "退出",
-    hint = "↑↓ 选择  Enter 确认  Esc 返回",
+    back = "返回",
+    hint = "↑↓ 选择  Enter 确认  Backspace 返回",
     bootDevice = "启动设备",
     systemType = "系统类型",
     setPassword = "设置密码",
@@ -351,7 +356,7 @@ local function sysInfoPage()
         drawCenteredText(infoY, locale.biosVersion, colors.hint)
         
         local event = {computer.pullSignal()}
-        if event[1] == "key_down" and event[4] == 27 then
+        if event[1] == "key_down" and event[4] == EXIT_KEY then
             return
         end
     end
@@ -365,7 +370,7 @@ local function deviceMenu(device)
         { text = locale.moveUp, action = "up" },
         { text = locale.moveDown, action = "down" },
         { text = "启动", action = "boot" },
-        { text = locale.exit, action = "exit" }
+        { text = locale.back, action = "back" }
     }
     
     local selected = 1
@@ -447,10 +452,10 @@ local function deviceMenu(device)
                         bootDevice(device)
                         return
                     end
-                elseif action == "exit" then
+                elseif action == "back" then
                     return
                 end
-            elseif key == 27 then
+            elseif key == EXIT_KEY then
                 return
             end
         end
@@ -495,7 +500,7 @@ local function mainMenu()
         drawMenuItem(separatorY + 1, locale.sysInfo, false)
         drawMenuItem(separatorY + 2, locale.reboot, false)
         drawMenuItem(separatorY + 3, locale.shutdown, false)
-        drawMenuItem(separatorY + 4, locale.exit, false)
+        drawMenuItem(separatorY + 4, locale.back, false)
         
         local event = {computer.pullSignal()}
         
@@ -521,7 +526,7 @@ local function mainMenu()
                 else
                     return
                 end
-            elseif key == 27 then
+            elseif key == EXIT_KEY then
                 return
             end
         end
