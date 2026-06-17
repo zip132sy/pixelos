@@ -753,16 +753,6 @@ addStage(function()
 	layout:addChild(biosManagerSwitchAndLabel)
 
 	-- Add estimated size display
-	local function calculateEstimatedSize()
-		-- Rough estimate: libraries ~500KB, apps ~100KB each, wallpapers ~50KB each
-		local baseSize = 500 * 1024
-		local appsSize = applicationsSwitchAndLabel.switch.state and (12 * 100 * 1024) or 0
-		local localizationsSize = localizationsSwitchAndLabel.switch.state and (21 * 30 * 1024) or (2 * 30 * 1024)
-		local wallpapersSize = wallpapersSwitchAndLabel.switch.state and (8 * 50 * 1024) or 0
-		local biosSize = biosManagerSwitchAndLabel.switch.state and (20 * 1024) or 0
-		return baseSize + appsSize + localizationsSize + wallpapersSize + biosSize
-	end
-
 	local function formatSize(bytes)
 		if bytes < 1024 then
 			return bytes .. " B"
@@ -773,9 +763,31 @@ addStage(function()
 		end
 	end
 
+	local function calculateEstimatedSize()
+		-- Rough estimate: libraries ~500KB, apps ~100KB each, wallpapers ~50KB each
+		local baseSize = 500 * 1024
+		local appsSize = applicationsSwitchAndLabel.switch.state and (12 * 100 * 1024) or 0
+		local localizationsSize = localizationsSwitchAndLabel.switch.state and (21 * 30 * 1024) or (2 * 30 * 1024)
+		local wallpapersSize = wallpapersSwitchAndLabel.switch.state and (8 * 50 * 1024) or 0
+		local biosSize = biosManagerSwitchAndLabel.switch.state and (20 * 1024) or 0
+		return baseSize + appsSize + localizationsSize + wallpapersSize + biosSize
+	end
+
 	local estimatedSize = calculateEstimatedSize()
 	local sizeLabel = layout:addChild(GUI.label(1, 1, layout.width, 1, 0x696969, ""))
 	sizeLabel.text = "Estimated size: " .. formatSize(estimatedSize)
+
+	-- Update size when switches change
+	local function updateSize()
+		estimatedSize = calculateEstimatedSize()
+		sizeLabel.text = "Estimated size: " .. formatSize(estimatedSize)
+		workspace:draw()
+	end
+
+	wallpapersSwitchAndLabel.switch.onChange = updateSize
+	applicationsSwitchAndLabel.switch.onChange = updateSize
+	localizationsSwitchAndLabel.switch.onChange = updateSize
+	biosManagerSwitchAndLabel.switch.onChange = updateSize
 end)
 
 -- License acception stage
