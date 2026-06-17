@@ -317,23 +317,48 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 	
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
 	if fileHandle then
-		-- Show full path where file will be installed
-		local displayPath = path
-		if #displayPath > 50 then
-			displayPath = "..." .. displayPath:sub(#displayPath - 46)
-		end
-		
 		-- Speed tracking variables
 		local downloadStartTime = computer.uptime()
 		local totalBytes = 0
+		local scrollOffset = 0
+		local scrollCounter = 0
 		
 		-- Update GUI labels
-		nameLabel.text = string.format("Installing: %s (%d/%d)", displayPath, current, total)
-		if fileSize and fileSize > 0 then
-			sizeLabel.text = string.format("0 B / %s", formatSizeShort(fileSize))
-		else
-			sizeLabel.text = "0 B"
+		local function updateLabels(speedStr)
+			local suffix = string.format(" (%d/%d)", current, total)
+			if speedStr then
+				suffix = suffix .. " @ " .. speedStr
+			end
+			
+			local maxPathLen = 80 - #suffix - 12
+			local displayPath = path
+			
+			if #displayPath > maxPathLen then
+				scrollCounter = scrollCounter + 1
+				if scrollCounter >= 5 then
+					scrollCounter = 0
+					scrollOffset = scrollOffset + 1
+					if scrollOffset > #path - maxPathLen + 3 then
+						scrollOffset = 0
+					end
+				end
+				local startPos = math.max(1, #path - maxPathLen + 4 - scrollOffset)
+				displayPath = "..." .. path:sub(startPos)
+				if #displayPath > maxPathLen then
+					displayPath = displayPath:sub(1, maxPathLen)
+				end
+			end
+			
+			nameLabel.text = string.format("Installing: %s%s", displayPath, suffix)
+			if fileSize and fileSize > 0 then
+				sizeLabel.text = string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize))
+			else
+				sizeLabel.text = formatSizeShort(totalBytes)
+			end
+			if drawCallback then drawCallback() end
 		end
+		
+		updateLabels()
 		
 		-- Wrapper for chunk handler to track speed
 		local function chunkHandler(chunk, chunkSize)
@@ -352,13 +377,7 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 				else
 					speedStr = string.format("%.1f MB/s", speed / 1048576)
 				end
-				nameLabel.text = string.format("Installing: %s (%d/%d) @ %s", displayPath, current, total, speedStr)
-				if fileSize and fileSize > 0 then
-					sizeLabel.text = string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize))
-				else
-					sizeLabel.text = formatSizeShort(totalBytes)
-				end
-				drawCallback()
+				updateLabels(speedStr)
 			end
 		end
 		
@@ -1045,11 +1064,17 @@ addStage(function()
 	
 	-- Only flash BIOS if Manager is enabled
 	if biosManagerSwitchAndLabel.switch.state then
-		component.invoke(EEPROMAddress, "set", request("EFI/BIOS.lua"))
-		component.invoke(EEPROMAddress, "setLabel", "PixelOS BIOS")
+		local biosCode = request("EFI/BIOS.lua")
+		if biosCode and #biosCode > 0 then
+			component.invoke(EEPROMAddress, "set", biosCode)
+			component.invoke(EEPROMAddress, "setLabel", "PixelOS BIOS")
+		end
 	else
-		component.invoke(EEPROMAddress, "set", request("EFI/Minified.lua"))
-		component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+		local minifiedCode = request("EFI/Minified.lua")
+		if minifiedCode and #minifiedCode > 0 then
+			component.invoke(EEPROMAddress, "set", minifiedCode)
+			component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+		end
 	end
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
 	
