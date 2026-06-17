@@ -807,10 +807,19 @@ addStage(function()
 	-- Add MineOS License button
 	local mineOSLicenseButton = layout:addChild(GUI.button(1, layout.height - 3, 20, 1, 0xD2D2D2, 0x696969, 0xF0F0F0, 0x696969, localization.showOriginalLicense))
 	mineOSLicenseButton.onTouch = function()
-		-- Show original MineOS license in a modal
-		local mineOSLines = text.wrap({request("Installer/Licenses/MineOS_Original_LICENSE")}, layout.width - 2)
-		layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 3, 0xF0F0F0, 0x696969, mineOSLines, 1, 1, 1))
-		mineOSLicenseButton.hidden = true
+		-- Create a modal window for original license
+		local modalWindow = workspace:addChild(GUI.window(math.floor(workspace.width / 2 - 40 / 2), math.floor(workspace.height / 2 - 18 / 2), 40, 18, "Original License"))
+		
+		-- Add scrollable text box
+		local scrollableTextBox = modalWindow:addChild(GUI.textBox(2, 2, modalWindow.width - 4, modalWindow.height - 5, 0xF0F0F0, 0x696969, text.wrap({request("Installer/Licenses/MineOS_Original_LICENSE")}, modalWindow.width - 4), 1, 0, 0, true, true))
+		
+		-- Add close button
+		local closeButton = modalWindow:addChild(GUI.button(math.floor(modalWindow.width / 2 - 8 / 2), modalWindow.height - 2, 8, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, "Close"))
+		closeButton.onTouch = function()
+			modalWindow:remove()
+			workspace:draw()
+		end
+		
 		workspace:draw()
 	end
 
