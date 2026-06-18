@@ -1118,7 +1118,12 @@ local function settings()
 	messagesItem.hidden = not user.token
 
 	contentContainer:removeChildren()
-	local layout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
+
+	-- 创建可滚动容器
+	local scrollContainer = contentContainer:addChild(GUI.container(1, 1, contentContainer.width, contentContainer.height))
+	scrollContainer.eventHandler = containerScrollEventHandler
+
+	local layout = scrollContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height * 3, 1, 1))  -- 给足够的高度用于滚动
 
 	if user.token then
 		layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.profile))

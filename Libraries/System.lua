@@ -70,7 +70,7 @@ end
 
 function system.getDefaultUserSettings()
 	return {
-		localizationLanguage = "English",
+		localizationLanguage = "Chinese",
 
 		timeFormat = "%d %b %Y %H:%M:%S",
 		timeRealTimestamp = true,
