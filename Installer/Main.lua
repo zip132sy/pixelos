@@ -338,34 +338,21 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 			
 			if isLong then
 				scrollCounter = scrollCounter + 1
-				if scrollCounter >= 3 then
+				if scrollCounter >= 5 then
 					scrollCounter = 0
 					scrollOffset = scrollOffset + 1
 				end
 				
-				local showHead = maxPathLen >= 10
-				if showHead then
-					local headLen = math.min(math.floor(maxPathLen * 0.3), 15)
-					local tailLen = maxPathLen - headLen - 3
-					if tailLen < 8 then tailLen = 8 end
-					if headLen + tailLen + 3 > maxPathLen then
-						tailLen = maxPathLen - headLen - 3
-					end
-					
-					local maxScroll = #path - headLen - tailLen
-					if maxScroll > 0 then
-						scrollOffset = scrollOffset % (maxScroll + 4)
-						local visibleStart = scrollOffset
-						if visibleStart > maxScroll then
-							visibleStart = maxScroll
-						end
-						displayPath = path:sub(1, headLen) .. "..." .. path:sub(visibleStart + headLen + 1, visibleStart + headLen + tailLen)
-					else
-						displayPath = path:sub(1, headLen) .. "..." .. path:sub(#path - tailLen + 1)
-					end
-				else
-					displayPath = path:sub(#path - maxPathLen + 1)
+				local maxScroll = #path - maxPathLen
+				if maxScroll < 0 then maxScroll = 0 end
+				
+				scrollOffset = scrollOffset % (maxScroll + 8)
+				local visibleStart = scrollOffset
+				if visibleStart > maxScroll then
+					visibleStart = maxScroll
 				end
+				
+				displayPath = path:sub(visibleStart + 1, visibleStart + maxPathLen)
 			else
 				scrollOffset = 0
 				scrollCounter = 0
