@@ -3007,9 +3007,14 @@ function system.updateDesktop()
 			local cpuAddress = component.list("cpu")()
 			if cpuAddress then
 				local cpu = component.proxy(cpuAddress)
-				local usage = cpu.usage()
-				table.insert(CPUPercents, usage)
-				if #CPUPercents > 8 then table.remove(CPUPercents, 1) end
+				if cpu.usage then
+					local usage = cpu.usage()
+					table.insert(CPUPercents, usage)
+					if #CPUPercents > 8 then table.remove(CPUPercents, 1) end
+				else
+					table.insert(CPUPercents, 0)
+					if #CPUPercents > 8 then table.remove(CPUPercents, 1) end
+				end
 			end
 		end
 		CPUWidget.hidden = not showCPU
