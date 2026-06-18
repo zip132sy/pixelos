@@ -118,9 +118,6 @@ module.onTouch = function()
 			system.saveUserSettings()
 			system.updateMenuWidgets()
 			workspace:draw()
-
-			local message = GUI.messageBox(workspace, localization.success or "Success", localization.settingsSaved or "Settings saved", localization.ok or "OK", nil, "info")
-			message:show()
 		end
 
 		statusBarSwitch.onStateChanged = saveStatusBarSettings

@@ -203,7 +203,7 @@ local function onToolTouch(index)
 	workspace:draw()
 end
 
-local tools = filesystem.list(toolsPath)
+local tools = filesystem.list(toolsPath) or {}
 for i = 1, #tools do
 	if filesystem.extension(tools[i]) == ".lua" then
 		local result, reason = loadfile(toolsPath .. tools[i])
