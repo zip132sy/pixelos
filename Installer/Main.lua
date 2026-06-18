@@ -330,7 +330,7 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 				suffix = suffix .. " @ " .. speedStr
 			end
 			
-			local prefix = "Install: "
+			local prefix = "Installing: "
 			local maxDisplayLen = nameLabel.width
 			local maxPathLen = maxDisplayLen - #prefix - #suffix
 			local displayPath = path
