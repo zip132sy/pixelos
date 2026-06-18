@@ -76,6 +76,7 @@ local orderBys = {
 local languages = {
 	[18] = "English",
 	[71] = "Russian",
+	[1] = "Chinese",
 }
 
 --------------------------------------------------------------------------------
@@ -165,13 +166,47 @@ local function loadConfig()
 		config = filesystem.readTable(configPath)
 	else
 		config = {
-			language_id = 18,
+			language_id = 1,
 			orderBy = 4,
 			orderDirection = 1,
 			singleSession = false,
 			hideApplicationIcons = false,
-			hideApplicationPreviews = false
+			hideApplicationPreviews = false,
+			sources = {
+				{ name = "MineOS", url = "http://mineos.buttex.ru/MineOSAPI/2.04/", enabled = true }
+			},
+			blacklist = {
+				{ sourceUrl = "*", name = "App Market", path = nil },
+				{ sourceUrl = "*", name = "Picture Edit", path = nil },
+				{ sourceUrl = "*", name = "System", path = "Libraries/System.lua" },
+				{ sourceUrl = "*", name = "SystemCheck", path = nil },
+				{ sourceUrl = "*", name = "SystemUpdate", path = nil },
+				{ sourceUrl = "*", name = "DiskUtility", path = nil },
+				{ sourceUrl = "*", name = "ErrorReporter", path = nil },
+				{ sourceUrl = "*", name = "BIOS", path = "Libraries/BIOS.lua" },
+			}
 		}
+	end
+	
+	if not config.sources then
+		config.sources = {
+			{ name = "MineOS", url = "http://mineos.buttex.ru/MineOSAPI/2.04/", enabled = true }
+		}
+		saveConfig()
+	end
+	
+	if not config.blacklist then
+		config.blacklist = {
+			{ sourceUrl = "*", name = "App Market", path = nil },
+			{ sourceUrl = "*", name = "Picture Edit", path = nil },
+			{ sourceUrl = "*", name = "System", path = "Libraries/System.lua" },
+			{ sourceUrl = "*", name = "SystemCheck", path = nil },
+			{ sourceUrl = "*", name = "SystemUpdate", path = nil },
+			{ sourceUrl = "*", name = "DiskUtility", path = nil },
+			{ sourceUrl = "*", name = "ErrorReporter", path = nil },
+			{ sourceUrl = "*", name = "BIOS", path = "Libraries/BIOS.lua" },
+		}
+		saveConfig()
 	end
 
 	messagesItem.hidden = not user.token
@@ -179,13 +214,14 @@ end
 
 --------------------------------------------------------------------------------
 
-local function RawAPIRequest(script, postData, notUnserialize)
+local function RawAPIRequest(script, postData, notUnserialize, sourceUrl)
+	local source = sourceUrl or host
 	progressIndicator.active = true
 	workspace:draw()
 
 	local data = ""
 	local success, reason = internet.rawRequest(
-		host .. script .. ".php",
+		source .. script .. ".php",
 		postData and internet.serialize(postData) or nil,
 		{
 			["User-Agent"] = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.119 Safari/537.36",
@@ -224,8 +260,8 @@ local function RawAPIRequest(script, postData, notUnserialize)
 	end
 end
 
-local function fieldAPIRequest(fieldToReturn, script, data)
-	local success, reason = RawAPIRequest(script, data)
+local function fieldAPIRequest(fieldToReturn, script, data, sourceUrl)
+	local success, reason = RawAPIRequest(script, data, nil, sourceUrl)
 	if success then
 		if success[fieldToReturn] then
 			return success[fieldToReturn]
@@ -235,6 +271,35 @@ local function fieldAPIRequest(fieldToReturn, script, data)
 	else
 		GUI.alert(reason)
 	end
+end
+
+local function multiSourceRequest(fieldToReturn, script, data)
+	local results = {}
+	for i = 1, #config.sources do
+		if config.sources[i].enabled then
+			local result = fieldAPIRequest(fieldToReturn, script, data, config.sources[i].url)
+			if result then
+				for j = 1, #result do
+					result[j].sourceName = config.sources[i].name
+					result[j].sourceUrl = config.sources[i].url
+					table.insert(results, result[j])
+				end
+			end
+		end
+	end
+	return results
+end
+
+local function isBlacklisted(sourceUrl, itemName, itemPath)
+	for i = 1, #config.blacklist do
+		local entry = config.blacklist[i]
+		if entry.sourceUrl == sourceUrl or entry.sourceUrl == "*" then
+			if entry.name == itemName or entry.name == "*" or entry.path == itemPath then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 local function checkContentLength(url)
@@ -481,11 +546,49 @@ local function getDependencyPath(mainFilePath, dependency)
 end
 
 local function download(publication)
+	if isBlacklisted(publication.sourceUrl, publication.publication_name, nil) then
+		GUI.alert(localization.blacklistBlocked)
+		return
+	end
+	
+	local duplicates = {}
+	if publication.publication_name then
+		for i = 1, #config.sources do
+			if config.sources[i].enabled and config.sources[i].url ~= publication.sourceUrl then
+				local result = fieldAPIRequest("result", "publication", {
+					publication_name = publication.publication_name,
+					language_id = config.language_id,
+				}, config.sources[i].url)
+				if result then
+					result.sourceName = config.sources[i].name
+					result.sourceUrl = config.sources[i].url
+					table.insert(duplicates, result)
+				end
+			end
+		end
+	end
+
+	if #duplicates > 0 then
+		table.insert(duplicates, 1, publication)
+		local container = GUI.addBackgroundContainer(workspace, true, true, localization.chooseSource)
+		
+		local comboBox = container.layout:addChild(GUI.comboBox(1, 1, 44, 1, 0xE1E1E1, 0x2D2D2D, 0x4B4B4B, 0x969696))
+		for i = 1, #duplicates do
+			comboBox:addItem(duplicates[i].sourceName .. " (" .. duplicates[i].version .. ")")
+		end
+
+		container.layout:addChild(GUI.button(1, 1, 44, 3, 0x696969, 0xFFFFFF, 0x0, 0xFFFFFF, localization.ok)).onTouch = function()
+			container:remove()
+			download(duplicates[comboBox.selectedItem])
+		end
+		return
+	end
+
 	if not publication.translated_description then
 		publication = fieldAPIRequest("result", "publication", {
 			file_id = publication.file_id,
 			language_id = config.language_id,
-		})
+		}, publication.sourceUrl)
 	end
 
 	if publication then
@@ -517,7 +620,6 @@ local function download(publication)
 
 			mainFilePath = filesystemChooser.path .. (((publication.category_id == 1 or publication.category_id == 4) and "Main.lua") or "")
 
-			-- Вот тута будет йоба-древо
 			local dependencyTree = {}
 			local treeData = {
 				{
@@ -554,7 +656,6 @@ local function download(publication)
 				})
 			end
 			
-			-- Пизда для формирования той ебалы, как ее там
 			local function pizda(t, offset, initPath)
 				for chlen, devka in pairs(t) do
 
@@ -580,7 +681,7 @@ local function download(publication)
 				RawAPIRequest("download", {
 					token = user.token,
 					file_id = publication.file_id
-				})
+				}, publication.sourceUrl)
 			end
 
 			container.layout:removeChildren(2)
@@ -594,7 +695,6 @@ local function download(publication)
 				workspace:draw()
 			end
 
-			-- SAVED
 			versionsTable[publication.file_id] = {
 				path = mainFilePath,
 				version = publication.version,
@@ -950,44 +1050,56 @@ local function settings()
 		settings()
 	end
 
-	local function addAccountShit(login, register, recover)
+	local function showLogin()
 		contentContainer:removeChildren()
 		
 		local layout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
 		
-		layout:addChild(GUI.label(1, 1, 36, 1, 0x0, login and localization.login or register and localization.createAccount or recover and localization.changePassword)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
-		local nameInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.nickname))
-		local emailInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", login and localization.nicknameOrEmail or "E-mail"))
-		local currentPasswordInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.currentPassword, false, "*"))
-		local passwordInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", recover and localization.newPassword or localization.password, false, "*"))
+		layout:addChild(GUI.label(1, 1, 36, 1, 0x0, localization.login)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		local emailInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.nicknameOrEmail))
+		local passwordInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.password, false, "*"))
 
 		local singleSessionSwitchAndLabel = layout:addChild(GUI.switchAndLabel(1, 1, 36, 6, 0x66DB80, 0xC3C3C3, 0xFFFFFF, 0xA5A5A5, localization.singleSession .. ":", config.singleSession))
 
 		layout:addChild(GUI.button(1, 1, 36, 3, 0xA5A5A5, 0xFFFFFF, 0x696969, 0xFFFFFF, "OK")).onTouch = function()
-			if login then
-				local result = fieldAPIRequest("result", "login", {
-					[(string.find(emailInput.text, "@") and "email" or "name")] = emailInput.text,
-					password = passwordInput.text
-				})
+			local result = fieldAPIRequest("result", "login", {
+				[(string.find(emailInput.text, "@") and "email" or "name")] = emailInput.text,
+				password = passwordInput.text
+			})
 
-				if result then
-					user = {
-						token = result.token,
-						name = result.name,
-						id = result.id,
-						email = result.email,
-						timestamp = result.timestamp,
-					}
+			if result then
+				user = {
+					token = result.token,
+					name = result.name,
+					id = result.id,
+					email = result.email,
+					timestamp = result.timestamp,
+				}
 
-					settings()
+				settings()
 
-					config.singleSession = singleSessionSwitchAndLabel.switch.state
-					if not config.singleSession then
-						saveUser()
-					end
-					saveConfig()
+				config.singleSession = singleSessionSwitchAndLabel.switch.state
+				if not config.singleSession then
+					saveUser()
 				end
-			elseif register then
+				saveConfig()
+			end
+		end
+
+		local registerLayout = layout:addChild(GUI.layout(1, 1, layout.width, 1, 1, 1))
+		registerLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
+		registerLayout:addChild(GUI.text(1, 1, 0xA5A5A5, localization.notRegistered))
+		registerLayout:addChild(GUI.adaptiveButton(1, 1, 0, 0, nil, 0x696969, nil, 0x0, localization.createAccount)).onTouch = function()
+			contentContainer:removeChildren()
+			
+			local layout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
+			
+			layout:addChild(GUI.label(1, 1, 36, 1, 0x0, localization.createAccount)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+			local nameInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.nickname))
+			local emailInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", "E-Mail"))
+			local passwordInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.password, false, "*"))
+
+			layout:addChild(GUI.button(1, 1, 36, 3, 0xA5A5A5, 0xFFFFFF, 0x696969, 0xFFFFFF, "OK")).onTouch = function()
 				local result = fieldAPIRequest("result", "register", {
 					name = nameInput.text,
 					email = emailInput.text,
@@ -997,7 +1109,40 @@ local function settings()
 				if result then
 					showLabelAsContent(contentContainer, localization.registrationSuccessfull)
 				end
-			else
+			end
+		end
+
+		workspace:draw()
+	end
+
+	messagesItem.hidden = not user.token
+
+	contentContainer:removeChildren()
+	local layout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
+
+	if user.token then
+		layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.profile))
+
+		local textLayout = layout:addChild(GUI.layout(1, 1, 36, 5, 1, 1))
+		textLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
+		
+		textLayout:addChild(GUI.keyAndValue(1, 1, 0x696969, 0x969696, localization.nickname, ": " .. user.name))
+		textLayout:addChild(GUI.keyAndValue(1, 1, 0x696969, 0x969696, "E-Mail", ": " .. user.email))
+		textLayout:addChild(GUI.keyAndValue(1, 1, 0x696969, 0x969696, localization.registrationDate, ": " .. os.date("%d.%m.%Y", user.timestamp + system.getUserSettings().timeTimezone)))
+		textLayout.height = #textLayout.children * 2 - 1
+
+		local buttonsLayout = layout:addChild(newButtonsLayout(1, 1, layout.width, 2))
+		
+		buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.changePassword)).onTouch = function()
+			contentContainer:removeChildren()
+			
+			local layout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
+			
+			layout:addChild(GUI.label(1, 1, 36, 1, 0x0, localization.changePassword)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+			local currentPasswordInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.currentPassword, false, "*"))
+			local passwordInput = layout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.newPassword, false, "*"))
+
+			layout:addChild(GUI.button(1, 1, 36, 3, 0xA5A5A5, 0xFFFFFF, 0x696969, 0xFFFFFF, "OK")).onTouch = function()
 				local success, reason = RawAPIRequest("change_password", {
 					email = user.email,
 					current_password = currentPasswordInput.text,
@@ -1010,24 +1155,167 @@ local function settings()
 					GUI.alert(reason)
 				end
 			end
+
+			workspace:draw()
 		end
 
-		if login then
-			local registerLayout = layout:addChild(GUI.layout(1, 1, layout.width, 1, 1, 1))
-			registerLayout:setDirection(1, 1, GUI.DIRECTION_HORIZONTAL)
-			registerLayout:addChild(GUI.text(1, 1, 0xA5A5A5, localization.notRegistered))
-			registerLayout:addChild(GUI.adaptiveButton(1, 1, 0, 0, nil, 0x696969, nil, 0x0, localization.createAccount)).onTouch = function()
-				addAccountShit(false, true, false)
-			end
+		buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.exit)).onTouch = function()
+			logout()
 		end
-
-		currentPasswordInput.hidden = not recover
-		emailInput.hidden = recover
-		nameInput.hidden = login or recover
-		singleSessionSwitchAndLabel.hidden = not login
+	else
+		layout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0x696969, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.login)).onTouch = function()
+			showLogin()
+		end
 	end
 
-	messagesItem.hidden = not user.token
+	layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.settings))
+
+	local hideApplicationIconsSwitch = layout:addChild(GUI.switchAndLabel(1, 1, 36, 6, 0x66DB80, 0xC3C3C3, 0xFFFFFF, 0x696969, localization.hideApplicationIcons .. ":", config.hideApplicationIcons)).switch
+
+	hideApplicationIconsSwitch.onStateChanged = function()
+		config.hideApplicationIcons = hideApplicationIconsSwitch.state
+		saveConfig()
+	end
+
+	local hideApplicationPewviewsSwitch = layout:addChild(GUI.switchAndLabel(1, 1, 36, 6, 0x66DB80, 0xC3C3C3, 0xFFFFFF, 0x696969, localization.hideApplicationPreviews .. ":", config.hideApplicationPreviews)).switch
+
+	hideApplicationPewviewsSwitch.onStateChanged = function()
+		config.hideApplicationPreviews = hideApplicationPewviewsSwitch.state
+		saveConfig()
+	end
+
+	local buttonsLayout = layout:addChild(newButtonsLayout(1, 1, layout.width, 2))
+	
+	buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.clearCache)).onTouch = function()
+		local list = filesystem.list(cachePath)
+		for i = 1, #list do
+			filesystem.remove(cachePath .. list[i])
+		end
+	end
+
+	layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.language))
+
+	local languageComboBox = layout:addChild(GUI.comboBox(1, 1, 36, 1, 0xFFFFFF, 0x696969, 0x969696, 0xE1E1E1))
+	for key, value in pairs(languages) do
+		languageComboBox:addItem(value).onTouch = function()
+			config.language_id = key
+			saveConfig()
+		end
+
+		if key == config.language_id then
+			languageComboBox.selectedItem = languageComboBox:count()
+		end
+	end
+
+	layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.sources))
+
+	local sourcesLayout = layout:addChild(GUI.layout(1, 1, 36, #config.sources * 4, 1, #config.sources))
+	for i = 1, #config.sources do
+		local sourceLayout = sourcesLayout:addChild(GUI.layout(1, 1, 36, 4, 1, 1))
+		sourceLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
+		
+		local sourceSwitch = sourceLayout:addChild(GUI.switchAndLabel(1, 1, 24, 6, 0x66DB80, 0xC3C3C3, 0xFFFFFF, 0x696969, config.sources[i].name, config.sources[i].enabled)).switch
+		sourceSwitch.onStateChanged = function()
+			config.sources[i].enabled = sourceSwitch.state
+			saveConfig()
+		end
+		
+		sourceLayout:addChild(GUI.text(1, 2, 0x969696, config.sources[i].url))
+		
+		sourceLayout:addChild(GUI.adaptiveRoundedButton(1, 3, 1, 0, 0xC3C3C3, 0xFFFFFF, 0x969696, 0xFFFFFF, "X")).onTouch = function()
+			table.remove(config.sources, i)
+			saveConfig()
+			settings()
+		end
+	end
+
+	layout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0x696969, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.addSource)).onTouch = function()
+		contentContainer:removeChildren()
+		local addLayout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
+		
+		addLayout:addChild(GUI.label(1, 1, 36, 1, 0x0, localization.addSource)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		local nameInput = addLayout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.sourceName))
+		local urlInput = addLayout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.sourceUrl))
+
+		local buttonsLayout = addLayout:addChild(newButtonsLayout(1, 1, addLayout.width, 2))
+		buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0x696969, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.ok)).onTouch = function()
+			if nameInput.text and urlInput.text then
+				table.insert(config.sources, {
+					name = nameInput.text,
+					url = urlInput.text:sub(-1) == "/" and urlInput.text or urlInput.text .. "/",
+					enabled = true
+				})
+				saveConfig()
+				settings()
+			end
+		end
+		buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.cancel)).onTouch = function()
+			settings()
+		end
+
+		workspace:draw()
+	end
+
+	layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.blacklist))
+
+	local blacklistLayout = layout:addChild(GUI.layout(1, 1, 36, #config.blacklist * 3 + 1, 1, #config.blacklist + 1))
+	for i = 1, #config.blacklist do
+		local entryLayout = blacklistLayout:addChild(GUI.layout(1, 1, 36, 3, 1, 1))
+		entryLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
+		
+		local entryText = config.blacklist[i].sourceUrl == "*" and "*" or config.blacklist[i].sourceUrl
+		entryText = entryText .. " | " .. (config.blacklist[i].name == "*" and "*" or config.blacklist[i].name)
+		if config.blacklist[i].path then
+			entryText = entryText .. " | " .. config.blacklist[i].path
+		end
+		
+		entryLayout:addChild(GUI.text(1, 1, 0x696969, entryText))
+		
+		entryLayout:addChild(GUI.adaptiveRoundedButton(1, 2, 1, 0, 0xC3C3C3, 0xFFFFFF, 0x969696, 0xFFFFFF, "X")).onTouch = function()
+			table.remove(config.blacklist, i)
+			saveConfig()
+			settings()
+		end
+	end
+
+	layout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0x696969, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.addToBlacklist)).onTouch = function()
+		contentContainer:removeChildren()
+		local addLayout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
+		
+		addLayout:addChild(GUI.label(1, 1, 36, 1, 0x0, localization.addToBlacklist)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+		
+		local sourceComboBox = addLayout:addChild(GUI.comboBox(1, 1, 36, 1, 0xFFFFFF, 0x696969, 0x969696, 0xE1E1E1))
+		sourceComboBox:addItem("*")
+		for i = 1, #config.sources do
+			sourceComboBox:addItem(config.sources[i].name)
+		end
+		
+		local nameInput = addLayout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.blacklistItemName))
+		local pathInput = addLayout:addChild(GUI.input(1, 1, 36, 3, 0xFFFFFF, 0x696969, 0xB4B4B4, 0xFFFFFF, 0x2D2D2D, "", localization.blacklistItemPath))
+
+		local buttonsLayout = addLayout:addChild(newButtonsLayout(1, 1, addLayout.width, 2))
+		buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0x696969, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.ok)).onTouch = function()
+			local sourceUrl
+			if sourceComboBox.selectedItem == 1 then
+				sourceUrl = "*"
+			else
+				sourceUrl = config.sources[sourceComboBox.selectedItem - 1].url
+			end
+			
+			table.insert(config.blacklist, {
+				sourceUrl = sourceUrl,
+				name = nameInput.text == "" and "*" or nameInput.text,
+				path = pathInput.text == "" and nil or pathInput.text
+			})
+			saveConfig()
+			settings()
+		end
+		buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.cancel)).onTouch = function()
+			settings()
+		end
+
+		workspace:draw()
+	end
 
 	if user.token then
 		local result = fieldAPIRequest("result", "publications", {
@@ -1036,94 +1324,33 @@ local function settings()
 			order_direction = "asc",
 		})
 
-		if result then
-			contentContainer:removeChildren()
-			local layout = contentContainer:addChild(GUI.layout(1, 1, contentContainer.width, contentContainer.height, 1, 1))
+		if result and #result > 0 then
+			layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.publications))
 
-			layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.profile))
-
-			local textLayout = layout:addChild(GUI.layout(1, 1, 36, 5, 1, 1))
-			textLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
-			
-			textLayout:addChild(GUI.keyAndValue(1, 1, 0x696969, 0x969696, localization.nickname, ": " .. user.name))
-			textLayout:addChild(GUI.keyAndValue(1, 1, 0x696969, 0x969696, "E-Mail", ": " .. user.email))
-			textLayout:addChild(GUI.keyAndValue(1, 1, 0x696969, 0x969696, localization.registrationDate, ": " .. os.date("%d.%m.%Y", user.timestamp + system.getUserSettings().timeTimezone)))
-			textLayout.height = #textLayout.children * 2 - 1
-
-			local hideApplicationIconsSwitch = layout:addChild(GUI.switchAndLabel(1, 1, 36, 6, 0x66DB80, 0xC3C3C3, 0xFFFFFF, 0x696969, localization.hideApplicationIcons .. ":", config.hideApplicationIcons)).switch
-
-			hideApplicationIconsSwitch.onStateChanged = function()
-				config.hideApplicationIcons = hideApplicationIconsSwitch.state
-				saveConfig()
-			end
-
-			local hideApplicationPewviewsSwitch = layout:addChild(GUI.switchAndLabel(1, 1, 36, 6, 0x66DB80, 0xC3C3C3, 0xFFFFFF, 0x696969, localization.hideApplicationPreviews .. ":", config.hideApplicationPreviews)).switch
-
-			hideApplicationPewviewsSwitch.onStateChanged = function()
-				config.hideApplicationPreviews = hideApplicationPewviewsSwitch.state
-				saveConfig()
+			local comboBox = layout:addChild(GUI.comboBox(1, 1, 36, 1, 0xFFFFFF, 0x696969, 0x969696, 0xE1E1E1))
+			for i = 1, #result do
+				comboBox:addItem(result[i].publication_name)
 			end
 
 			local buttonsLayout = layout:addChild(newButtonsLayout(1, 1, layout.width, 2))
-			
-			buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.changePassword)).onTouch = function()
-				addAccountShit(false, false, true)
+			buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.open)).onTouch = function()
+				newPublicationInfo(result[comboBox.selectedItem].file_id)
 			end
 
-			buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.exit)).onTouch = function()
-				logout()
-			end
+			buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.edit)).onTouch = function()
+				local result = fieldAPIRequest("result", "publication", {
+					file_id = result[comboBox.selectedItem].file_id,
+					language_id = config.language_id,
+				})
 
-			buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.clearCache)).onTouch = function()
-				local list = filesystem.list(cachePath)
-				for i = 1, #list do
-					filesystem.remove(cachePath .. list[i])
-				end
-			end
-
-			layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.language))
-
-			local languageComboBox = layout:addChild(GUI.comboBox(1, 1, 36, 1, 0xFFFFFF, 0x696969, 0x969696, 0xE1E1E1))
-			for key, value in pairs(languages) do
-				languageComboBox:addItem(value).onTouch = function()
-					config.language_id = key
-					saveConfig()
-				end
-
-				if key == config.language_id then
-					languageComboBox.selectedItem = languageComboBox:count()
-				end
-			end
-
-			if #result > 0 then
-				layout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.publications))
-
-				local comboBox = layout:addChild(GUI.comboBox(1, 1, 36, 1, 0xFFFFFF, 0x696969, 0x969696, 0xE1E1E1))
-				for i = 1, #result do
-					comboBox:addItem(result[i].publication_name)
-				end
-
-				local buttonsLayout = layout:addChild(newButtonsLayout(1, 1, layout.width, 2))
-				buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.open)).onTouch = function()
-					newPublicationInfo(result[comboBox.selectedItem].file_id)
-				end
-
-				buttonsLayout:addChild(GUI.adaptiveRoundedButton(1, 1, 2, 0, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, localization.edit)).onTouch = function()
-					local result = fieldAPIRequest("result", "publication", {
-						file_id = result[comboBox.selectedItem].file_id,
-						language_id = config.language_id,
-					})
-
-					if result then
-						editPublication(result)
-					end
+				if result then
+					editPublication(result)
 				end
 			end
 		end
-	else
-		addAccountShit(true, false, false)
-		workspace:draw()
 	end
+
+	workspace:draw()
 end
 
 local function dialogGUI(to_user_name)
@@ -2023,7 +2250,7 @@ updateFileList = function(category_id, updates)
 		iterate(systemVersions)
 	end
 
-	local result = fieldAPIRequest("result", "publications", {
+	local result = multiSourceRequest("result", "publications", {
 		category_id = category_id,
 		order_by = updates and "date" or orderBys[config.orderBy],
 		order_direction = updates and "desc" or orderDirections[config.orderDirection],
@@ -2042,7 +2269,7 @@ updateFileList = function(category_id, updates)
 	if updates then
 		local i = 1
 		while i <= #result do
-			if getUpdateState(result[i].file_id, result[i].version) ~= 3 then
+			if getUpdateState(result[i].file_id, result[i].version) ~= 3 or isBlacklisted(result[i].sourceUrl, result[i].publication_name, nil) then
 				table.remove(result, i)
 			else
 				i = i + 1
@@ -2081,7 +2308,7 @@ updateFileList = function(category_id, updates)
 							if publication.dependencies then
 								for j = 1, #publication.all_dependencies do
 									local dependency = publication.dependencies_data[publication.all_dependencies[j]]
-									if not dependency.publication_name then
+									if not dependency.publication_name and not isBlacklisted(publication.sourceUrl, nil, dependency.path) then
 										container.label.text = localization.downloading .. " " .. dependency.path
 										workspace:draw()
 										

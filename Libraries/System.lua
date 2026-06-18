@@ -474,7 +474,10 @@ local function addMainDesktopMenuItem(menu)
 		
 		local cpuAddress = component.list("cpu")()
 		local cpu = cpuAddress and component.proxy(cpuAddress)
-		local cpuName = cpu and cpu.name() or "Unknown"
+		local cpuClock = 0
+		if cpu and cpu.clock then
+			cpuClock = math.floor(cpu.clock() / 1000000)
+		end
 		
 		local lines = {
 			"PixelOS",
@@ -489,7 +492,7 @@ local function addMainDesktopMenuItem(menu)
 			" ",
 			"System Information:",
 			" ",
-			"CPU: " .. cpuName,
+			"CPU: " .. cpuClock .. " MHz",
 			"Memory: " .. math.floor(computer.totalMemory() / 1024 / 1024) .. " MB",
 			"Architecture: " .. (_VERSION or "Lua"),
 			"Resolution: " .. screen.getWidth() .. "x" .. screen.getHeight(),
@@ -2924,25 +2927,12 @@ function system.updateDesktop()
 	end
 
 	-- CPU widget
-	local CPUWidget, CPUPercents = system.addMenuWidget(system.menuWidget(15))
-	CPUPercents = {}
-	for i = 1, 8 do CPUPercents[i] = 0 end
+	local CPUWidget, CPUClock = system.addMenuWidget(system.menuWidget(15))
+	CPUClock = 0
 	CPUWidget.draw = function(CPUWidget)
-		local avg = 0
-		for _, v in ipairs(CPUPercents) do avg = avg + v end
-		avg = avg / #CPUPercents
-		local text = "CPU: " .. math.ceil(avg * 100) .. "% "
-		local barWidth = CPUWidget.width - #text
-		local activeWidth = math.ceil(avg * barWidth)
-
+		local text = "CPU: " .. CPUClock .. "MHz "
 		screen.drawText(CPUWidget.x, 1, 0x787878, text)
-		
-		local index = screen.getIndex(CPUWidget.x + #text, 1)
-		
-		for i = 1, barWidth do
-			screen.rawSet(index, screen.rawGet(index), i <= activeWidth and getPercentageColor(1 - avg) or 0x3C3C3C, "━")
-			index = index + 1
-		end
+		CPUWidget.width = #text
 	end
 
 	-- Architecture widget
@@ -3007,13 +2997,10 @@ function system.updateDesktop()
 			local cpuAddress = component.list("cpu")()
 			if cpuAddress then
 				local cpu = component.proxy(cpuAddress)
-				if cpu.usage then
-					local usage = cpu.usage()
-					table.insert(CPUPercents, usage)
-					if #CPUPercents > 8 then table.remove(CPUPercents, 1) end
+				if cpu.clock then
+					CPUClock = math.floor(cpu.clock() / 1000000)
 				else
-					table.insert(CPUPercents, 0)
-					if #CPUPercents > 8 then table.remove(CPUPercents, 1) end
+					CPUClock = 0
 				end
 			end
 		end
