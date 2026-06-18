@@ -2932,6 +2932,28 @@ function system.updateDesktop()
 		end
 	end
 
+	-- CPU widget
+	local CPUWidget, CPUPercents = system.addMenuWidget(system.menuWidget(15))
+	CPUPercents = {}
+	for i = 1, 8 do CPUPercents[i] = 0 end
+	CPUWidget.draw = function(CPUWidget)
+		local avg = 0
+		for _, v in ipairs(CPUPercents) do avg = avg + v end
+		avg = avg / #CPUPercents
+		local text = "CPU: " .. math.ceil(avg * 100) .. "% "
+		local barWidth = CPUWidget.width - #text
+		local activeWidth = math.ceil(avg * barWidth)
+
+		screen.drawText(CPUWidget.x, 1, 0x787878, text)
+		
+		local index = screen.getIndex(RAMWidget.x + #text, 1)
+		
+		for i = 1, barWidth do
+			screen.rawSet(index, screen.rawGet(index), i <= activeWidth and getPercentageColor(1 - avg) or 0x3C3C3C, "━")
+			index = index + 1
+		end
+	end
+
 	-- Architecture widget
 	local archWidget, archText = system.addMenuWidget(system.menuWidget(1))
 	archWidget.draw = function(archWidget)
@@ -2976,6 +2998,19 @@ function system.updateDesktop()
 		local totalMemory = computer.totalMemory()
 		RAMPercent = (totalMemory - computer.freeMemory()) / totalMemory
 		RAMWidget.hidden = not showRAM
+
+		-- CPU widget
+		local showCPU = userSettings.interfaceStatusBarShowCPU ~= false
+		if showCPU then
+			local cpuAddress = component.list("cpu")()
+			if cpuAddress then
+				local cpu = component.proxy(cpuAddress)
+				local usage = cpu.usage()
+				table.insert(CPUPercents, usage)
+				if #CPUPercents > 8 then table.remove(CPUPercents, 1) end
+			end
+		end
+		CPUWidget.hidden = not showCPU
 
 		-- Architecture widget
 		local showArch = userSettings.interfaceStatusBarShowArchitecture ~= false
