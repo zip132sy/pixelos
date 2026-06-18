@@ -337,6 +337,14 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 			
 			if #displayPath > maxPathLen then
 				if maxPathLen >= 13 then
+					-- Use scroll offset for long paths
+					scrollCounter = scrollCounter + 1
+					if scrollCounter >= 3 then
+						scrollCounter = 0
+						scrollOffset = scrollOffset + 1
+					end
+					
+					-- Calculate head and tail lengths based on available space
 					local headLen = math.floor(maxPathLen * 0.4)
 					local tailLen = maxPathLen - headLen - 3
 					if headLen < 5 then headLen = 5 end
@@ -344,7 +352,20 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 					if headLen + tailLen + 3 > maxPathLen then
 						tailLen = maxPathLen - headLen - 3
 					end
-					displayPath = path:sub(1, headLen) .. "..." .. path:sub(#path - tailLen + 1)
+					
+					-- Scrolling: shift the window of visible characters
+					local maxScroll = #path - headLen - tailLen
+					if maxScroll > 0 then
+						scrollOffset = scrollOffset % (maxScroll + 4)  -- Add pause at end
+						local visibleStart = scrollOffset
+						if visibleStart > maxScroll then
+							-- Pause at the end (show last tail)
+							visibleStart = maxScroll
+						end
+						displayPath = path:sub(1, headLen) .. "..." .. path:sub(visibleStart + headLen + 1, visibleStart + headLen + tailLen)
+					else
+						displayPath = path:sub(1, headLen) .. "..." .. path:sub(#path - tailLen + 1)
+					end
 				else
 					-- Not enough space, just show the tail
 					displayPath = path:sub(#path - maxPathLen + 1)
