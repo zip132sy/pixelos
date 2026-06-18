@@ -334,8 +334,9 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 			local maxDisplayLen = nameLabel.width
 			local maxPathLen = maxDisplayLen - #prefix - #suffix
 			local displayPath = path
+			local isLong = #displayPath > maxPathLen
 			
-			if #displayPath > maxPathLen then
+			if isLong then
 				scrollCounter = scrollCounter + 1
 				if scrollCounter >= 3 then
 					scrollCounter = 0
@@ -370,7 +371,16 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 				scrollCounter = 0
 			end
 			
-			nameLabel.text = prefix .. displayPath .. suffix
+			local fullText = prefix .. displayPath .. suffix
+			
+			if not isLong then
+				local padding = math.floor((maxDisplayLen - #fullText) / 2)
+				if padding > 0 then
+					fullText = string.rep(" ", padding) .. fullText
+				end
+			end
+			
+			nameLabel.text = fullText
 			if fileSize and fileSize > 0 then
 				sizeLabel.text = string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize))
 			else
