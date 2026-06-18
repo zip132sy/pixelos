@@ -332,19 +332,18 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 			
 			-- Calculate the maximum length for "Installing: " (12) + path + suffix
 			local prefix = "Installing: "
-			local maxPathLen = 80 - #prefix - #suffix
+			local maxDisplayLen = nameLabel.width
+			local maxPathLen = maxDisplayLen - #prefix - #suffix
 			local displayPath = path
 			
 			if #displayPath > maxPathLen then
 				if maxPathLen >= 13 then
-					-- Use scroll offset for long paths
 					scrollCounter = scrollCounter + 1
 					if scrollCounter >= 3 then
 						scrollCounter = 0
 						scrollOffset = scrollOffset + 1
 					end
 					
-					-- Calculate head and tail lengths based on available space
 					local headLen = math.floor(maxPathLen * 0.4)
 					local tailLen = maxPathLen - headLen - 3
 					if headLen < 5 then headLen = 5 end
@@ -353,13 +352,11 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 						tailLen = maxPathLen - headLen - 3
 					end
 					
-					-- Scrolling: shift the window of visible characters
 					local maxScroll = #path - headLen - tailLen
 					if maxScroll > 0 then
-						scrollOffset = scrollOffset % (maxScroll + 4)  -- Add pause at end
+						scrollOffset = scrollOffset % (maxScroll + 4)
 						local visibleStart = scrollOffset
 						if visibleStart > maxScroll then
-							-- Pause at the end (show last tail)
 							visibleStart = maxScroll
 						end
 						displayPath = path:sub(1, headLen) .. "..." .. path:sub(visibleStart + headLen + 1, visibleStart + headLen + tailLen)
@@ -367,7 +364,6 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 						displayPath = path:sub(1, headLen) .. "..." .. path:sub(#path - tailLen + 1)
 					end
 				else
-					-- Not enough space, just show the tail
 					displayPath = path:sub(#path - maxPathLen + 1)
 				end
 			end
@@ -914,7 +910,7 @@ addStage(function()
 
 	local container = layout:addChild(GUI.container(1, 1, layout.width - 20, 5))
 	local progressBar = container:addChild(GUI.progressBar(1, 1, container.width, 0x66B6FF, 0xD2D2D2, 0xA5A5A5, 0, true, false))
-	local fileNameLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	local fileNameLabel = container:addChild(GUI.label(1, 2, container.width, 1, 0x969696, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
 	local fileSizeLabel = container:addChild(GUI.label(1, 3, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	local statsLabel = container:addChild(GUI.label(1, 5, container.width, 1, 0x696969, "")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 
