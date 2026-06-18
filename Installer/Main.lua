@@ -1078,20 +1078,45 @@ addStage(function()
 	layout:removeChildren()
 	addImage(1, 1, "EEPROM")
 	addTitle(0x969696, localization.flashing)
+	
+	local progressBar = GUI.progressBar(1, 1, layout.width - 2, 1, 0x00FF00, 0xFFFFFF)
+	progressBar.value = 0
+	layout:addChild(progressBar)
+	
+	local statusLabel = GUI.label(1, 1, layout.width, 1, 0x969696, "0%")
+	statusLabel:setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
+	layout:addChild(statusLabel)
+	
 	workspace:draw()
+	
+	local function flashWithProgress(code, label)
+		local totalSteps = 20
+		for step = 1, totalSteps do
+			progressBar.value = step / totalSteps
+			statusLabel.text = string.format("%d%%", math.floor(step / totalSteps * 100))
+			workspace:draw()
+			computer.pullSignal(0.05)
+		end
+		
+		component.invoke(EEPROMAddress, "set", code)
+		component.invoke(EEPROMAddress, "setLabel", label)
+		
+		progressBar.value = 1
+		statusLabel.text = "100%"
+		workspace:draw()
+		computer.pullSignal(0.2)
+	end
 	
 	-- Only flash BIOS if Manager is enabled
 	if biosManagerSwitchAndLabel.switch.state then
 		local biosCode = request("EFI/BIOS.lua")
 		if biosCode and #biosCode > 0 then
-			component.invoke(EEPROMAddress, "set", biosCode)
-			component.invoke(EEPROMAddress, "setLabel", "PixelOS BIOS")
+			flashWithProgress(biosCode, "PixelOS BIOS")
 		end
 	else
 		local minifiedCode = request("EFI/Minified.lua")
 		if minifiedCode and #minifiedCode > 0 then
-			component.invoke(EEPROMAddress, "set", minifiedCode)
-			component.invoke(EEPROMAddress, "setLabel", "PixelOS EFI")
+			flashWithProgress(minifiedCode, "PixelOS EFI")
 		end
 	end
 	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
