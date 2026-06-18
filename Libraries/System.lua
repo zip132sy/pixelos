@@ -165,7 +165,7 @@ function system.getLocalization(pathToLocalizationFolder)
 		firstAvailable = filesystem.readTable(english)
 	else
 		local list = filesystem.list(pathToLocalizationFolder)
-		if #list > 0 then
+		if list and #list > 0 then
 			firstAvailable = filesystem.readTable(pathToLocalizationFolder .. list[1])
 		else
 			firstAvailable = {}  -- WORST case
