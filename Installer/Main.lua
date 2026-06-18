@@ -330,21 +330,28 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 				suffix = suffix .. " @ " .. speedStr
 			end
 			
-			local maxPathLen = 80 - #suffix - 12
+			-- Calculate the maximum length for "Installing: " (12) + path + suffix
+			local prefix = "Installing: "
+			local maxPathLen = 80 - #prefix - #suffix
 			local displayPath = path
 			
 			if #displayPath > maxPathLen then
-				local headLen = math.floor(maxPathLen * 0.4)
-				local tailLen = maxPathLen - headLen - 3
-				if headLen < 5 then headLen = 5 end
-				if tailLen < 10 then tailLen = 10 end
-				if headLen + tailLen + 3 > maxPathLen then
-					tailLen = maxPathLen - headLen - 3
+				if maxPathLen >= 13 then
+					local headLen = math.floor(maxPathLen * 0.4)
+					local tailLen = maxPathLen - headLen - 3
+					if headLen < 5 then headLen = 5 end
+					if tailLen < 5 then tailLen = 5 end
+					if headLen + tailLen + 3 > maxPathLen then
+						tailLen = maxPathLen - headLen - 3
+					end
+					displayPath = path:sub(1, headLen) .. "..." .. path:sub(#path - tailLen + 1)
+				else
+					-- Not enough space, just show the tail
+					displayPath = path:sub(#path - maxPathLen + 1)
 				end
-				displayPath = path:sub(1, headLen) .. "..." .. path:sub(#path - tailLen + 1)
 			end
 			
-			nameLabel.text = string.format("Installing: %s%s", displayPath, suffix)
+			nameLabel.text = prefix .. displayPath .. suffix
 			if fileSize and fileSize > 0 then
 				sizeLabel.text = string.format("%s / %s", formatSizeShort(totalBytes), formatSizeShort(fileSize))
 			else
