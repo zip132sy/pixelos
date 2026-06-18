@@ -330,24 +330,23 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 				suffix = suffix .. " @ " .. speedStr
 			end
 			
-			-- Calculate the maximum length for "Installing: " (12) + path + suffix
-			local prefix = "Installing: "
+			local prefix = "Install: "
 			local maxDisplayLen = nameLabel.width
 			local maxPathLen = maxDisplayLen - #prefix - #suffix
 			local displayPath = path
 			
 			if #displayPath > maxPathLen then
-				if maxPathLen >= 13 then
-					scrollCounter = scrollCounter + 1
-					if scrollCounter >= 3 then
-						scrollCounter = 0
-						scrollOffset = scrollOffset + 1
-					end
-					
-					local headLen = math.floor(maxPathLen * 0.4)
+				scrollCounter = scrollCounter + 1
+				if scrollCounter >= 3 then
+					scrollCounter = 0
+					scrollOffset = scrollOffset + 1
+				end
+				
+				local showHead = maxPathLen >= 10
+				if showHead then
+					local headLen = math.min(math.floor(maxPathLen * 0.3), 15)
 					local tailLen = maxPathLen - headLen - 3
-					if headLen < 5 then headLen = 5 end
-					if tailLen < 5 then tailLen = 5 end
+					if tailLen < 8 then tailLen = 8 end
 					if headLen + tailLen + 3 > maxPathLen then
 						tailLen = maxPathLen - headLen - 3
 					end
@@ -366,6 +365,9 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 				else
 					displayPath = path:sub(#path - maxPathLen + 1)
 				end
+			else
+				scrollOffset = 0
+				scrollCounter = 0
 			end
 			
 			nameLabel.text = prefix .. displayPath .. suffix
