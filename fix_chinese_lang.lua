@@ -1,4 +1,4 @@
-{
+local content = [[{
 	statistics = "统计",
 	messages = "消息",
 	account = "账号",
@@ -21,7 +21,7 @@
 	categoryUpdates = "更新",
 	categoryWallpapers = "壁纸",
 	statisticsNewUser = "新用户",
-	statisticsMostPopularUser = "最极极",
+	statisticsMostPopularUser = "最积极",
 	statisticsUsersCount = "用户数量",
 	statisticsPublicationsCount = "软件数量",
 	statisticsReviewsCount = "评论数量",
@@ -118,4 +118,9 @@
 	blacklistItemName = "应用/库名称",
 	blacklistItemPath = "依赖路径(可选)",
 	blacklistBlocked = "该应用已被黑名单屏蔽",
-}
+}]]
+
+local f = io.open('Applications/App Market.app/Localizations/Chinese.lang', 'w')
+f:write(content)
+f:close()
+print('Done')
