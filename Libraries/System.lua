@@ -2946,7 +2946,7 @@ function system.updateDesktop()
 
 		screen.drawText(CPUWidget.x, 1, 0x787878, text)
 		
-		local index = screen.getIndex(RAMWidget.x + #text, 1)
+		local index = screen.getIndex(CPUWidget.x + #text, 1)
 		
 		for i = 1, barWidth do
 			screen.rawSet(index, screen.rawGet(index), i <= activeWidth and getPercentageColor(1 - avg) or 0x3C3C3C, "━")
@@ -2965,13 +2965,24 @@ function system.updateDesktop()
 	for address in component.list("filesystem") do
 		local proxy = component.proxy(address)
 		local diskKey = address:sub(1, 8)
-		local diskWidget, diskWidgetText = system.addMenuWidget(system.menuWidget(1))
+		local diskWidget = system.addMenuWidget(system.menuWidget(20))
 		diskWidget.draw = function(diskWidget)
-			screen.drawText(diskWidget.x, 1, 0x787878, diskWidgetText)
+			local text = diskWidget.text or ""
+			local percent = diskWidget.percent or 0
+			local barWidth = diskWidget.width - unicode.len(text)
+			local activeWidth = math.ceil(percent * barWidth)
+
+			screen.drawText(diskWidget.x, 1, percent > 0.8 and 0xFF9240 or 0x787878, text)
+			
+			local index = screen.getIndex(diskWidget.x + unicode.len(text), 1)
+			
+			for i = 1, barWidth do
+				screen.rawSet(index, screen.rawGet(index), i <= activeWidth and (percent > 0.8 and 0xFF9240 or getPercentageColor(1 - percent)) or 0x3C3C3C, "━")
+				index = index + 1
+			end
 		end
 		diskWidgets[diskKey] = {
 			widget = diskWidget,
-			text = diskWidgetText,
 			proxy = proxy,
 			address = address,
 		}
@@ -3042,19 +3053,16 @@ function system.updateDesktop()
 				local used = proxy.spaceUsed()
 				local total = proxy.spaceTotal()
 				local free = total - used
-				local percent = total > 0 and math.ceil(used / total * 100) or 0
+				local percent = total > 0 and (used / total) or 0
+				local percentInt = math.ceil(percent * 100)
 				local label = proxy.getLabel() or diskKey
-				-- Shorten label if too long
 				if unicode.len(label) > 6 then
 					label = unicode.sub(label, 1, 6) .. ".."
 				end
-				local text = label .. ":" .. percent .. "% "
-				diskInfo.widget.width = unicode.len(text)
-				-- Update draw function with current text
-				local currentText = text
-				diskInfo.widget.draw = function(w)
-					screen.drawText(w.x, 1, percent > 80 and 0xFF9240 or 0x787878, currentText)
-				end
+				local text = label .. ":" .. percentInt .. "% "
+				diskInfo.widget.text = text
+				diskInfo.widget.percent = percent
+				diskInfo.widget.width = unicode.len(text) + 8
 			end
 			diskInfo.widget.hidden = not diskVisible
 		end
