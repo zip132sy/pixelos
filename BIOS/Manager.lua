@@ -14,10 +14,15 @@ if type(unicode) ~= "table" then
 	unicode = { wlen = function(s) return #s end }
 end
 
-local gpu = component.gpu
-local screen = component.screen
-if gpu and screen then
-	gpu.bind(screen.address)
+-- Get GPU and screen (compatible with EFI context)
+local gpu, screen
+local gpuAddr = component.list("gpu")()
+local screenAddr = component.list("screen")()
+if gpuAddr then
+    gpu = component.proxy(gpuAddr)
+    if screenAddr then
+        gpu.bind(screenAddr)
+    end
 end
 local w, h = gpu and gpu.getResolution() or 80, 25
 
@@ -158,8 +163,7 @@ end
 
 local function getBootDevices()
     local devices = {}
-    local eeprom = component.eeprom
-    local bootAddress = eeprom and eeprom.getData() or ""
+    local bootAddress = (computer.getBootAddress and computer.getBootAddress()) or ""
     
     for address in component.list("filesystem") do
         local proxy = component.proxy(address)
@@ -286,9 +290,8 @@ local function bootDevice(device)
     drawTitleBar()
     drawCenteredText(math.floor(h / 2), "正在保存启动项...", colors.text)
     
-    local eeprom = component.eeprom
-    if eeprom then
-        eeprom.setData(device.address)
+    if computer.setBootAddress then
+        computer.setBootAddress(device.address)
     end
     
     drawScreen()
@@ -321,8 +324,7 @@ local function sysInfoPage()
         local currentEnergy = math.floor(computer.energy())
         local compAddr = computer.address()
         
-        local eeprom = component.eeprom
-        local bootPriority = eeprom and eeprom.getData() or "未设置"
+        local bootPriority = (computer.getBootAddress and computer.getBootAddress()) or "未设置"
         if type(bootPriority) == "string" and #bootPriority > 18 then
             bootPriority = bootPriority:sub(1, 18) .. "..."
         end
@@ -405,9 +407,8 @@ local function deviceMenu(device)
                 local action = menuItems[selected].action
                 
                 if action == "default" then
-                    local eeprom = component.eeprom
-                    if eeprom then
-                        eeprom.setData(device.address)
+                    if computer.setBootAddress then
+                        computer.setBootAddress(device.address)
                     end
                     drawScreen()
                     drawTitleBar()
