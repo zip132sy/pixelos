@@ -70,6 +70,32 @@ local keyboard = {
   DOWN = 208,
   RIGHT = 205,
   LEFT = 203,
+  
+  -- Function Keys
+  F1 = 59,
+  F2 = 60,
+  F3 = 61,
+  F4 = 62,
+  F5 = 63,
+  F6 = 64,
+  F7 = 65,
+  F8 = 66,
+  F9 = 67,
+  F10 = 68,
+  F11 = 87,
+  F12 = 88,
+  
+  -- Special
+  ESCAPE = 1,
+  DELETE = 211,
+  INSERT = 210,
+  HOME = 199,
+  END_ = 207,
+  PAGE_UP = 201,
+  PAGE_DOWN = 209,
+  CAPS_LOCK = 58,
+  NUM_LOCK = 69,
+  SCROLL_LOCK = 70,
 }
 
 local pressedCodes = {}

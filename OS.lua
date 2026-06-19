@@ -298,10 +298,10 @@ local function showPasswordUnlock()
         end
         
         if eventType == "key_down" then
-            local key = signal[3]
-            local char = signal[4]
+            local key = signal[4]
+            local char = signal[3]
             
-            if key == keyboard.keys.enter then
+            if key == keyboard.ENTER then
                 -- Verify password
                 local inputHash = Encryption.hashPassword(password)
                 if inputHash == passwordHash then
@@ -310,7 +310,7 @@ local function showPasswordUnlock()
                     password = ""
                     draw()
                 end
-            elseif key == keyboard.keys.backspace then
+            elseif key == keyboard.BACKSPACE then
                 if #password > 0 then
                     password = string.sub(password, 1, -2)
                     draw()

@@ -494,12 +494,12 @@ end
 
 -- Event handlers
 local function handleKeyPress(keyboardEvent)
-    local key = keyboardEvent[3]
+    local key = keyboardEvent[4]
     
-    if key == keyboard.keys.f5 then
+    if key == keyboard.F5 then
         loadConfig()
         draw()
-    elseif key == keyboard.keys.f10 then
+    elseif key == keyboard.F10 then
         saveConfig()
         return true
     elseif currentTab == 1 then
@@ -605,8 +605,8 @@ function BIOS.start()
         local signal = eventData[1]
         
         if signal == "key_down" then
-            local key = eventData[3]
-            if key == keyboard.keys.escape then
+            local key = eventData[4]
+            if key == keyboard.ESCAPE then
                 break
             elseif handleKeyPress(eventData) then
                 break
@@ -650,10 +650,10 @@ function BIOS.showBootPrompt()
         while computer.uptime() - startTime < BIOS.BOOT_TIMEOUT do
             local signal = {event.pull(0.1)}
             if signal[1] == "key_down" then
-                local key = signal[3]
-                if key == keyboard.keys.f12 or key == keyboard.keys.delete then
+                local key = signal[4]
+                if key == keyboard.F12 or key == keyboard.DELETE then
                     return true
-                elseif key == keyboard.keys.escape then
+                elseif key == keyboard.ESCAPE then
                     return false
                 end
             end
@@ -716,18 +716,18 @@ function BIOS.showBootMenu()
     while true do
         local signal = {event.pull()}
         if signal[1] == "key_down" then
-            local key = signal[3]
-            if key == keyboard.keys.up then
+            local key = signal[4]
+            if key == keyboard.UP then
                 selected = math.max(1, selected - 1)
                 draw()
-            elseif key == keyboard.keys.down then
+            elseif key == keyboard.DOWN then
                 selected = math.min(#config.bootEntries, selected + 1)
                 draw()
-            elseif key == keyboard.keys.enter then
+            elseif key == keyboard.ENTER then
                 return config.bootEntries[selected].path
-            elseif key == keyboard.keys.f12 then
+            elseif key == keyboard.F12 then
                 return "BIOS"
-            elseif key == keyboard.keys.escape then
+            elseif key == keyboard.ESCAPE then
                 return "/OS.lua"
             end
         end
