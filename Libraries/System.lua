@@ -156,7 +156,8 @@ end
 
 
 function system.getLocalization(pathToLocalizationFolder)
-	local required, english = pathToLocalizationFolder .. userSettings.localizationLanguage .. ".lang", pathToLocalizationFolder .. "English.lang"
+	local langName = userSettings and userSettings.localizationLanguage or "English"
+	local required, english = pathToLocalizationFolder .. langName .. ".lang", pathToLocalizationFolder .. "English.lang"
 	local readyLocalization
 	local firstAvailable
 
