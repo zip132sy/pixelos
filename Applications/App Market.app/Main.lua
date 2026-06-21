@@ -713,7 +713,13 @@ local function download(publication)
 			end
 
 			govnoed(publication, 1)
-			tryToDownload(publication.source_url, mainFilePath)
+			
+			-- Build full download URL with source prefix if needed
+			local downloadUrl = publication.source_url
+			if publication.sourceUrl and not downloadUrl:match("^http") then
+				downloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. downloadUrl:gsub("^/", "")
+			end
+			tryToDownload(downloadUrl, mainFilePath)
 
 			if publication.dependencies then
 				for i = 1, #publication.all_dependencies do
@@ -728,7 +734,13 @@ local function download(publication)
 								path = dependencyPath,
 								version = dependency.version,
 							}
-							tryToDownload(dependency.source_url, dependencyPath)
+							
+							-- Build full dependency URL with source prefix if needed
+							local depDownloadUrl = dependency.source_url
+							if publication.sourceUrl and not depDownloadUrl:match("^http") then
+								depDownloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+							end
+							tryToDownload(depDownloadUrl, dependencyPath)
 						else
 							event.sleep(0.05)
 						end
@@ -794,9 +806,15 @@ local function getPublicationIcon(publication)
 		if config.hideApplicationIcons then
 			return loadIcon("Application")
 		else
+			-- Build full icon URL with source prefix if needed
+			local iconUrl = publication.icon_url
+			if publication.sourceUrl and not iconUrl:match("^http") then
+				iconUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. iconUrl:gsub("^/", "")
+			end
+			
 			local image, reason = getImage(
 				publication, 
-				publication.icon_url,
+				iconUrl,
 				function(width, height)
 					if width > 8 or height > 4 then
 						return false, "Image size is larger than 8x4"
@@ -2315,36 +2333,52 @@ updateFileList = function(category_id, updates)
 						local publication = fieldAPIRequest("result", "publication", {
 							file_id = result[i].file_id,
 							language_id = config.language_id,
-						})
+						}, result[i].sourceUrl)
+						
+						if not publication then
+							-- Skip this publication if we couldn't get details
+							goto continue
+						end
 						
 						local versionsTable = getVersionsTable(publication.file_id)
 						versionsTable[publication.file_id].version = publication.version
-						tryToDownload(publication.source_url, versionsTable[publication.file_id].path)
+						
+						-- Build full download URL with source prefix if needed
+						local pubDownloadUrl = publication.source_url
+						if result[i].sourceUrl and not pubDownloadUrl:match("^http") then
+							pubDownloadUrl = result[i].sourceUrl:gsub("/$", "") .. "/" .. pubDownloadUrl:gsub("^/", "")
+						end
+						tryToDownload(pubDownloadUrl, versionsTable[publication.file_id].path)
 
-						if publication then
-							if publication.dependencies then
-								for j = 1, #publication.all_dependencies do
-									local dependency = publication.dependencies_data[publication.all_dependencies[j]]
-									if not dependency.publication_name and not isBlacklisted(publication.sourceUrl, nil, dependency.path) then
-										container.label.text = localization.downloading .. " " .. dependency.path
-										workspace:draw()
+						if publication.dependencies then
+							for j = 1, #publication.all_dependencies do
+								local dependency = publication.dependencies_data[publication.all_dependencies[j]]
+								if not dependency.publication_name and not isBlacklisted(result[i].sourceUrl, nil, dependency.path) then
+									container.label.text = localization.downloading .. " " .. dependency.path
+									workspace:draw()
+									
+									if getUpdateState(publication.all_dependencies[j], dependency.version) < 4 then
+										local dependencyPath = getDependencyPath(versionsTable[publication.file_id].path, dependency)
 										
-										if getUpdateState(publication.all_dependencies[j], dependency.version) < 4 then
-											local dependencyPath = getDependencyPath(versionsTable[publication.file_id].path, dependency)
-											
-											versionsTable[publication.all_dependencies[j]] = {
-												path = dependencyPath,
-												version = dependency.version,
-											}
-
-											tryToDownload(dependency.source_url, dependencyPath)
-										else
-											event.sleep(0.05)
+										versionsTable[publication.all_dependencies[j]] = {
+											path = dependencyPath,
+											version = dependency.version,
+										}
+										
+										-- Build full dependency URL with source prefix if needed
+										local depDownloadUrl = dependency.source_url
+										if result[i].sourceUrl and not depDownloadUrl:match("^http") then
+											depDownloadUrl = result[i].sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
 										end
+										tryToDownload(depDownloadUrl, dependencyPath)
+									else
+										event.sleep(0.05)
 									end
 								end
 							end
 						end
+						
+						::continue::
 					end
 
 					container:remove()
