@@ -517,7 +517,6 @@ local function inputPassword(title, isNew)
     drawBorder(15, 8, 50, 9, title)
     
     local password = ""
-    local cursorPos = 1
     local maxLen = 16
     
     while true do
@@ -530,7 +529,7 @@ local function inputPassword(title, isNew)
         display = display .. "_"
         
         set(17, 10, display, COLORS.white, COLORS.panel)
-        set(17, 12, "Enter:OK | Esc:Cancel | Backspace:Del", COLORS.gray)
+        set(17, 12, "Enter:OK | F1:Cancel | Backspace:Del", COLORS.gray)
         
         if isNew then
             set(17, 11, "Max 16 characters", COLORS.darkGray)
@@ -543,7 +542,7 @@ local function inputPassword(title, isNew)
             
             if key == 28 then -- Enter
                 return password
-            elseif key == 1 then -- Escape
+            elseif key == 59 then -- F1 - Cancel
                 return nil
             elseif key == 14 then -- Backspace
                 if #password > 0 then
