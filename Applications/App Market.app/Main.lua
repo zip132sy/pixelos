@@ -293,10 +293,12 @@ end
 local function isBlacklisted(sourceUrl, itemName, itemPath)
 	for i = 1, #config.blacklist do
 		local entry = config.blacklist[i]
-		if entry.sourceUrl == sourceUrl or entry.sourceUrl == "*" then
-			if entry.name == itemName or entry.name == "*" or entry.path == itemPath then
-				return true
-			end
+		local sourceMatch = entry.sourceUrl == sourceUrl or entry.sourceUrl == "*"
+		local nameMatch = entry.name == itemName or entry.name == "*"
+		local pathMatch = entry.path and entry.path == itemPath
+		
+		if sourceMatch and (nameMatch or pathMatch) then
+			return true
 		end
 	end
 	return false
