@@ -184,6 +184,7 @@ local function loadConfig()
 				{ sourceUrl = "*", name = "DiskUtility", path = nil },
 				{ sourceUrl = "*", name = "ErrorReporter", path = nil },
 				{ sourceUrl = "*", name = "BIOS", path = "Libraries/BIOS.lua" },
+				{ sourceUrl = "*", name = "Settings", path = nil },
 			}
 		}
 	end
@@ -205,6 +206,7 @@ local function loadConfig()
 			{ sourceUrl = "*", name = "DiskUtility", path = nil },
 			{ sourceUrl = "*", name = "ErrorReporter", path = nil },
 			{ sourceUrl = "*", name = "BIOS", path = "Libraries/BIOS.lua" },
+			{ sourceUrl = "*", name = "Settings", path = nil },
 		}
 		saveConfig()
 	end
