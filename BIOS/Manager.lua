@@ -1,6 +1,6 @@
 -- ============================================================
 -- PixelOS Advanced BIOS Manager
--- Unique style with full features
+-- Unique style with full features + Encryption
 -- ============================================================
 
 local component = component
@@ -28,7 +28,63 @@ end
 
 _G._B = true
 
+-- ============================================================
+-- Encryption Functions
+-- ============================================================
+local function hashPassword(password)
+    local hash = 0
+    for i = 1, #password do
+        hash = (hash * 31 + string.byte(password, i)) % 2147483647
+    end
+    return string.format("%08X", hash)
+end
+
+local function getStoredPasswordHash()
+    local e = component.list("eeprom")()
+    if e then
+        local data = component.invoke(e, "getData") or ""
+        return string.sub(data, 75, 82) or ""
+    end
+    return ""
+end
+
+local function setStoredPasswordHash(hash)
+    local e = component.list("eeprom")()
+    if e then
+        local data = component.invoke(e, "getData") or ""
+        local newData = string.sub(data, 1, 74) .. hash .. string.sub(data, 83)
+        component.invoke(e, "setData", newData)
+    end
+end
+
+local function isBIOSPasswordSet()
+    return getStoredPasswordHash() ~= ""
+end
+
+local function checkDiskEncryption(address)
+    local proxy = component.proxy(address)
+    if proxy and proxy.exists then
+        return proxy.exists("/.encrypted")
+    end
+    return false
+end
+
+local function getStoredDiskPassword(address)
+    local proxy = component.proxy(address)
+    if proxy and proxy.exists and proxy.exists("/.epassword") then
+        local h = proxy.open("/.epassword", "rb")
+        if h then
+            local data = proxy.read(h, 32) or ""
+            proxy.close(h)
+            return data
+        end
+    end
+    return ""
+end
+
+-- ============================================================
 -- EEPROM Functions
+-- ============================================================
 computer.getBootAddress = function()
     local e = component.list("eeprom")()
     if e then
@@ -84,7 +140,9 @@ local function setPriorityAddress(address)
     end
 end
 
+-- ============================================================
 -- Colors - PixelOS Theme
+-- ============================================================
 local COLORS = {
     bg = 0x1E1E1E,
     panel = 0x2D2D2D,
@@ -98,15 +156,20 @@ local COLORS = {
     yellow = 0xDCDCAA,
     red = 0xF14C4C,
     orange = 0xCE9178,
-    cyan = 0x9CDCFE
+    cyan = 0x9CDCFE,
+    purple = 0xC586C0
 }
 
 -- State
 local CurrentMenu = "Boot"
 local selectedIndex = 1
 local filesystemList = {}
+local passwordAttempts = 0
+local maxPasswordAttempts = 3
 
+-- ============================================================
 -- Graphics Functions
+-- ============================================================
 local function clear()
     if gpu then
         gpu.setBackground(COLORS.bg)
@@ -135,7 +198,6 @@ local function drawBorder(x, y, w, h, title)
     fill(x, y, 1, h, " ", COLORS.panel)
     fill(x + w - 1, y, 1, h, " ", COLORS.panel)
     
-    -- Title bar
     fill(x, y, w, 1, " ", COLORS.title)
     if title then
         set(x + 2, y, title, COLORS.white, COLORS.title)
@@ -172,26 +234,33 @@ local function refreshFilesystems()
                 local hasOS = proxy.exists("/OS.lua")
                 local hasInit = proxy.exists("/init.lua")
                 if hasOS or hasInit then
+                    local isEncrypted = checkDiskEncryption(address)
                     table.insert(filesystemList, {
                         address = address,
                         proxy = proxy,
                         label = label,
                         os = getOSName(address),
                         ready = hasOS or hasInit,
-                        isDefault = address == computer.getBootAddress()
+                        isDefault = address == computer.getBootAddress(),
+                        encrypted = isEncrypted
                     })
                 end
             end
         end
     end
-    table.sort(filesystemList, function(a, b) return a.label < b.label end)
+    table.sort(filesystemList, function(a, b) return a.l < b.l end)
 end
 
 local function drawTopBar()
-    -- Title
     fill(1, 1, 80, 1, " ", COLORS.title)
     local title = "[ PixelOS BIOS ] Advanced Manager"
     set(2, 1, title, COLORS.white, COLORS.title)
+    
+    -- Password status indicator
+    if isBIOSPasswordSet() then
+        set(68, 1, "[PWD]", COLORS.purple, COLORS.title)
+    end
+    
     set(71, 1, "F10:Exit", COLORS.darkGray, COLORS.title)
 end
 
@@ -203,7 +272,7 @@ local function drawBottomBar()
     if CurrentMenu == "Boot" then
         set(40, 25, "Arrows:Select | Enter:Boot | 1:SetDefault | F5:Refresh", COLORS.gray, COLORS.panel)
     elseif CurrentMenu == "Settings" then
-        set(40, 25, "1:SetPriority | 2:Clear | 3:Format | 4:About", COLORS.gray, COLORS.panel)
+        set(40, 25, "1:SetPriority | 2:Clear | 3:Format | 4:Password | 5:Encrypt", COLORS.gray, COLORS.panel)
     else
         set(40, 25, "<>:Switch Tab | F10:Exit", COLORS.gray, COLORS.panel)
     end
@@ -230,7 +299,6 @@ end
 local function drawInfoPage()
     refreshFilesystems()
     
-    -- Left Panel - System Info
     drawBorder(2, 4, 36, 20, " System Information ")
     
     local memTotal = computer.totalMemory()
@@ -243,7 +311,6 @@ local function drawInfoPage()
     set(4, 8, "  Used:  " .. memUsed .. " KB (" .. memPercent .. "%)", COLORS.white)
     set(4, 9, "  Free:  " .. memFree .. " KB", COLORS.green)
     
-    -- Memory bar
     fill(4, 10, 32, 1, " ", COLORS.border)
     fill(4, 10, math.floor(32 * memPercent / 100), 1, " ", COLORS.title)
     
@@ -254,20 +321,18 @@ local function drawInfoPage()
     local energy = computer.energy()
     local maxEnergy = computer.maxEnergy()
     local energyPercent = math.floor(energy / maxEnergy * 100)
-    set(4, 15, "  Energy: " .. math.floor(energy) .. "/" .. maxEnergy .. " (" .. energyPercent .. "%)", COLORS.white)
+    set(4, 15, "  Energy: " .. math.floor(energy) .. "/" .. maxEnergy, COLORS.white)
     
-    -- Energy bar
     fill(4, 16, 32, 1, " ", COLORS.border)
     fill(4, 16, math.floor(32 * energyPercent / 100), 1, " ", COLORS.green)
     
     set(4, 18, "Boot Configuration", COLORS.cyan)
-    set(4, 19, "  Boot Addr: " .. (computer.getBootAddress() and unicode.sub(computer.getBootAddress(), 1, 18) or "N/A"), COLORS.yellow)
+    set(4, 19, "  Boot: " .. (computer.getBootAddress() and unicode.sub(computer.getBootAddress(), 1, 18) or "N/A"), COLORS.yellow)
     set(4, 20, "  Priority: " .. (getPriorityAddress() ~= "" and unicode.sub(getPriorityAddress(), 1, 18) or "None"), COLORS.yellow)
     
-    -- Right Panel - Boot Devices Summary
     drawBorder(40, 4, 38, 10, " Quick Boot ")
     
-    set(42, 6, "Detected " .. #filesystemList .. " boot device(s)", COLORS.white)
+    set(42, 6, "Detected " .. #filesystemList .. " device(s)", COLORS.white)
     
     if #filesystemList > 0 then
         local default = filesystemList[1]
@@ -281,13 +346,23 @@ local function drawInfoPage()
         set(42, 9, "OS: " .. default.os, COLORS.orange)
     end
     
-    -- Right Panel - BIOS Info
-    drawBorder(40, 16, 38, 8, " BIOS Information ")
+    drawBorder(40, 16, 38, 8, " Security ")
     
-    set(42, 18, "Version: 1.0", COLORS.white)
-    set(42, 19, "Language: " .. getEEPROMLanguage(), COLORS.white)
-    set(42, 20, "EEPROM: " .. (component.list("eeprom")() and "Present" or "Not Found"), COLORS.white)
-    set(42, 21, "Devices: " .. #filesystemList, COLORS.white)
+    if isBIOSPasswordSet() then
+        set(42, 18, "BIOS Password: [Set]", COLORS.green)
+    else
+        set(42, 18, "BIOS Password: [Not Set]", COLORS.yellow)
+    end
+    
+    local encCount = 0
+    for _, fs in ipairs(filesystemList) do
+        if fs.encrypted then encCount = encCount + 1 end
+    end
+    if encCount > 0 then
+        set(42, 19, "Encrypted Disks: " .. encCount, COLORS.purple)
+    else
+        set(42, 19, "Encrypted Disks: 0", COLORS.gray)
+    end
 end
 
 local function drawBootPage()
@@ -297,7 +372,6 @@ local function drawBootPage()
         selectedIndex = math.max(1, #filesystemList)
     end
     
-    -- Main panel
     drawBorder(2, 4, 50, 18, " Boot Device List ")
     
     if #filesystemList == 0 then
@@ -309,9 +383,14 @@ local function drawBootPage()
             local y = 6 + i
             
             if y <= 19 then
+                local displayLabel = fs.label
+                if fs.encrypted then
+                    displayLabel = displayLabel .. " [Encrypted]"
+                end
+                
                 if i == selectedIndex then
                     fill(3, y, 48, 1, " ", COLORS.highlight)
-                    set(4, y, ">" .. fs.label, COLORS.white, COLORS.highlight)
+                    set(4, y, ">" .. displayLabel, COLORS.white, COLORS.highlight)
                     if fs.isDefault then
                         set(36, y, "[*]", COLORS.green, COLORS.highlight)
                     else
@@ -319,7 +398,11 @@ local function drawBootPage()
                     end
                 else
                     fill(3, y, 48, 1, " ", COLORS.bg)
-                    set(4, y, " " .. fs.label, COLORS.gray)
+                    if fs.encrypted then
+                        set(4, y, " " .. displayLabel, COLORS.purple)
+                    else
+                        set(4, y, " " .. displayLabel, COLORS.gray)
+                    end
                     if fs.isDefault then
                         set(36, y, "[*]", COLORS.green)
                     else
@@ -330,7 +413,6 @@ local function drawBootPage()
         end
     end
     
-    -- Details panel
     drawBorder(54, 4, 24, 18, " Details ")
     
     if #filesystemList > 0 and filesystemList[selectedIndex] then
@@ -352,15 +434,18 @@ local function drawBootPage()
             set(56, 16, "  [Not Ready]", COLORS.red)
         end
         
-        set(56, 18, "Space:", COLORS.cyan)
-        set(56, 19, "  " .. fs.proxy.spaceTotal() .. " KB", COLORS.white)
-        set(56, 20, "  Used: " .. fs.proxy.spaceUsed() .. " KB", COLORS.gray)
-        
-        set(56, 22, "Default:", COLORS.cyan)
-        if fs.isDefault then
-            set(56, 23, "  Yes", COLORS.green)
+        set(56, 18, "Encryption:", COLORS.cyan)
+        if fs.encrypted then
+            set(56, 19, "  [Encrypted]", COLORS.purple)
         else
-            set(56, 23, "  No", COLORS.darkGray)
+            set(56, 19, "  [Not Encrypted]", COLORS.gray)
+        end
+        
+        set(56, 21, "Default:", COLORS.cyan)
+        if fs.isDefault then
+            set(56, 22, "  Yes", COLORS.green)
+        else
+            set(56, 22, "  No", COLORS.darkGray)
         end
     else
         set(56, 12, "No device", COLORS.darkGray)
@@ -369,42 +454,43 @@ local function drawBootPage()
 end
 
 local function drawSettingsPage()
-    drawBorder(2, 4, 36, 18, " BIOS Settings ")
+    drawBorder(2, 4, 36, 20, " BIOS Settings ")
     
     set(4, 6, "1. Set Boot Priority", COLORS.white)
-    set(4, 7, "   Set selected device as", COLORS.gray)
-    set(4, 8, "   default boot device", COLORS.gray)
+    set(4, 7, "   Set default boot device", COLORS.gray)
     
-    set(4, 10, "2. Clear Priority", COLORS.white)
-    set(4, 11, "   Remove boot priority,", COLORS.gray)
-    set(4, 12, "   use last booted device", COLORS.gray)
+    set(4, 9, "2. Clear Priority", COLORS.white)
+    set(4, 10, "   Remove default boot", COLORS.gray)
     
-    set(4, 14, "3. Format EEPROM", COLORS.red)
-    set(4, 15, "   Reset all BIOS settings", COLORS.gray)
-    set(4, 16, "   to factory defaults!", COLORS.gray)
+    set(4, 12, "3. Format EEPROM", COLORS.red)
+    set(4, 13, "   Reset all settings!", COLORS.gray)
     
-    set(4, 18, "4. Change Language", COLORS.white)
-    set(4, 19, "   Current: " .. getEEPROMLanguage(), COLORS.yellow)
-    set(4, 20, "   Options: en/zh/ru", COLORS.gray)
+    set(4, 15, "4. Set BIOS Password", COLORS.white)
+    if isBIOSPasswordSet() then
+        set(4, 16, "   [Set] Change/Remove", COLORS.green)
+    else
+        set(4, 16, "   [Not Set]", COLORS.yellow)
+    end
     
-    set(4, 22, "5. About", COLORS.white)
-    set(4, 23, "   BIOS Manager info", COLORS.gray)
+    set(4, 18, "5. Encrypt Disk", COLORS.white)
+    set(4, 19, "   Encrypt selected device", COLORS.gray)
     
-    -- Right Panel
-    drawBorder(40, 4, 38, 18, " Help ")
+    set(4, 21, "6. Change Language", COLORS.white)
+    set(4, 22, "   Current: " .. getEEPROMLanguage(), COLORS.yellow)
     
-    set(42, 6, "Boot Management:", COLORS.cyan)
-    set(42, 7, "  1 - Set current device", COLORS.white)
-    set(42, 8, "     as default boot", COLORS.gray)
-    set(42, 10, "  2 - Clear default", COLORS.white)
-    set(42, 11, "     boot setting", COLORS.gray)
-    set(42, 13, "  F5 - Refresh device", COLORS.white)
-    set(42, 14, "     list", COLORS.gray)
+    drawBorder(40, 4, 38, 20, " Help ")
     
-    set(42, 17, "Safety:", COLORS.cyan)
-    set(42, 18, "  EEPROM data is", COLORS.white)
-    set(42, 19, "  preserved except", COLORS.white)
-    set(42, 20, "  format option", COLORS.gray)
+    set(42, 6, "Password:", COLORS.cyan)
+    set(42, 7, "  Password protects BIOS", COLORS.gray)
+    set(42, 8, "  access from F12", COLORS.gray)
+    
+    set(42, 10, "Encryption:", COLORS.cyan)
+    set(42, 11, "  Encrypt disk to require", COLORS.gray)
+    set(42, 12, "  password on boot", COLORS.gray)
+    
+    set(42, 14, "Note:", COLORS.cyan)
+    set(42, 15, "  All settings stored in", COLORS.gray)
+    set(42, 16, "  EEPROM", COLORS.gray)
 end
 
 local function drawMain()
@@ -423,12 +509,216 @@ local function drawMain()
     drawBottomBar()
 end
 
+-- ============================================================
+-- Password Input
+-- ============================================================
+local function inputPassword(title, isNew)
+    clear()
+    drawBorder(15, 8, 50, 9, title)
+    
+    local password = ""
+    local cursorPos = 1
+    local maxLen = 16
+    
+    while true do
+        fill(17, 10, 46, 1, " ", COLORS.panel)
+        
+        local display = ""
+        for i = 1, #password do
+            display = display .. "*"
+        end
+        display = display .. "_"
+        
+        set(17, 10, display, COLORS.white, COLORS.panel)
+        set(17, 12, "Enter:OK | Esc:Cancel | Backspace:Del", COLORS.gray)
+        
+        if isNew then
+            set(17, 11, "Max 16 characters", COLORS.darkGray)
+        end
+        
+        local event = {computer.pullSignal()}
+        
+        if event[1] == "key_down" then
+            local key = event[4]
+            
+            if key == 28 then -- Enter
+                return password
+            elseif key == 1 then -- Escape
+                return nil
+            elseif key == 14 then -- Backspace
+                if #password > 0 then
+                    password = string.sub(password, 1, -2)
+                end
+            elseif key >= 2 and key <= 126 then
+                if #password < maxLen then
+                    password = password .. string.char(key)
+                end
+            end
+        end
+    end
+end
+
+-- ============================================================
+-- Encryption Functions
+-- ============================================================
+local function setBIOSPassword()
+    clear()
+    drawBorder(15, 8, 50, 9, " Set BIOS Password ")
+    
+    if isBIOSPasswordSet() then
+        set(17, 10, "Enter current password:", COLORS.white)
+        local oldPass = inputPassword(" Verify Password ", false)
+        if not oldPass then drawMain() return end
+        
+        if hashPassword(oldPass) ~= getStoredPasswordHash() then
+            set(17, 12, "Incorrect password!", COLORS.red)
+            os.sleep(1)
+            drawMain()
+            return
+        end
+        
+        set(17, 11, "Options:", COLORS.white)
+        set(17, 12, "1: Change | 2: Remove | Esc:Cancel", COLORS.gray)
+        
+        local event = {computer.pullSignal()}
+        if event[1] == "key_down" then
+            local key = event[4]
+            if key == 2 then -- 1
+                local newPass = inputPassword(" New Password ", true)
+                if newPass and #newPass > 0 then
+                    setStoredPasswordHash(hashPassword(newPass))
+                    drawMain()
+                    set(40, 4, "Password changed!", COLORS.green)
+                    os.sleep(1)
+                else
+                    drawMain()
+                end
+            elseif key == 3 then -- 2
+                setStoredPasswordHash("")
+                drawMain()
+                set(40, 4, "Password removed!", COLORS.yellow)
+                os.sleep(1)
+            else
+                drawMain()
+            end
+        else
+            drawMain()
+        end
+    else
+        local newPass = inputPassword(" Set Password ", true)
+        if newPass and #newPass > 0 then
+            setStoredPasswordHash(hashPassword(newPass))
+            drawMain()
+            set(40, 4, "Password set!", COLORS.green)
+            os.sleep(1)
+        else
+            drawMain()
+        end
+    end
+end
+
+local function encryptDisk()
+    if #filesystemList == 0 or not filesystemList[selectedIndex] then
+        drawMain()
+        set(40, 4, "No device selected!", COLORS.red)
+        os.sleep(1)
+        return
+    end
+    
+    local fs = filesystemList[selectedIndex]
+    
+    if fs.encrypted then
+        -- Decrypt
+        clear()
+        drawBorder(15, 8, 50, 9, " Decrypt Disk ")
+        set(17, 10, "Enter password to decrypt:", COLORS.white)
+        
+        local pass = inputPassword(" Decrypt ", false)
+        if not pass then drawMain() return end
+        
+        local storedPass = getStoredDiskPassword(fs.address)
+        if storedPass == hashPassword(pass) then
+            fs.proxy.remove("/.encrypted")
+            fs.proxy.remove("/.epassword")
+            drawMain()
+            set(40, 4, "Disk decrypted!", COLORS.green)
+        else
+            drawMain()
+            set(40, 4, "Wrong password!", COLORS.red)
+        end
+        os.sleep(1)
+    else
+        -- Encrypt
+        clear()
+        drawBorder(15, 8, 50, 9, " Encrypt Disk ")
+        set(17, 10, "Enter password for disk:", COLORS.white)
+        
+        local pass = inputPassword(" Encrypt ", true)
+        if not pass then drawMain() return end
+        
+        if #pass < 4 then
+            drawMain()
+            set(40, 4, "Password too short!", COLORS.red)
+            os.sleep(1)
+            return
+        end
+        
+        -- Create encryption marker
+        local h = fs.proxy.open("/.encrypted", "wb")
+        if h then
+            fs.proxy.write(h, "ENCRYPTED")
+            fs.proxy.close(h)
+        end
+        
+        h = fs.proxy.open("/.epassword", "wb")
+        if h then
+            fs.proxy.write(h, hashPassword(pass))
+            fs.proxy.close(h)
+        end
+        
+        drawMain()
+        set(40, 4, "Disk encrypted!", COLORS.green)
+        os.sleep(1)
+    end
+end
+
+-- ============================================================
+-- Boot Functions
+-- ============================================================
+local function verifyDiskPassword(fs)
+    clear()
+    drawBorder(15, 8, 50, 9, " Disk Password Required ")
+    
+    set(17, 10, "Disk is encrypted!", COLORS.yellow)
+    set(17, 11, "Enter password:", COLORS.white)
+    
+    local pass = inputPassword(" Boot Password ", false)
+    if not pass then return false end
+    
+    local storedPass = getStoredDiskPassword(fs.address)
+    if storedPass == hashPassword(pass) then
+        return true
+    end
+    
+    return false
+end
+
 local function bootDevice(index)
     local fs = filesystemList[index]
     if not fs then return end
     
+    -- Check if disk is encrypted
+    if fs.encrypted then
+        if not verifyDiskPassword(fs) then
+            drawMain()
+            set(40, 4, "Wrong password!", COLORS.red)
+            os.sleep(1)
+            return
+        end
+    end
+    
     clear()
-    set(30, 10, "Booting " .. fs.label .. "...", COLORS.green)
+    set(25, 10, "Booting " .. fs.label .. "...", COLORS.green)
     os.sleep(0.5)
     
     local bootFile = fs.proxy.exists("/OS.lua") and "/OS.lua" or "/init.lua"
@@ -468,46 +758,12 @@ local function formatEEPROM()
     
     local e = component.list("eeprom")()
     if e then
-        local defaultData = string.rep("-", 72) .. "en"
+        local defaultData = string.rep("-", 72) .. "en" .. string.rep("-", 10)
         component.invoke(e, "setData", defaultData)
     end
     
     set(25, 14, "EEPROM formatted!", COLORS.green)
-    set(20, 16, "All settings have been reset.", COLORS.white)
     os.sleep(2)
-end
-
-local function showAbout()
-    clear()
-    drawBorder(15, 6, 50, 13, " About ")
-    
-    set(30, 8, "PixelOS BIOS Manager", COLORS.cyan)
-    set(32, 9, "Version 1.0", COLORS.white)
-    
-    set(20, 11, "Advanced BIOS configuration tool", COLORS.gray)
-    set(20, 12, "for PixelOS and OpenComputers", COLORS.gray)
-    
-    set(30, 15, "Based on OCBios design", COLORS.darkGray)
-    set(25, 17, "Press any key to continue...", COLORS.gray)
-    
-    computer.pullSignal()
-end
-
-local function setBootPriority()
-    if #filesystemList > 0 and filesystemList[selectedIndex] then
-        local fs = filesystemList[selectedIndex]
-        setPriorityAddress(fs.address)
-        drawMain()
-        set(40, 4, "Priority set to: " .. fs.label, COLORS.green)
-        os.sleep(1)
-    end
-end
-
-local function clearBootPriority()
-    setPriorityAddress("")
-    drawMain()
-    set(40, 4, "Boot priority cleared!", COLORS.yellow)
-    os.sleep(1)
 end
 
 local function changeLanguage()
@@ -520,16 +776,87 @@ local function changeLanguage()
         setEEPROMLanguage("en")
     end
     drawMain()
-    set(40, 4, "Language changed to: " .. getEEPROMLanguage(), COLORS.green)
+    set(40, 4, "Language: " .. getEEPROMLanguage(), COLORS.green)
     os.sleep(1)
 end
 
--- Main loop
+local function setBootPriority()
+    if #filesystemList > 0 and filesystemList[selectedIndex] then
+        local fs = filesystemList[selectedIndex]
+        setPriorityAddress(fs.address)
+        drawMain()
+        set(40, 4, "Priority: " .. fs.label, COLORS.green)
+        os.sleep(1)
+    end
+end
+
+local function clearBootPriority()
+    setPriorityAddress("")
+    drawMain()
+    set(40, 4, "Priority cleared!", COLORS.yellow)
+    os.sleep(1)
+end
+
+-- ============================================================
+-- Password Check on Startup
+-- ============================================================
+local function checkPassword()
+    if not isBIOSPasswordSet() then
+        return true
+    end
+    
+    passwordAttempts = 0
+    
+    while passwordAttempts < maxPasswordAttempts do
+        clear()
+        drawBorder(15, 8, 50, 9, " BIOS Password ")
+        
+        set(17, 10, "BIOS is password protected", COLORS.yellow)
+        set(17, 11, "Enter password:", COLORS.white)
+        set(17, 13, "Attempts: " .. (maxPasswordAttempts - passwordAttempts) .. "/" .. maxPasswordAttempts, COLORS.gray)
+        
+        local pass = inputPassword(" BIOS ", false)
+        
+        if pass == nil then
+            computer.shutdown(false)
+            return false
+        end
+        
+        if hashPassword(pass) == getStoredPasswordHash() then
+            return true
+        end
+        
+        passwordAttempts = passwordAttempts + 1
+        
+        if passwordAttempts >= maxPasswordAttempts then
+            clear()
+            set(25, 12, "Too many attempts!", COLORS.red)
+            set(20, 14, "Computer will shutdown...", COLORS.gray)
+            os.sleep(2)
+            computer.shutdown(false)
+            return false
+        end
+        
+        set(17, 12, "Wrong password!", COLORS.red)
+        os.sleep(1)
+    end
+    
+    return false
+end
+
+-- ============================================================
+-- Main Loop
+-- ============================================================
 local function main()
     if not gpu then
         for i = 1, 10 do
             computer.pullSignal(0.5)
         end
+        return
+    end
+    
+    -- Check password first
+    if not checkPassword() then
         return
     end
     
@@ -542,52 +869,52 @@ local function main()
             local key = event[4]
             
             -- Tab switching
-            if key == 37 then -- Left
+            if key == 37 then
                 if CurrentMenu == "Boot" then CurrentMenu = "Info"
                 elseif CurrentMenu == "Settings" then CurrentMenu = "Boot" end
                 drawMain()
-            elseif key == 39 then -- Right
+            elseif key == 39 then
                 if CurrentMenu == "Info" then CurrentMenu = "Boot"
                 elseif CurrentMenu == "Boot" then CurrentMenu = "Settings" end
                 drawMain()
             
-            -- Boot menu navigation
             elseif CurrentMenu == "Boot" then
-                if key == 200 and selectedIndex > 1 then -- Up
+                if key == 200 and selectedIndex > 1 then
                     selectedIndex = selectedIndex - 1
                     drawMain()
-                elseif key == 208 and selectedIndex < #filesystemList then -- Down
+                elseif key == 208 and selectedIndex < #filesystemList then
                     selectedIndex = selectedIndex + 1
                     drawMain()
-                elseif key == 28 then -- Enter
+                elseif key == 28 then
                     bootDevice(selectedIndex)
                     break
-                elseif key == 63 then -- F5
+                elseif key == 63 then
                     refreshFilesystems()
                     drawMain()
-                elseif key == 2 then -- 1
+                elseif key == 2 then
                     setBootPriority()
                 end
             
-            -- Settings menu
             elseif CurrentMenu == "Settings" then
-                if key == 2 then -- 1
+                if key == 2 then
                     setBootPriority()
-                elseif key == 3 then -- 2
+                elseif key == 3 then
                     clearBootPriority()
-                elseif key == 4 then -- 3
+                elseif key == 4 then
                     formatEEPROM()
                     drawMain()
-                elseif key == 5 then -- 4
-                    showAbout()
+                elseif key == 5 then
+                    setBIOSPassword()
                     drawMain()
-                elseif key == 6 then -- 5
+                elseif key == 6 then
+                    encryptDisk()
+                    drawMain()
+                elseif key == 7 then
                     changeLanguage()
                 end
             end
             
-            -- Exit
-            if key == 68 then -- F10
+            if key == 68 then
                 break
             end
         end
