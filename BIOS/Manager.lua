@@ -818,7 +818,7 @@ local function checkPassword()
         local pass = inputPassword(" BIOS ", false)
         
         if pass == nil then
-            computer.shutdown(false)
+            -- ESC pressed, return to BIOS
             return false
         end
         
@@ -831,9 +831,8 @@ local function checkPassword()
         if passwordAttempts >= maxPasswordAttempts then
             clear()
             set(25, 12, "Too many attempts!", COLORS.red)
-            set(20, 14, "Computer will shutdown...", COLORS.gray)
+            set(20, 14, "Returning to BIOS...", COLORS.gray)
             os.sleep(2)
-            computer.shutdown(false)
             return false
         end
         

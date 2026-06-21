@@ -426,6 +426,9 @@ local function newButtonsLayout(x, y, width, spacing)
 end
 
 local function getVersionsTable(file_id)
+	if not file_id then
+		return userVersions
+	end
 	if systemVersions[file_id] then
 		return systemVersions
 	else
@@ -586,11 +589,16 @@ local function download(publication)
 		return
 	end
 
-	if not publication.translated_description then
-		publication = fieldAPIRequest("result", "publication", {
-			file_id = publication.file_id,
-			language_id = config.language_id,
-		}, publication.sourceUrl)
+	if not publication.file_id then
+		-- Skip API request for sources without file_id
+		publication.translated_description = publication.description
+	else
+		if not publication.translated_description then
+			publication = fieldAPIRequest("result", "publication", {
+				file_id = publication.file_id,
+				language_id = config.language_id,
+			}, publication.sourceUrl)
+		end
 	end
 
 	if publication then
@@ -679,7 +687,7 @@ local function download(publication)
 		shortcutSwitchAndLabel.hidden = publication.category_id == 2 or publication.category_id == 4
 
 		container.layout:addChild(GUI.button(1, 1, 44, 3, 0x696969, 0xFFFFFF, 0x0, 0xFFFFFF, localization.download)).onTouch = function()
-			if user.token then
+			if user.token and publication.file_id then
 				RawAPIRequest("download", {
 					token = user.token,
 					file_id = publication.file_id
@@ -697,10 +705,12 @@ local function download(publication)
 				workspace:draw()
 			end
 
-			versionsTable[publication.file_id] = {
-				path = mainFilePath,
-				version = publication.version,
-			}
+			if publication.file_id then
+				versionsTable[publication.file_id] = {
+					path = mainFilePath,
+					version = publication.version,
+				}
+			end
 
 			govnoed(publication, 1)
 			tryToDownload(publication.source_url, mainFilePath)
