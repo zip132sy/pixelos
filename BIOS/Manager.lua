@@ -571,7 +571,7 @@ local function setBIOSPassword()
         
         if hashPassword(oldPass) ~= getStoredPasswordHash() then
             set(17, 12, "Incorrect password!", COLORS.red)
-            os.sleep(1)
+            computer.pullSignal(1)
             drawMain()
             return
         end
@@ -588,7 +588,7 @@ local function setBIOSPassword()
                     setStoredPasswordHash(hashPassword(newPass))
                     drawMain()
                     set(40, 4, "Password changed!", COLORS.green)
-                    os.sleep(1)
+                    computer.pullSignal(1)
                 else
                     drawMain()
                 end
@@ -596,7 +596,7 @@ local function setBIOSPassword()
                 setStoredPasswordHash("")
                 drawMain()
                 set(40, 4, "Password removed!", COLORS.yellow)
-                os.sleep(1)
+                computer.pullSignal(1)
             else
                 drawMain()
             end
@@ -609,7 +609,7 @@ local function setBIOSPassword()
             setStoredPasswordHash(hashPassword(newPass))
             drawMain()
             set(40, 4, "Password set!", COLORS.green)
-            os.sleep(1)
+            computer.pullSignal(1)
         else
             drawMain()
         end
@@ -620,7 +620,7 @@ local function encryptDisk()
     if #filesystemList == 0 or not filesystemList[selectedIndex] then
         drawMain()
         set(40, 4, "No device selected!", COLORS.red)
-        os.sleep(1)
+        computer.pullSignal(1)
         return
     end
     
@@ -645,7 +645,7 @@ local function encryptDisk()
             drawMain()
             set(40, 4, "Wrong password!", COLORS.red)
         end
-        os.sleep(1)
+        computer.pullSignal(1)
     else
         -- Encrypt
         clear()
@@ -658,7 +658,7 @@ local function encryptDisk()
         if #pass < 4 then
             drawMain()
             set(40, 4, "Password too short!", COLORS.red)
-            os.sleep(1)
+            computer.pullSignal(1)
             return
         end
         
@@ -677,7 +677,7 @@ local function encryptDisk()
         
         drawMain()
         set(40, 4, "Disk encrypted!", COLORS.green)
-        os.sleep(1)
+        computer.pullSignal(1)
     end
 end
 
@@ -711,21 +711,21 @@ local function bootDevice(index)
         if not verifyDiskPassword(fs) then
             drawMain()
             set(40, 4, "Wrong password!", COLORS.red)
-            os.sleep(1)
+            computer.pullSignal(1)
             return
         end
     end
     
     clear()
     set(25, 10, "Booting " .. fs.label .. "...", COLORS.green)
-    os.sleep(0.5)
+    computer.pullSignal(0.5)
     
     local bootFile = fs.proxy.exists("/OS.lua") and "/OS.lua" or "/init.lua"
     local h = fs.proxy.open(bootFile, "rb")
     
     if not h then
         set(25, 12, "Error: Cannot open boot file!", COLORS.red)
-        os.sleep(2)
+        computer.pullSignal(2)
         return
     end
     
@@ -745,7 +745,7 @@ local function bootDevice(index)
     else
         clear()
         set(30, 10, "Boot failed!", COLORS.red)
-        os.sleep(2)
+        computer.pullSignal(2)
     end
 end
 
@@ -753,7 +753,7 @@ local function formatEEPROM()
     clear()
     set(25, 10, "Formatting EEPROM...", COLORS.yellow)
     set(20, 12, "This will reset all BIOS settings!", COLORS.red)
-    os.sleep(1.5)
+    computer.pullSignal(1.5)
     
     local e = component.list("eeprom")()
     if e then
@@ -762,7 +762,7 @@ local function formatEEPROM()
     end
     
     set(25, 14, "EEPROM formatted!", COLORS.green)
-    os.sleep(2)
+    computer.pullSignal(2)
 end
 
 local function changeLanguage()
@@ -776,7 +776,7 @@ local function changeLanguage()
     end
     drawMain()
     set(40, 4, "Language: " .. getEEPROMLanguage(), COLORS.green)
-    os.sleep(1)
+    computer.pullSignal(1)
 end
 
 local function setBootPriority()
@@ -785,7 +785,7 @@ local function setBootPriority()
         setPriorityAddress(fs.address)
         drawMain()
         set(40, 4, "Priority: " .. fs.label, COLORS.green)
-        os.sleep(1)
+        computer.pullSignal(1)
     end
 end
 
@@ -793,7 +793,7 @@ local function clearBootPriority()
     setPriorityAddress("")
     drawMain()
     set(40, 4, "Priority cleared!", COLORS.yellow)
-    os.sleep(1)
+    computer.pullSignal(1)
 end
 
 -- ============================================================
@@ -831,12 +831,12 @@ local function checkPassword()
             clear()
             set(25, 12, "Too many attempts!", COLORS.red)
             set(20, 14, "Returning to BIOS...", COLORS.gray)
-            os.sleep(2)
+            computer.pullSignal(2)
             return false
         end
         
         set(17, 12, "Wrong password!", COLORS.red)
-        os.sleep(1)
+        computer.pullSignal(1)
     end
     
     return false
@@ -913,6 +913,8 @@ local function main()
             end
             
             if key == 68 then
+                break
+            elseif key == 86 then
                 break
             end
         end
