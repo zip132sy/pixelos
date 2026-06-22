@@ -201,8 +201,11 @@ local function showPasswordUnlock()
     local cursorTimer = 0
     
     -- Load BIOS config to check password
-    local Encryption = require("Encryption")
-    local filesystem = require("Filesystem")
+    local ok, Encryption = pcall(require, "Encryption")
+    local ok2, filesystem = pcall(require, "Filesystem")
+    if not ok or not Encryption or not ok2 or not filesystem then
+        return false
+    end
     
     -- Check if any drive is encrypted
     local encryptedDrives = {}

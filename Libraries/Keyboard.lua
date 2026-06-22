@@ -130,13 +130,17 @@ end
 
 -------------------------------------------------------------------------------
 
-require("Event").addHandler(function(e1, _, _, e4)
-  if e1 == "key_down" then
-    pressedCodes[e4] = true
-  elseif e1 == "key_up" then
-    pressedCodes[e4] = nil
-  end
-end)
+-- Try to add keyboard event handler, but don't fail if Event module is not available
+local ok, Event = pcall(require, "Event")
+if ok and Event and Event.addHandler then
+  Event.addHandler(function(e1, _, _, e4)
+    if e1 == "key_down" then
+      pressedCodes[e4] = true
+    elseif e1 == "key_up" then
+      pressedCodes[e4] = nil
+    end
+  end)
+end
 
 -------------------------------------------------------------------------------
 

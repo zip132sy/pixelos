@@ -184,7 +184,10 @@ end
 
 -- Load configuration
 local function loadConfig()
-    local filesystem = require("Filesystem")
+    local ok, filesystem = pcall(require, "Filesystem")
+    if not ok or not filesystem then
+        return
+    end
     if filesystem.exists(BIOS_CONFIG_PATH) then
         local success, data = pcall(function()
             return filesystem.readTable(BIOS_CONFIG_PATH)
@@ -200,7 +203,10 @@ end
 
 -- Save configuration
 local function saveConfig()
-    local filesystem = require("Filesystem")
+    local ok, filesystem = pcall(require, "Filesystem")
+    if not ok or not filesystem then
+        return
+    end
     filesystem.makeDirectory("/System/BIOS")
     filesystem.writeTable(BIOS_CONFIG_PATH, config, true)
     isModified = false
@@ -208,7 +214,15 @@ end
 
 -- Password management
 local function sha256(data)
-    local Encryption = require("Encryption")
+    local ok, Encryption = pcall(require, "Encryption")
+    if not ok or not Encryption or not Encryption.hashPassword then
+        -- Fallback hash function if Encryption module is not available
+        local hash = 0
+        for i = 1, #data do
+            hash = (hash * 31 + string.byte(data, i)) % 2147483647
+        end
+        return string.format("%08X", hash)
+    end
     return Encryption.hashPassword(data)
 end
 
@@ -646,14 +660,21 @@ function BIOS.showBootPrompt()
         component.invoke(gpu, "setForeground", 0x888888)
         component.invoke(gpu, "set", math.floor((width - #hint) / 2), math.floor(height / 2) + 3, hint)
         
-        local startTime = computer.uptime()
-        while computer.uptime() - startTime < BIOS.BOOT_TIMEOUT do
+        -- F12 key code for OpenComputers is 88, DELETE is 211
+        local F12_KEY = 88
+        local DELETE_KEY = 211
+        local ESCAPE_KEY = 1
+        
+        local startTime = (computer.uptime or function() return os.clock() end)()
+        local timeout = BIOS.BOOT_TIMEOUT or 5
+        
+        while (computer.uptime and computer.uptime() or os.clock()) - startTime < timeout do
             local signal = {event.pull(0.1)}
-            if signal[1] == "key_down" then
+            if signal and signal[1] == "key_down" then
                 local key = signal[4]
-                if key == keyboard.F12 or key == keyboard.DELETE then
+                if key == F12_KEY or key == DELETE_KEY then
                     return true
-                elseif key == keyboard.ESCAPE then
+                elseif key == ESCAPE_KEY then
                     return false
                 end
             end
@@ -685,6 +706,13 @@ function BIOS.showBootMenu()
     local startY = math.floor(height / 2) - math.floor(#config.bootEntries / 2)
     local selected = 1
     
+    -- Key codes for OpenComputers
+    local UP_KEY = 200
+    local DOWN_KEY = 208
+    local ENTER_KEY = 28
+    local F12_KEY = 88
+    local ESCAPE_KEY = 1
+    
     local function draw()
         component.invoke(gpu, "setBackground", 0x1E1E1E)
         component.invoke(gpu, "fill", 1, 1, width, height, " ")
@@ -715,19 +743,21 @@ function BIOS.showBootMenu()
     
     while true do
         local signal = {event.pull()}
-        if signal[1] == "key_down" then
+        if signal and signal[1] == "key_down" then
             local key = signal[4]
-            if key == keyboard.UP then
+            if key == UP_KEY then
                 selected = math.max(1, selected - 1)
                 draw()
-            elseif key == keyboard.DOWN then
+            elseif key == DOWN_KEY then
                 selected = math.min(#config.bootEntries, selected + 1)
                 draw()
-            elseif key == keyboard.ENTER then
-                return config.bootEntries[selected].path
-            elseif key == keyboard.F12 then
+            elseif key == ENTER_KEY then
+                if config.bootEntries[selected] then
+                    return config.bootEntries[selected].path
+                end
+            elseif key == F12_KEY then
                 return "BIOS"
-            elseif key == keyboard.ESCAPE then
+            elseif key == ESCAPE_KEY then
                 return "/OS.lua"
             end
         end
