@@ -120,7 +120,7 @@ local function rawRequest(url, chunkHandler)
 				
 				internetHandle.close()
 				if success then
-					return
+					return true
 				end
 			end
 			
@@ -128,29 +128,18 @@ local function rawRequest(url, chunkHandler)
 				computer.pullSignal(0.5)
 			end
 		end
-		
-		if i < #repositoryURLs then
-		else
-			local errorMsg = "Internet request failed"
-			if reason then
-				errorMsg = errorMsg .. ": " .. tostring(reason)
-			else
-				errorMsg = errorMsg .. ": Could not connect to server. Check network card and try again."
-			end
-			errorMsg = errorMsg .. "\nURL: " .. fullURL
-			error(errorMsg)
-		end
 	end
+	return false
 end
 
 local function request(url)
 	local data = ""
 	
-	rawRequest(url, function(chunk)
+	local success = rawRequest(url, function(chunk)
 		data = data .. chunk
 	end)
 
-	return data
+	return success and data or nil
 end
 
 local function download(url, path)
@@ -158,11 +147,12 @@ local function download(url, path)
 
 	local fileHandle, reason = selectedFilesystemProxy.open(path, "wb")
 	if fileHandle then	
-		rawRequest(url, function(chunk)
+		local success = rawRequest(url, function(chunk)
 			selectedFilesystemProxy.write(fileHandle, chunk)
 		end)
 
 		selectedFilesystemProxy.close(fileHandle)
+		return success
 	else
 		error("File opening failed: " .. tostring(reason))
 	end
@@ -302,10 +292,14 @@ local function downloadWithProgress(url, path, current, total, fileSize)
 			end
 		end
 		
-		rawRequest(url, chunkHandler)
+		local success = rawRequest(url, chunkHandler)
 		
 		selectedFilesystemProxy.close(fileHandle)
-		return totalBytes  -- Return actual downloaded size
+		if success then
+			return totalBytes
+		else
+			return nil
+		end
 	else
 		error("File opening failed: " .. tostring(reason))
 	end
@@ -399,10 +393,14 @@ local function downloadWithGUIProgress(url, path, current, total, fileSize, name
 			end
 		end
 		
-		rawRequest(url, chunkHandler)
+		local success = rawRequest(url, chunkHandler)
 		
 		selectedFilesystemProxy.close(fileHandle)
-		return totalBytes  -- Return actual downloaded size
+		if success then
+			return totalBytes
+		else
+			return nil
+		end
 	else
 		error("File opening failed: " .. tostring(reason))
 	end
@@ -413,16 +411,30 @@ centrizedText(title(), 0x2D2D2D, "Checking network...")
 if not checkNetwork() then
 	error("Network connection failed. Please check your internet card and try again.")
 end
-local files = deserialize(request(installerURL .. "Files.cfg"))
+local filesData = request(installerURL .. "Files.cfg")
+if not filesData then
+	error("Failed to download file list. Please check your network connection and try again.")
+end
+local files = deserialize(filesData)
 
 -- After that we could download required libraries for installer from it
 for i = 1, #files.installerFiles do
+	local path = files.installerFiles[i]
 	local fileSize = 0
-	local size = getFileSize(files.installerFiles[i])
+	local size = getFileSize(path)
 	if size > 0 then
 		fileSize = size
+	else
+		centrizedText(title(), 0x2D2D2D, "Skipping missing file: " .. path)
+		computer.pullSignal(0.1)
+		goto continue
 	end
-	downloadWithProgress(files.installerFiles[i], installerPath .. files.installerFiles[i], i, #files.installerFiles, fileSize)
+	local downloadedBytes = downloadWithProgress(path, installerPath .. path, i, #files.installerFiles, fileSize)
+	if downloadedBytes == nil then
+		centrizedText(title(), 0xCC0000, "Download failed: " .. path)
+		computer.pullSignal(0.5)
+	end
+	::continue::
 end
 
 -- Initializing simple package system for loading system libraries
@@ -567,7 +579,14 @@ local localizationComboBox = GUI.comboBox(1, 1, 26, 1, 0xF0F0F0, 0x969696, 0xD2D
 for i = 1, #files.localizations do
 	localizationComboBox:addItem(filesystemHideExtension(filesystemName(files.localizations[i]))).onTouch = function()
 		-- Obtaining localization table
-		localization = deserialize(request(installerURL .. files.localizations[i]))
+		local locData = request(installerURL .. files.localizations[i])
+		if locData then
+			localization = deserialize(locData)
+		else
+			centrizedText(title(), 0xCC0000, "Failed to load localization")
+			computer.pullSignal(1)
+			return
+		end
 
 		-- Filling widgets with selected localization data
 		usernameInput.placeholderText = localization.username
@@ -838,7 +857,8 @@ addStage(function()
 		licenseFile = "LICENSE_zh_CN"
 	end
 
-	local lines = text.wrap({request("Installer/Licenses/" .. licenseFile)}, layout.width - 2)
+	local licenseData = request("Installer/Licenses/" .. licenseFile) or "License file not available."
+	local lines = text.wrap({licenseData}, layout.width - 2)
 	local textBox = layout:addChild(GUI.textBox(1, 1, layout.width, layout.height - 5, 0xF0F0F0, 0x696969, lines, 1, 1, 1))
 
 	-- Add MineOS License button
@@ -858,7 +878,8 @@ addStage(function()
 		end
 		
 		-- Add scrollable text box (content starts below title bar)
-		local scrollableTextBox = modalWindow:addChild(GUI.textBox(3, 3, modalWindow.width - 4, modalWindow.height - 4, 0xF0F0F0, 0x696969, text.wrap({request("Installer/Licenses/MineOS_Original_LICENSE")}, modalWindow.width - 4), 1, 0, 0, true, true))
+		local mineOSLicenseData = request("Installer/Licenses/MineOS_Original_LICENSE") or "License file not available."
+		local scrollableTextBox = modalWindow:addChild(GUI.textBox(3, 3, modalWindow.width - 4, modalWindow.height - 4, 0xF0F0F0, 0x696969, text.wrap({mineOSLicenseData}, modalWindow.width - 4), 1, 0, 0, true, true))
 		
 		workspace:draw()
 	end
@@ -1003,10 +1024,21 @@ addStage(function()
 		local size = getFileSize(path)
 		if size > 0 then
 			fileSize = size
+		else
+			fileNameLabel.text = "Skipping missing file: " .. path
+			workspace:draw()
+			computer.pullSignal(0.1)
+			goto continue
 		end
 
 		-- Download file with progress and get actual size
 		local downloadedBytes = downloadWithGUIProgress(path, OSPath .. path, i, totalFiles, fileSize, fileNameLabel, fileSizeLabel, function() workspace:draw() end)
+		if downloadedBytes == nil then
+			fileNameLabel.text = "Download failed: " .. path
+			workspace:draw()
+			computer.pullSignal(0.5)
+			goto continue
+		end
 		if fileSize == 0 then
 			fileSize = downloadedBytes
 		end
