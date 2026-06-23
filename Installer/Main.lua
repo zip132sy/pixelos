@@ -1193,8 +1193,21 @@ addStage(function()
 	end
 	workspace:draw()
 
-	-- Removing temporary installer directory
-	temporaryFilesystemProxy.remove(installerPath)
+	local function removeDirectory(proxy, path)
+		local list, itemPath = proxy.list(path)
+		for i = 1, #list do
+			itemPath = path .. list[i]
+			local isDir = proxy.exists(itemPath .. "/")
+			if isDir then
+				removeDirectory(proxy, itemPath .. "/")
+			else
+				proxy.remove(itemPath)
+			end
+		end
+		proxy.remove(path)
+	end
+
+	removeDirectory(temporaryFilesystemProxy, installerPath)
 end)
 
 --------------------------------------------------------------------------------

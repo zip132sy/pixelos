@@ -591,15 +591,22 @@ local function download(publication)
 		return
 	end
 
+	local sourceUrl = publication.sourceUrl
+	local sourceName = publication.sourceName
+	
 	if not publication.file_id then
-		-- Skip API request for sources without file_id
 		publication.translated_description = publication.description
 	else
 		if not publication.translated_description then
 			publication = fieldAPIRequest("result", "publication", {
 				file_id = publication.file_id,
 				language_id = config.language_id,
-			}, publication.sourceUrl)
+			}, sourceUrl)
+			
+			if publication then
+				publication.sourceUrl = sourceUrl
+				publication.sourceName = sourceName
+			end
 		end
 	end
 
@@ -715,17 +722,7 @@ local function download(publication)
 			end
 
 			govnoed(publication, 1)
-			
-			-- Build full download URL with source prefix if needed
-			local downloadUrl = publication.source_url
-			if not downloadUrl:match("^http") then
-				if publication.sourceUrl then
-					downloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. downloadUrl:gsub("^/", "")
-				elseif publication.source_url then
-					downloadUrl = publication.source_url:gsub("/$", "") .. "/" .. downloadUrl:gsub("^/", "")
-				end
-			end
-			tryToDownload(downloadUrl, mainFilePath)
+			tryToDownload(publication.source_url, mainFilePath)
 
 			if publication.dependencies then
 				for i = 1, #publication.all_dependencies do
@@ -816,32 +813,15 @@ local function getPublicationIcon(publication)
 		if config.hideApplicationIcons then
 			return loadIcon("Application")
 		else
-			local iconUrl = publication.icon_url
-			if iconUrl then
-				if not iconUrl:match("^http") then
-					if publication.sourceUrl then
-						iconUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. iconUrl:gsub("^/", "")
-					elseif publication.source_url then
-						iconUrl = publication.source_url:gsub("/$", "") .. "/" .. iconUrl:gsub("^/", "")
-					end
+			local image, reason = getImage(publication, publication.icon_url, function(width, height)
+				if width > 8 or height > 4 then
+					return false, "Image size is larger than 8x4"
 				end
-			
-			local image, reason = getImage(
-				publication, 
-				iconUrl,
-				function(width, height)
-					if width > 8 or height > 4 then
-						return false, "Image size is larger than 8x4"
-					end
-
-					return true
-				end
-			)
-
+				return true
+			end)
 			if not image then
 				return loadIcon("Application")
 			end
-
 			return image
 		end
 	elseif publication.category_id == 2 then
@@ -914,7 +894,7 @@ local function applicationWidgetEventHandler(workspace, object, e1)
 	if e1 == "touch" then
 		object.parent.panel.colors.background = 0xE1E1E1
 		workspace:draw()
-		newPublicationInfo(object.parent.file_id)
+		newPublicationInfo(object.parent.file_id, object.parent.sourceUrl)
 	end
 end
 
@@ -922,6 +902,7 @@ newApplicationPreview = function(x, y, publication)
 	local container = GUI.container(x, y, appWidth, appHeight)
 
 	container.file_id = publication.file_id
+	container.sourceUrl = publication.sourceUrl
 	addApplicationInfo(container, publication, appWidth - 14)
 
 	container.panel.eventHandler,
@@ -1635,13 +1616,17 @@ end
 
 --------------------------------------------------------------------------------
 
-newPublicationInfo = function(file_id)
-	lastMethod, lastArguments = newPublicationInfo, {file_id}
+newPublicationInfo = function(file_id, sourceUrl)
+	lastMethod, lastArguments = newPublicationInfo, {file_id, sourceUrl}
 
 	local publication = fieldAPIRequest("result", "publication", {
 		file_id = file_id,
 		language_id = config.language_id,
-	})
+	}, sourceUrl)
+	
+	if publication and sourceUrl then
+		publication.sourceUrl = sourceUrl
+	end
 
 	if publication then
 		local reviews = fieldAPIRequest("result", "reviews", {
@@ -1840,7 +1825,7 @@ newPublicationInfo = function(file_id)
 							
 							local button = textDetailsContainer:addChild(GUI.tagButton(x, y, textLength + 2, 1, 0xC3C3C3, 0xFFFFFF, 0x2D2D2D, 0xFFFFFF, dependency.publication_name))
 							button.onTouch = function()
-								newPublicationInfo(publication.all_dependencies[i])
+								newPublicationInfo(publication.all_dependencies[i], publication.sourceUrl)
 							end
 
 							x = x + button.width + 2
@@ -2379,10 +2364,13 @@ updateFileList = function(category_id, updates)
 											version = dependency.version,
 										}
 										
-										-- Build full dependency URL with source prefix if needed
 										local depDownloadUrl = dependency.source_url
-										if result[i].sourceUrl and not depDownloadUrl:match("^http") then
-											depDownloadUrl = result[i].sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+										if not depDownloadUrl:match("^http") then
+											if result[i].sourceUrl then
+												depDownloadUrl = result[i].sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+											elseif publication.source_url then
+												depDownloadUrl = publication.source_url:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+											end
 										end
 										tryToDownload(depDownloadUrl, dependencyPath)
 									else

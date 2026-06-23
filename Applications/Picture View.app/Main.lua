@@ -33,7 +33,7 @@ imageObject.draw = function()
 		if title then
 			screen.drawText(math.floor(halfX - unicode.len(title) / 2), imageObject.y + 1, 0xFFFFFF, title, 0.5)
 		end
-	elseif #files == 0 then
+	elseif not files or #files == 0 then
 		screen.drawText(math.floor(halfX - unicode.len(localization.noPictures) / 2), math.floor(halfY), 0x5A5A5A, localization.noPictures)
 	end
 end
