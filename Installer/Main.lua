@@ -1104,6 +1104,7 @@ addStage(function()
 
 		progressBar.value = math.floor(i / #downloadList * 100)
 		workspace:draw()
+		::continue::
 	end
 
 	-- Flashing EEPROM
