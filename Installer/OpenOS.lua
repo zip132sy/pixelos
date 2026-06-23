@@ -102,21 +102,40 @@ end
 -- Flashing EEPROM with tiny script that will run installer itself after reboot.
 -- It's necessary, because we need clean computer without OpenOS hooks to computer.pullSignal()
 component.eeprom.set([[
-	local connection, data, chunk = component.proxy(component.list("internet")()).request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua"), ""
-	
-	while true do
-		chunk = connection.read(math.huge)
-		
-		if chunk then
-			data = data .. chunk
-		else
-			break
-		end
-	end
-	
-	connection.close()
-	
-	load(data)()
+    local c = component
+    local ok, internetAddr = pcall(function() return c.list("internet")() end)
+    if not ok or not internetAddr then
+        error("No internet card found")
+    end
+    local ok2, proxy = pcall(c.proxy, internetAddr)
+    if not ok2 or not proxy then
+        error("Failed to get internet proxy")
+    end
+    local ok3, connection = pcall(proxy.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
+    if not ok3 or not connection then
+        error("Failed to connect")
+    end
+    local data, chunk = ""
+    while true do
+        local ok4, cch = pcall(connection.read, math.huge)
+        chunk = ok4 and cch or nil
+        if chunk then
+            data = data .. chunk
+        else
+            break
+        end
+    end
+    pcall(connection.close)
+    if #data > 0 then
+        local ok5, fn = pcall(load, data)
+        if ok5 and fn then
+            pcall(fn)
+        else
+            error("Failed to load installer: " .. tostring(fn))
+        end
+    else
+        error("Download failed, empty data")
+    end
 ]])
 
 computer.shutdown(true)
