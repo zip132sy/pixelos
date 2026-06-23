@@ -143,11 +143,11 @@ component.eeprom.set([[
     end
     connection.close()
     if #data > 0 then
-        local fn = load(data)
+        local fn, err = load(data, "=Installer/Main.lua")
         if fn then
             fn()
         else
-            error("Load failed, data length: " .. #data)
+            error("Load failed: " .. tostring(err) .. ", data length: " .. #data)
         end
     else
         error("Empty data")
