@@ -1140,6 +1140,11 @@ addStage(function()
 	end
 	
 	-- Only flash BIOS if Manager is enabled
+	-- IMPORTANT: Save boot address first, then flash BIOS, then restore boot address
+	-- because flashing BIOS with component.invoke(EEPROMAddress, "set", code) may overwrite
+	-- the boot address stored at the beginning of EEPROM
+	local savedBootData = component.invoke(EEPROMAddress, "getData") or ""
+
 	if biosManagerSwitchAndLabel.switch.state then
 		local biosCode = request("EFI/BIOS.lua")
 		if biosCode and #biosCode > 0 then
@@ -1151,7 +1156,16 @@ addStage(function()
 			flashWithProgress(minifiedCode, "PixelOS EFI")
 		end
 	end
-	component.invoke(EEPROMAddress, "setData", selectedFilesystemProxy.address)
+
+	-- Restore boot address (first 36 chars of EEPROM) while keeping the rest of BIOS code intact
+	-- BIOS code may have appended data after the first 36 chars
+	local currentData = component.invoke(EEPROMAddress, "getData") or ""
+	local bootAddr = selectedFilesystemProxy.address or ""
+	if #bootAddr == 36 then
+		-- Construct new EEPROM data: first 36 chars = boot address, rest = current BIOS data
+		local newData = bootAddr .. string.sub(currentData, 37)
+		component.invoke(EEPROMAddress, "setData", newData)
+	end
 	
 	-- Installing BIOS Manager (if enabled)
 	if biosManagerSwitchAndLabel.switch.state then

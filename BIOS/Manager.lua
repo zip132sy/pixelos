@@ -11,19 +11,61 @@ local unicode = unicode or { len = function(s) return #s end, sub = function(s, 
 local gpu = nil
 local screen = nil
 
-for address in component.list("gpu", true) do
-    gpu = component.proxy(address)
-    break
+pcall(function()
+    if component.list then
+        for address in component.list("gpu", true) do
+            local ok, proxy = pcall(component.proxy, address)
+            if ok and proxy then
+                gpu = proxy
+                break
+            end
+        end
+    end
+end)
+
+if not gpu then
+    pcall(function()
+        if component.list then
+            for address in component.list("gpu") do
+                local ok, proxy = pcall(component.proxy, address)
+                if ok and proxy then
+                    gpu = proxy
+                    break
+                end
+            end
+        end
+    end)
 end
 
-for address in component.list("screen", true) do
-    screen = component.proxy(address)
-    break
+pcall(function()
+    if component.list then
+        for address in component.list("screen", true) do
+            local ok, proxy = pcall(component.proxy, address)
+            if ok and proxy then
+                screen = proxy
+                break
+            end
+        end
+    end
+end)
+
+if not screen then
+    pcall(function()
+        if component.list then
+            for address in component.list("screen") do
+                local ok, proxy = pcall(component.proxy, address)
+                if ok and proxy then
+                    screen = proxy
+                    break
+                end
+            end
+        end
+    end)
 end
 
 if gpu and screen then
-    gpu.bind(screen)
-    gpu.setResolution(80, 25)
+    pcall(gpu.bind, screen)
+    pcall(gpu.setResolution, 80, 25)
 end
 
 _G._B = true
