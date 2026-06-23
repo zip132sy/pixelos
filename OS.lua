@@ -2,18 +2,38 @@
 ---------------------------------------- System initialization ----------------------------------------
 
 -- Obtaining boot filesystem component proxy
-local bootFilesystemProxy = component.proxy(component.invoke(component.list("eeprom")(), "getData"))
+local bootFilesystemProxy
+local bootOk, bootErr = pcall(function()
+    local eepromAddr = component.list("eeprom")()
+    if not eepromAddr then
+        error("EEPROM component not found")
+    end
+    local bootAddr = component.invoke(eepromAddr, "getData")
+    if not bootAddr or bootAddr == "" then
+        error("EEPROM has no boot address configured")
+    end
+    -- bootAddr is the address of the filesystem component (e.g., "5d8e7c0a-...")
+    return component.proxy(bootAddr)
+end)
+if bootOk then
+    bootFilesystemProxy = bootErr
+else
+    bootFilesystemProxy = nil
+end
 
 -- Executes file from boot HDD during OS initialization (will be overriden in filesystem library later)
 function dofile(path)
+	if not bootFilesystemProxy then
+		error("boot filesystem proxy not available")
+	end
 	local stream, reason = bootFilesystemProxy.open(path, "r")
-	
+
 	if stream then
 		local data, chunk = ""
-		
+
 		while true do
 			chunk = bootFilesystemProxy.read(stream, math.huge)
-			
+
 			if chunk then
 				data = data .. chunk
 			else
@@ -24,7 +44,7 @@ function dofile(path)
 		bootFilesystemProxy.close(stream)
 
 		local result, reason = load(data, "=" .. path)
-		
+
 		if result then
 			return result()
 		else
