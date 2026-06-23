@@ -1,4 +1,4 @@
-  {
+{
 	toggleSyntaxHighlight = "切换语法高亮",
 	toggleAutocompletion = "切换自动补全",
 	toggleAutoBrackets = "切换自动括号",
@@ -64,5 +64,5 @@
 	indent = "缩进",
 	unindent = "取消缩进",
 	flashEEPROM = "烧录到EEPROM",
-	flashingEEPROM = "烧录中。 请不要关闭计算机。",
+	flashingEEPROM = "烧录中。请不要关闭计算机。",
 }
