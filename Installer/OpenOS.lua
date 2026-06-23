@@ -115,10 +115,23 @@ component.eeprom.set([[
     if not ok3 or not connection then
         error("Failed to connect")
     end
+    local deadline = computer.uptime() + 10
+    while computer.uptime() < deadline do
+        local ok4, err = pcall(connection.finishConnect)
+        if ok4 then
+            break
+        else
+            if err then
+                break
+            else
+                computer.pullSignal(0.1)
+            end
+        end
+    end
     local data, chunk = ""
     while true do
-        local ok4, cch = pcall(connection.read, math.huge)
-        chunk = ok4 and cch or nil
+        local ok5, cch = pcall(connection.read, math.huge)
+        chunk = ok5 and cch or nil
         if chunk then
             data = data .. chunk
         else
@@ -127,8 +140,8 @@ component.eeprom.set([[
     end
     pcall(connection.close)
     if #data > 0 then
-        local ok5, fn = pcall(load, data)
-        if ok5 and fn then
+        local ok6, fn = pcall(load, data)
+        if ok6 and fn then
             pcall(fn)
         else
             error("Failed to load installer: " .. tostring(fn))
