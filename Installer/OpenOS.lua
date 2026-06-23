@@ -103,51 +103,54 @@ end
 -- It's necessary, because we need clean computer without OpenOS hooks to computer.pullSignal()
 component.eeprom.set([[
     local c = component
-    local ok, internetAddr = pcall(function() return c.list("internet")() end)
-    if not ok or not internetAddr then
-        error("No internet card found")
+    local internetAddr = c.list("internet")()
+    if not internetAddr then
+        error("No internet card")
     end
-    local ok2, proxy = pcall(c.proxy, internetAddr)
-    if not ok2 or not proxy then
-        error("Failed to get internet proxy")
+    local proxy = c.proxy(internetAddr)
+    if not proxy then
+        error("No internet proxy")
     end
-    local ok3, connection = pcall(proxy.request, "https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
-    if not ok3 or not connection then
-        error("Failed to connect")
+    local connection = proxy.request("https://gitee.com/zip132sy/pixelos/raw/master/Installer/Main.lua")
+    if not connection then
+        error("No connection")
     end
-    local deadline = computer.uptime() + 10
+    local connected = false
+    local deadline = computer.uptime() + 5
     while computer.uptime() < deadline do
-        local ok4, err = pcall(connection.finishConnect)
-        if ok4 then
+        local success, message = connection.finishConnect()
+        if success then
+            connected = true
             break
         else
-            if err then
-                break
-            else
-                computer.pullSignal(0.1)
+            if message then
+                error("Connection failed: " .. tostring(message))
             end
+            computer.pullSignal(0.1)
         end
     end
-    local data, chunk = ""
+    if not connected then
+        error("Connection timed out")
+    end
+    local data, chunk = "", ""
     while true do
-        local ok5, cch = pcall(connection.read, math.huge)
-        chunk = ok5 and cch or nil
+        chunk = connection.read(math.huge)
         if chunk then
             data = data .. chunk
         else
             break
         end
     end
-    pcall(connection.close)
+    connection.close()
     if #data > 0 then
-        local ok6, fn = pcall(load, data)
-        if ok6 and fn then
-            pcall(fn)
+        local fn = load(data)
+        if fn then
+            fn()
         else
-            error("Failed to load installer: " .. tostring(fn))
+            error("Load failed, data length: " .. #data)
         end
     else
-        error("Download failed, empty data")
+        error("Empty data")
     end
 ]])
 
