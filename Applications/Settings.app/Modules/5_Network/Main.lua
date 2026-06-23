@@ -94,7 +94,7 @@ module.onTouch = function()
 
 	-- Empty object-listener
 	emptyObject.eventHandler = function(workspace, object, e1, e2, e3, ...)
-		if (e1 == "component_added" or e1 == "component_removed") and e3 == "modem" then
+		if (e1 == "component_added" or e1 == "component_removed") and (e3 == "modem" or e3 == "lan" or e3 == "tunnel" or e3 == "internet") then
 			check()
 		elseif e1 == "network" and e2 == "updateProxyList" then
 			check()

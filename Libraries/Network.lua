@@ -38,7 +38,9 @@ local function unmountProxy(type)
 end
 
 function network.updateComponents()
-	local modem, internet = component.get("modem"), component.get("internet")
+	-- Try to find a modem, LAN card, or tunnel component (any of them can act as a network card)
+	local modem = component.get("modem") or component.get("lan") or component.get("tunnel")
+	local internet = component.get("internet")
 	if modem then
 		network.modemProxy = modem
 		network.modemProxy.open(network.modemPort)
@@ -525,8 +527,8 @@ function network.update()
 	if userSettings.networkEnabled then
 		network.eventHandlerID = event.addHandler(function(...)
 			local eventData = {...}
-			
-			if (eventData[1] == "component_added" or eventData[1] == "component_removed") and (eventData[3] == "modem" or eventData[3] == "internet") then
+
+			if (eventData[1] == "component_added" or eventData[1] == "component_removed") and (eventData[3] == "modem" or eventData[3] == "lan" or eventData[3] == "tunnel" or eventData[3] == "internet") then
 				network.updateComponents()
 			elseif eventData[1] == "modem_message" and userSettings.networkEnabled and eventData[6] == "network" then
 				if eventData[7] == "request" then
