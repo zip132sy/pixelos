@@ -563,7 +563,7 @@ local function download(publication)
 		for i = 1, #config.sources do
 			if config.sources[i].enabled and config.sources[i].url ~= publication.sourceUrl then
 				local result = fieldAPIRequest("result", "publication", {
-					publication_name = publication.publication_name,
+					file_id = publication.file_id,
 					language_id = config.language_id,
 				}, config.sources[i].url)
 				if result then
@@ -718,8 +718,12 @@ local function download(publication)
 			
 			-- Build full download URL with source prefix if needed
 			local downloadUrl = publication.source_url
-			if publication.sourceUrl and not downloadUrl:match("^http") then
-				downloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. downloadUrl:gsub("^/", "")
+			if not downloadUrl:match("^http") then
+				if publication.sourceUrl then
+					downloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. downloadUrl:gsub("^/", "")
+				elseif publication.source_url then
+					downloadUrl = publication.source_url:gsub("/$", "") .. "/" .. downloadUrl:gsub("^/", "")
+				end
 			end
 			tryToDownload(downloadUrl, mainFilePath)
 
@@ -739,8 +743,12 @@ local function download(publication)
 							
 							-- Build full dependency URL with source prefix if needed
 							local depDownloadUrl = dependency.source_url
-							if publication.sourceUrl and not depDownloadUrl:match("^http") then
-								depDownloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+							if not depDownloadUrl:match("^http") then
+								if publication.sourceUrl then
+									depDownloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+								elseif publication.source_url then
+									depDownloadUrl = publication.source_url:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+								end
 							end
 							tryToDownload(depDownloadUrl, dependencyPath)
 						else
@@ -808,11 +816,15 @@ local function getPublicationIcon(publication)
 		if config.hideApplicationIcons then
 			return loadIcon("Application")
 		else
-			-- Build full icon URL with source prefix if needed
 			local iconUrl = publication.icon_url
-			if publication.sourceUrl and not iconUrl:match("^http") then
-				iconUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. iconUrl:gsub("^/", "")
-			end
+			if iconUrl then
+				if not iconUrl:match("^http") then
+					if publication.sourceUrl then
+						iconUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. iconUrl:gsub("^/", "")
+					elseif publication.source_url then
+						iconUrl = publication.source_url:gsub("/$", "") .. "/" .. iconUrl:gsub("^/", "")
+					end
+				end
 			
 			local image, reason = getImage(
 				publication, 
