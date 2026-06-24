@@ -637,9 +637,10 @@ module.onTouch = function()
 			showPasswordDialog(function(success)
 				if success then
 					showMainMenu()
+				else
+					devToolsSwitch.state = false
+					workspace:draw()
 				end
-				devToolsSwitch.state = false
-				workspace:draw()
 			end)
 		end
 	end
