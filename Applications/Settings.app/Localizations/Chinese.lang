@@ -122,5 +122,26 @@
 	usersPasswordsArentEqual = "输入的密码与原密码不相等",
 	usersClaim = "认领电脑",
 	usersClaimInfo = "此外, 你可以为那名玩家创建私有访问权限到你的电脑. 要这样做,那名玩家必须在线",
-	usersClaimPlaceholder = "输入在线玩家名"
+	usersClaimPlaceholder = "输入在线玩家名",
+	
+	devTools = "开发者工具",
+	devToolsEnabled = "启用开发者工具",
+	devToolsInfo = "从URL下载单个文件到系统，无需重新安装",
+	devToolsPasswordTitle = "开发者工具验证",
+	devToolsPasswordPlaceholder = "输入密码",
+	devToolsDownloadTitle = "下载文件",
+	devToolsURLLabel = "文件URL:",
+	devToolsPathLabel = "保存路径:",
+	devToolsPathUnknown = "无法解析路径",
+	devToolsDownload = "下载",
+	devToolsDownloading = "正在下载...",
+	devToolsNoInternet = "需要互联网卡",
+	devToolsConnectionFailed = "连接失败",
+	devToolsFileOpenFailed = "无法打开文件",
+	devToolsDownloadFailed = "下载失败",
+	devToolsInvalidURL = "无效的URL",
+	devToolsEmptyURL = "请输入URL",
+	devToolsSuccess = "下载完成",
+	devToolsRestartPrompt = "文件已下载，需要重启以生效",
+	devToolsRestart = "重启"
 }

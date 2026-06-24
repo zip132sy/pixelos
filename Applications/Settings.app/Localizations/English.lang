@@ -45,8 +45,6 @@
 	appearanceDropDownDefaultText = "Drop down menu text",
 	appearanceDropDownSeparator = "Drop down menu separator",
 	
-	users = "Users",
-	
 	localizations = "Language",
 	localizationsInfo = "Do you want more language packs? Send pull request to the MineOS repository on GitHub",
 	
@@ -124,4 +122,25 @@
 	usersClaim = "Claim computer block",
 	usersClaimInfo = "Additionally, you can create private access to your computer block for player with given name. To do it, player must be online",
 	usersClaimPlaceholder = "Type online player name",
+	
+	devTools = "Developer Tools",
+	devToolsEnabled = "Enable Developer Tools",
+	devToolsInfo = "Download single file from URL to system without reinstalling",
+	devToolsPasswordTitle = "Developer Tools Authentication",
+	devToolsPasswordPlaceholder = "Enter password",
+	devToolsDownloadTitle = "Download File",
+	devToolsURLLabel = "File URL:",
+	devToolsPathLabel = "Save path:",
+	devToolsPathUnknown = "Cannot parse path",
+	devToolsDownload = "Download",
+	devToolsDownloading = "Downloading...",
+	devToolsNoInternet = "Internet card required",
+	devToolsConnectionFailed = "Connection failed",
+	devToolsFileOpenFailed = "Cannot open file",
+	devToolsDownloadFailed = "Download failed",
+	devToolsInvalidURL = "Invalid URL",
+	devToolsEmptyURL = "Please enter URL",
+	devToolsSuccess = "Download Complete",
+	devToolsRestartPrompt = "File downloaded, restart required to apply",
+	devToolsRestart = "Restart"
 }
