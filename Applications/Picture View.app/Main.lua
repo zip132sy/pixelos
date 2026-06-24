@@ -98,7 +98,7 @@ local function addButton(imageName, onTouch)
 	end
 
 	local loaded, reason = image.load(iconsPath .. imageName .. ".pic")
-	if not loaded then
+	if not loaded or type(loaded) ~= "table" then
 		return
 	end
 

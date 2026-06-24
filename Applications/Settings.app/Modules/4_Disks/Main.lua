@@ -34,7 +34,7 @@ module.onTouch = function()
 	-- Read/Write toggle switch
 	window.contentLayout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.disksReadWriteMode or "Read/Write Mode"))
 
-	local rwSwitch = window.contentLayout:addChild(GUI.switchAndLabel(1, 1, 36, 8, 0x66DB80, 0x1E1E1E, 0xE1E1E1, 0x878787, localization.disksReadWrite or "Read/Write", true))
+	local rwSwitch = window.contentLayout:addChild(GUI.switchAndLabel(1, 1, 28, 8, 0x66DB80, 0x1E1E1E, 0xE1E1E1, 0x878787, localization.disksReadWrite or "Read/Write", true))
 
 	local layout = window.contentLayout:addChild(GUI.layout(1, 1, 36, 1, 1, 1))
 	layout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)

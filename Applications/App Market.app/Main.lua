@@ -2519,8 +2519,8 @@ local function leftListItemDraw(pressable)
 
 	local y = math.floor(pressable.y + pressable.height / 2)
 
-	screen.drawText(pressable.x + 3, y, textColor, pressable.icon)
-	screen.drawText(pressable.x + 7, y, textColor, pressable.text)
+	screen.drawText(pressable.x + 3, y, textColor, pressable.icon or "")
+	screen.drawText(pressable.x + 7, y, textColor, pressable.text or "")
 end
 
 local function addLeftListItem(icon, title)
