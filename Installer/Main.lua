@@ -1208,7 +1208,7 @@ addStage(function()
 		proxy.remove(path)
 	end
 
-	removeDirectory(temporaryFilesystemProxy, installerPath)
+	removeDirectory(selectedFilesystemProxy, installerPath)
 end)
 
 --------------------------------------------------------------------------------
