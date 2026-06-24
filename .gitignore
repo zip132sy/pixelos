@@ -23,3 +23,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Disabled applications (API expired)
+Applications/Translate.app/
