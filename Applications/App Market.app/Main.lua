@@ -185,13 +185,6 @@ local function loadConfig()
 				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "ErrorReporter", path = nil },
 				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "BIOS", path = "Libraries/BIOS.lua" },
 				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Settings", path = nil },
-				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Calculator", path = nil },
-				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Terminal", path = nil },
-				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Text Editor", path = nil },
-				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "File Manager", path = nil },
-				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Archive", path = nil },
-				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Task Manager", path = nil },
-				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "About", path = nil },
 			}
 		}
 	end
@@ -214,13 +207,6 @@ local function loadConfig()
 			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "ErrorReporter", path = nil },
 			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "BIOS", path = "Libraries/BIOS.lua" },
 			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Settings", path = nil },
-			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Calculator", path = nil },
-			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Terminal", path = nil },
-			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Text Editor", path = nil },
-			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "File Manager", path = nil },
-			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Archive", path = nil },
-			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Task Manager", path = nil },
-			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "About", path = nil },
 		}
 		saveConfig()
 	end
