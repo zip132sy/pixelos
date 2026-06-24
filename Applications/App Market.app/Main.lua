@@ -297,7 +297,10 @@ local function isBlacklisted(sourceUrl, itemName, itemPath)
 		local entry = config.blacklist[i]
 		local sourceMatch = entry.sourceUrl == sourceUrl or entry.sourceUrl == "*"
 		local nameMatch = entry.name == itemName or entry.name == "*"
-		local pathMatch = entry.path and entry.path == itemPath
+		local pathMatch = false
+		if entry.path and itemPath then
+			pathMatch = entry.path == itemPath or entry.path:match("/" .. itemPath .. "$") or entry.path == itemPath:match("[^/]+$")
+		end
 		
 		if sourceMatch and (nameMatch or pathMatch) then
 			return true
@@ -729,27 +732,33 @@ local function download(publication)
 					local dependency = publication.dependencies_data[publication.all_dependencies[i]]
 					if dependency.type_id ~= filesTypes.preview then
 						local dependencyPath = getDependencyPath(mainFilePath, dependency)
+						local depFileName = filesystem.name(dependencyPath)
 
-						govnoed(dependency, i + 1)
-
-						if getUpdateState(publication.all_dependencies[i], dependency.version) < 4 then
-							versionsTable[publication.all_dependencies[i]] = {
-								path = dependencyPath,
-								version = dependency.version,
-							}
-							
-							-- Build full dependency URL with source prefix if needed
-							local depDownloadUrl = dependency.source_url
-							if not depDownloadUrl:match("^http") then
-								if publication.sourceUrl then
-									depDownloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
-								elseif publication.source_url then
-									depDownloadUrl = publication.source_url:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
-								end
-							end
-							tryToDownload(depDownloadUrl, dependencyPath)
+						if isBlacklisted(publication.sourceUrl, nil, depFileName) then
+							container.label.text = localization.skipping .. " " .. depFileName .. " (" .. localization.blacklistBlocked .. ")"
+							workspace:draw()
+							event.sleep(0.5)
 						else
-							event.sleep(0.05)
+							govnoed(dependency, i + 1)
+
+							if getUpdateState(publication.all_dependencies[i], dependency.version) < 4 then
+								versionsTable[publication.all_dependencies[i]] = {
+									path = dependencyPath,
+									version = dependency.version,
+								}
+								
+								local depDownloadUrl = dependency.source_url
+								if not depDownloadUrl:match("^http") then
+									if publication.sourceUrl then
+										depDownloadUrl = publication.sourceUrl:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+									elseif publication.source_url then
+										depDownloadUrl = publication.source_url:gsub("/$", "") .. "/" .. depDownloadUrl:gsub("^/", "")
+									end
+								end
+								tryToDownload(depDownloadUrl, dependencyPath)
+							else
+								event.sleep(0.05)
+							end
 						end
 					end
 				end
