@@ -97,7 +97,12 @@ local function addButton(imageName, onTouch)
 		panelContainer.width = panelContainer.width + 5
 	end
 
-	local i = GUI.image(panelContainer.width, 2, image.load(iconsPath .. imageName .. ".pic"))
+	local loaded, reason = image.load(iconsPath .. imageName .. ".pic")
+	if not loaded then
+		return
+	end
+
+	local i = GUI.image(panelContainer.width, 2, loaded)
 
 	panelContainer:addChild(i).eventHandler = function(_, _, e)
 		if e == "touch" then
