@@ -5,8 +5,6 @@ local filesystem = require("Filesystem")
 local component = require("Component")
 local computer = require("Computer")
 local screen = require("Screen")
-local image = require("Image")
-local text = require("Text")
 
 local module = {}
 
