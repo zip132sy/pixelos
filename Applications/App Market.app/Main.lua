@@ -93,7 +93,7 @@ local iconsCache = {}
 local function loadIcon(name)
 	local icon = iconsCache[name]
 
-	if not icon then
+	if not icon or type(icon) ~= "table" then
 		icon = image.load(currentScriptDirectory .. "Icons/" .. name .. ".pic")
 		iconsCache[name] = icon
 	end
@@ -786,7 +786,7 @@ end
 
 local function loadImage(path)
 	local picture, reason = image.load(path)
-	if picture then
+	if picture and type(picture) == "table" then
 		return picture
 	else
 		return loadIcon("FileNotExists")
@@ -797,23 +797,28 @@ local function getImage(publication, url, sizeFilter)
 	local path = cachePath .. publication.file_id .. "@" .. publication.version .. "_" .. SHA.hash(url) .. ".pic"
 
 	if filesystem.exists(path) then
+		local picture, reason = image.load(path)
+		if picture and type(picture) == "table" then
+			return picture
+		else
+			filesystem.remove(path)
+		end
+	end
+
+	progressIndicator.active = true
+	workspace:draw()
+
+	local data, reason = checkImage(url, false, sizeFilter)
+
+	progressIndicator.active = false
+	workspace:draw()
+
+	if data and type(data) == "string" and #data > 0 then
+		filesystem.write(path, data)
+
 		return loadImage(path)
 	else
-		progressIndicator.active = true
-		workspace:draw()
-
-		local data, reason = checkImage(url, false, sizeFilter)
-
-		progressIndicator.active = false
-		workspace:draw()
-
-		if data then
-			filesystem.write(path, data)
-
-			return loadImage(path)
-		else
-			return nil, reason
-		end
+		return nil, reason
 	end
 end
 
@@ -822,16 +827,16 @@ local function getPublicationIcon(publication)
 		if config.hideApplicationIcons then
 			return loadIcon("Application")
 		else
-			local image, reason = getImage(publication, publication.icon_url, function(width, height)
+			local imageData, reason = getImage(publication, publication.icon_url, function(width, height)
 				if width > 8 or height > 4 then
 					return false, "Image size is larger than 8x4"
 				end
 				return true
 			end)
-			if not image then
+			if not imageData or type(imageData) ~= "table" then
 				return loadIcon("Application")
 			end
-			return image
+			return imageData
 		end
 	elseif publication.category_id == 2 then
 		return loadIcon("Lua")
@@ -842,7 +847,11 @@ end
 
 local function addApplicationInfo(container, publication, limit)
 	addPanel(container)
-	container.image = container:addChild(GUI.image(3, 2, getPublicationIcon(publication)))
+	local iconData = getPublicationIcon(publication)
+	if not iconData or type(iconData) ~= "table" then
+		iconData = loadIcon("Application")
+	end
+	container.image = container:addChild(GUI.image(3, 2, iconData))
 	container.nameLabel = container:addChild(GUI.text(13, 2, 0x0, text.limit(publication.publication_name, limit, "right")))
 	container.developerLabel = container:addChild(GUI.text(13, 3, 0x878787, text.limit("©" .. publication.user_name, limit, "right")))
 	container.rating = container:addChild(newRatingWidget(13, 4, publication.average_rating and number.round(publication.average_rating) or 0))
