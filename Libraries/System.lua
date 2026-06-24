@@ -186,7 +186,7 @@ function system.getLocalization(pathToLocalizationFolder)
 	end
 
 	-- For unknown localization name cases
-	setmetatable(readyLocalization, {__index=(function(t,k) return "$"..k end)})
+	setmetatable(readyLocalization, {__index=(function(t,k) return nil end)})
 
 	return readyLocalization
 end
