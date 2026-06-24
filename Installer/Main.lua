@@ -1195,6 +1195,7 @@ addStage(function()
 
 	local function removeDirectory(proxy, path)
 		local list, itemPath = proxy.list(path)
+		if not list then return end
 		for i = 1, #list do
 			itemPath = path .. list[i]
 			local isDir = proxy.exists(itemPath .. "/")
