@@ -143,7 +143,6 @@ local function showPathDialog(url, filePath, callback)
 		local newFile = fileInput.text or ""
 		
 		if newFile == "" then
-			GUI.alert("请输入文件名")
 			return
 		end
 		
@@ -222,11 +221,7 @@ local function showURLDialog(callback)
 				screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
 				screen.update()
 				showPathDialog(url, filePath, showDownloadProgress)
-			else
-				GUI.alert("无效的URL")
 			end
-		else
-			GUI.alert("请输入URL")
 		end
 	end
 	
@@ -261,15 +256,21 @@ local function showDownloadProgress(url, filePath)
 	
 	local internet = component.get("internet")
 	if not internet then
+		statusText.text = "无网络"
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("需要互联网卡")
 		return
 	end
 	
 	local pcallSuccess, requestHandle = pcall(internet.request, url)
 	if not pcallSuccess or not requestHandle then
+		statusText.text = "连接失败"
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("连接失败")
 		return
 	end
 	
@@ -287,8 +288,11 @@ local function showDownloadProgress(url, filePath)
 	
 	local fileHandle, reason = filesystem.open(fullPath, "w")
 	if not fileHandle then
+		statusText.text = "文件错误"
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("无法打开文件: " .. tostring(reason))
 		return
 	end
 	
@@ -336,13 +340,22 @@ local function showDownloadProgress(url, filePath)
 	end
 	
 	fileHandle:close()
-	dialogWorkspace:stop()
 	
 	if success then
+		progressBar.value = 100
+		statusText.text = "完成"
+		statusText.colors.text = 0x66DB80
+		dialogWorkspace:draw()
+		computer.pullSignal(1)
+		dialogWorkspace:stop()
 		showRestartDialog()
 	else
 		filesystem.remove(fullPath)
-		GUI.alert("下载失败: " .. tostring(errorReason))
+		statusText.text = "失败: " .. tostring(errorReason)
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
+		dialogWorkspace:stop()
 	end
 end
 
@@ -403,11 +416,7 @@ local function showBIOSFlashDialog()
 				screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
 				screen.update()
 				flashBIOS(url)
-			else
-				GUI.alert("无效的URL")
 			end
-		else
-			GUI.alert("请输入URL")
 		end
 	end
 	
@@ -434,15 +443,21 @@ local function flashBIOS(url)
 	
 	local internet = component.get("internet")
 	if not internet then
+		statusText.text = "无网络"
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("需要互联网卡")
 		return
 	end
 	
 	local pcallSuccess, requestHandle = pcall(internet.request, url)
 	if not pcallSuccess or not requestHandle then
+		statusText.text = "连接失败"
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("连接失败")
 		return
 	end
 	
@@ -457,8 +472,11 @@ local function flashBIOS(url)
 		else
 			requestHandle:close()
 			if reason then
+				statusText.text = "下载失败: " .. tostring(reason)
+				statusText.colors.text = 0xCC0000
+				dialogWorkspace:draw()
+				computer.pullSignal(2)
 				dialogWorkspace:stop()
-				GUI.alert("下载失败: " .. tostring(reason))
 				return
 			end
 			break
@@ -466,27 +484,37 @@ local function flashBIOS(url)
 	end
 	
 	if #data > 4096 then
+		statusText.text = "文件过大: " .. #data .. " B"
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("BIOS文件超过4KB限制: " .. #data .. " B")
 		return
 	end
 	
 	local eeprom = component.get("eeprom")
 	if not eeprom then
+		statusText.text = "找不到EEPROM"
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("找不到EEPROM组件")
 		return
 	end
 	
 	pcallSuccess, reason = pcall(eeprom.set, data)
 	if not pcallSuccess then
+		statusText.text = "刷写失败: " .. tostring(reason)
+		statusText.colors.text = 0xCC0000
+		dialogWorkspace:draw()
+		computer.pullSignal(2)
 		dialogWorkspace:stop()
-		GUI.alert("刷写失败: " .. tostring(reason))
 		return
 	end
 	
 	progressBar.value = 100
 	statusText.text = "Done!"
+	statusText.colors.text = 0x66DB80
 	dialogWorkspace:draw()
 	computer.pullSignal(2)
 	dialogWorkspace:stop()
