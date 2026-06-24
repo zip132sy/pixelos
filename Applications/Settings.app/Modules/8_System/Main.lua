@@ -1,4 +1,3 @@
-
 local GUI = require("GUI")
 local paths = require("Paths")
 local system = require("System")
@@ -16,7 +15,6 @@ local userSettings = system.getUserSettings()
 
 --------------------------------------------------------------------------------
 
--- Helper function to format file size
 local function formatSize(bytes)
 	if bytes < 1024 then
 		return bytes .. " B"
@@ -27,10 +25,7 @@ local function formatSize(bytes)
 	end
 end
 
--- Helper function to parse URL and extract file path
--- Example: https://gitee.com/zip132sy/pixelos/raw/master/BIOS/Manager.lua -> BIOS/Manager.lua
 local function parseFilePathFromURL(url)
-	-- Try to extract path after "raw/master/" or similar patterns
 	local patterns = {
 		"raw/master/(.+)",
 		"raw/main/(.+)",
@@ -47,7 +42,6 @@ local function parseFilePathFromURL(url)
 		end
 	end
 	
-	-- If no pattern matched, try to get the last part of URL as filename
 	local filename = url:match("/([^/]+)$")
 	if filename then
 		return filename
@@ -56,7 +50,6 @@ local function parseFilePathFromURL(url)
 	return nil
 end
 
--- Create a dialog for password input
 local function showPasswordDialog(callback)
 	local bufferWidth, bufferHeight = screen.getResolution()
 	local width = 40
@@ -68,7 +61,8 @@ local function showPasswordDialog(callback)
 	local oldPixels = screen.copy(dialogWorkspace.x, dialogWorkspace.y, dialogWorkspace.width, dialogWorkspace.height)
 	
 	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
-	dialogWorkspace:addChild(GUI.frame(x, 1, width, height, 0x2D2D2D, 0xE1E1E1, localization.devToolsPasswordTitle or "开发者工具", true))
+	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
+	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, localization.devToolsPasswordTitle or "开发者工具"))
 	
 	local input = dialogWorkspace:addChild(GUI.input(x + 2, 4, width - 4, 1, 0x2D2D2D, 0xE1E1E1, 0xA5A5A5, 0x2D2D2D, 0xE1E1E1, "", localization.devToolsPasswordPlaceholder or "输入密码", true, "*"))
 	
@@ -107,7 +101,64 @@ local function showPasswordDialog(callback)
 	dialogWorkspace:start()
 end
 
--- Create a dialog for URL input
+local function showPathDialog(url, filePath, callback)
+	local bufferWidth, bufferHeight = screen.getResolution()
+	local width = 50
+	local height = 12
+	local x = math.floor(bufferWidth / 2 - width / 2)
+	local y = math.floor(bufferHeight / 2 - height / 2)
+	
+	local dirPath = filesystem.path(filePath) or ""
+	local fileName = filesystem.name(filePath) or ""
+	
+	local dialogWorkspace = GUI.workspace(1, y, bufferWidth, height + 2)
+	local oldPixels = screen.copy(dialogWorkspace.x, dialogWorkspace.y, dialogWorkspace.width, dialogWorkspace.height)
+	
+	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
+	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
+	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, localization.devToolsSavePath or "保存位置"))
+	
+	dialogWorkspace:addChild(GUI.label(x + 2, 3, width - 4, 1, 0xA5A5A5, localization.devToolsFolder or "文件夹:"))
+	local dirInput = dialogWorkspace:addChild(GUI.input(x + 2, 4, width - 4, 1, 0x2D2D2D, 0xE1E1E1, 0xA5A5A5, 0x2D2D2D, 0xE1E1E1, dirPath, "", false))
+	
+	dialogWorkspace:addChild(GUI.label(x + 2, 6, width - 4, 1, 0xA5A5A5, localization.devToolsFileName or "文件名:"))
+	local fileInput = dialogWorkspace:addChild(GUI.input(x + 2, 7, width - 4, 1, 0x2D2D2D, 0xE1E1E1, 0xA5A5A5, 0x2D2D2D, 0xE1E1E1, fileName, "", false))
+	
+	local cancelButton = dialogWorkspace:addChild(GUI.button(x + 2, height, 10, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.cancel or "取消"))
+	local confirmButton = dialogWorkspace:addChild(GUI.button(x + width - 12, height, 10, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, localization.apply or "确定"))
+	
+	cancelButton.onTouch = function()
+		dialogWorkspace:stop()
+		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
+		screen.update()
+	end
+	
+	confirmButton.onTouch = function()
+		local newDir = dirInput.text or ""
+		local newFile = fileInput.text or ""
+		
+		if newFile == "" then
+			GUI.alert(localization.devToolsEmptyFileName or "请输入文件名")
+			return
+		end
+		
+		local newPath = newDir .. newFile
+		dialogWorkspace:stop()
+		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
+		screen.update()
+		callback(url, newPath)
+	end
+	
+	dialogWorkspace.eventHandler = function(ws, object, e1, e2, e3, e4, ...)
+		if e1 == "key_down" and e4 == 28 then
+			confirmButton:press(ws, object, e1, e2, e3, e4, ...)
+		end
+	end
+	
+	dialogWorkspace:draw()
+	dialogWorkspace:start()
+end
+
 local function showURLDialog()
 	local bufferWidth, bufferHeight = screen.getResolution()
 	local width = 50
@@ -119,27 +170,28 @@ local function showURLDialog()
 	local oldPixels = screen.copy(dialogWorkspace.x, dialogWorkspace.y, dialogWorkspace.width, dialogWorkspace.height)
 	
 	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
-	dialogWorkspace:addChild(GUI.frame(x, 1, width, height, 0x2D2D2D, 0xE1E1E1, localization.devToolsDownloadTitle or "下载文件", true))
+	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
+	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, localization.devToolsDownloadTitle or "下载文件"))
 	
-	dialogWorkspace:addChild(GUI.text(x + 2, 3, 0xA5A5A5, localization.devToolsURLLabel or "文件URL:"))
+	dialogWorkspace:addChild(GUI.label(x + 2, 3, width - 4, 1, 0xA5A5A5, localization.devToolsURLLabel or "文件URL:"))
 	local input = dialogWorkspace:addChild(GUI.input(x + 2, 4, width - 4, 1, 0x2D2D2D, 0xE1E1E1, 0xA5A5A5, 0x2D2D2D, 0xE1E1E1, "", "https://gitee.com/zip132sy/pixelos/raw/master/...", false))
 	
-	dialogWorkspace:addChild(GUI.text(x + 2, 6, 0xA5A5A5, localization.devToolsPathLabel or "保存路径:"))
-	local pathText = dialogWorkspace:addChild(GUI.text(x + 2, 7, 0x66B6FF, ""))
+	dialogWorkspace:addChild(GUI.label(x + 2, 6, width - 4, 1, 0xA5A5A5, localization.devToolsPathLabel or "解析路径:"))
+	local pathText = dialogWorkspace:addChild(GUI.label(x + 2, 7, width - 4, 1, 0x66B6FF, ""))
 	
 	local cancelButton = dialogWorkspace:addChild(GUI.button(x + 2, height, 10, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.cancel or "取消"))
 	local downloadButton = dialogWorkspace:addChild(GUI.button(x + width - 12, height, 10, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, localization.devToolsDownload or "下载"))
 	
-	-- Update path preview when input changes
 	local function updatePathPreview()
 		local url = input.text
 		if url and #url > 0 then
 			local filePath = parseFilePathFromURL(url)
 			if filePath then
 				pathText.text = filePath
+				pathText.colors.text = 0x66B6FF
 			else
 				pathText.text = localization.devToolsPathUnknown or "无法解析路径"
-				pathText.color = 0xCC0000
+				pathText.colors.text = 0xCC0000
 			end
 		else
 			pathText.text = ""
@@ -163,7 +215,7 @@ local function showURLDialog()
 				dialogWorkspace:stop()
 				screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
 				screen.update()
-				showDownloadProgress(url, filePath)
+				showPathDialog(url, filePath, showDownloadProgress)
 			else
 				GUI.alert(localization.devToolsInvalidURL or "无效的URL")
 			end
@@ -176,7 +228,6 @@ local function showURLDialog()
 	dialogWorkspace:start()
 end
 
--- Show download progress dialog
 local function showDownloadProgress(url, filePath)
 	local bufferWidth, bufferHeight = screen.getResolution()
 	local width = 50
@@ -186,25 +237,22 @@ local function showDownloadProgress(url, filePath)
 	
 	local dialogWorkspace = GUI.workspace(1, y, bufferWidth, height + 2)
 	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
-	dialogWorkspace:addChild(GUI.frame(x, 1, width, height, 0x2D2D2D, 0xE1E1E1, localization.devToolsDownloading or "正在下载...", true))
+	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
+	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, localization.devToolsDownloading or "正在下载..."))
 	
-	-- Display path
 	local displayPath = filePath
 	if #displayPath > 40 then
 		displayPath = "..." .. displayPath:sub(#displayPath - 37)
 	end
-	dialogWorkspace:addChild(GUI.text(x + 2, 3, 0xA5A5A5, displayPath))
+	dialogWorkspace:addChild(GUI.label(x + 2, 3, width - 4, 1, 0xA5A5A5, displayPath))
 	
-	-- Progress bar
 	local progressBar = dialogWorkspace:addChild(GUI.progressBar(x + 2, 5, width - 4, 0x66B6FF, 0x2D2D2D, 0x2D2D2D, 0, true, true, "", ""))
 	
-	-- Status text (size and speed)
-	local statusText = dialogWorkspace:addChild(GUI.text(x + 2, 7, 0x878787, "0 B"))
-	local speedText = dialogWorkspace:addChild(GUI.text(x + 2, 8, 0x878787, ""))
+	local statusText = dialogWorkspace:addChild(GUI.label(x + 2, 7, width - 4, 1, 0x878787, "0 B"))
+	local speedText = dialogWorkspace:addChild(GUI.label(x + 2, 8, width - 4, 1, 0x878787, ""))
 	
 	dialogWorkspace:draw()
 	
-	-- Start download
 	local internet = component.get("internet")
 	if not internet then
 		dialogWorkspace:stop()
@@ -212,7 +260,6 @@ local function showDownloadProgress(url, filePath)
 		return
 	end
 	
-	-- Get file size first
 	local pcallSuccess, requestHandle = pcall(internet.request, url)
 	if not pcallSuccess or not requestHandle then
 		dialogWorkspace:stop()
@@ -220,18 +267,15 @@ local function showDownloadProgress(url, filePath)
 		return
 	end
 	
-	-- Read response headers to get file size
 	local fileSize = 0
 	local responseCode = requestHandle:finish()
 	if responseCode and responseCode >= 200 and responseCode < 300 then
-		-- Try to get content-length from headers
 		local headers = requestHandle:responseHeaders()
 		if headers and headers["Content-Length"] then
 			fileSize = tonumber(headers["Content-Length"]) or 0
 		end
 	end
 	
-	-- Prepare file for writing
 	local fullPath = paths.system.root .. filePath
 	filesystem.makeDirectory(filesystem.path(fullPath) or "")
 	
@@ -242,13 +286,11 @@ local function showDownloadProgress(url, filePath)
 		return
 	end
 	
-	-- Download with progress
 	local totalBytes = 0
 	local startTime = computer.uptime()
 	local success = false
 	local errorReason = nil
 	
-	-- Re-open connection for actual download
 	pcallSuccess, requestHandle = pcall(internet.request, url)
 	if pcallSuccess and requestHandle then
 		while true do
@@ -258,7 +300,6 @@ local function showDownloadProgress(url, filePath)
 				fileHandle:write(chunk)
 				totalBytes = totalBytes + #chunk
 				
-				-- Update progress
 				local elapsed = computer.uptime() - startTime
 				if elapsed > 0 then
 					local speed = math.floor(totalBytes / elapsed)
@@ -299,7 +340,6 @@ local function showDownloadProgress(url, filePath)
 	end
 end
 
--- Show restart confirmation dialog
 local function showRestartDialog()
 	local bufferWidth, bufferHeight = screen.getResolution()
 	local width = 40
@@ -311,9 +351,10 @@ local function showRestartDialog()
 	local oldPixels = screen.copy(dialogWorkspace.x, dialogWorkspace.y, dialogWorkspace.width, dialogWorkspace.height)
 	
 	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
-	dialogWorkspace:addChild(GUI.frame(x, 1, width, height, 0x2D2D2D, 0xE1E1E1, localization.devToolsSuccess or "下载完成", true))
+	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
+	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, localization.devToolsSuccess or "下载完成"))
 	
-	dialogWorkspace:addChild(GUI.text(x + 2, 3, 0xE1E1E1, localization.devToolsRestartPrompt or "文件已下载，需要重启以生效"))
+	dialogWorkspace:addChild(GUI.label(x + 2, 3, width - 4, 1, 0xE1E1E1, localization.devToolsRestartPrompt or "文件已下载，需要重启以生效"))
 	
 	local cancelButton = dialogWorkspace:addChild(GUI.button(x + 2, height, 10, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.cancel or "稍后"))
 	local restartButton = dialogWorkspace:addChild(GUI.button(x + width - 12, height, 10, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, localization.devToolsRestart or "重启"))
@@ -390,18 +431,14 @@ module.onTouch = function()
 
 	window.contentLayout:addChild(GUI.textBox(1, 1, 36, 1, nil, 0xA5A5A5, {localization.systemInfo}, 1, 0, 0, true, true))
 
-	-- Developer Tools section
 	window.contentLayout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.devTools or "开发者工具"))
 	
 	local devToolsSwitch = window.contentLayout:addChild(GUI.switchAndLabel(1, 1, 36, 8, 0x66DB80, 0xE1E1E1, 0xFFFFFF, 0xA5A5A5, localization.devToolsEnabled .. ":", false)).switch
 	devToolsSwitch.onStateChanged = function()
 		if devToolsSwitch.state then
-			-- Need password to enable
 			showPasswordDialog(function()
-				-- Password correct, show URL dialog
 				showURLDialog()
 			end)
-			-- Reset switch state (user needs to enter password first)
 			devToolsSwitch.state = false
 			workspace:draw()
 		end
@@ -417,4 +454,3 @@ end
 --------------------------------------------------------------------------------
 
 return module
-
