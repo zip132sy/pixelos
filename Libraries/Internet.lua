@@ -97,9 +97,29 @@ local function download(url, path)
 	
 	local handle, reason = filesystem.open(path, "w")
 	if handle then
-		local success, reason = rawRequest(url, nil, nil, function(chunk)
-			handle:write(chunk)
-		end)
+		local function doDownload(downloadUrl)
+			return rawRequest(downloadUrl, nil, nil, function(chunk)
+				handle:write(chunk)
+			end)
+		end
+
+		local success, reason = doDownload(url)
+		
+		if not success and reason and reason:find("handshake") then
+			local httpUrl = url:gsub("^https://", "http://")
+			if httpUrl ~= url then
+				success, reason = doDownload(httpUrl)
+			end
+		end
+
+		if not success then
+			local retries = 2
+			for i = 1, retries do
+				computer.pullSignal(1)
+				success, reason = doDownload(url)
+				if success then break end
+			end
+		end
 
 		handle:close()
 		if success then

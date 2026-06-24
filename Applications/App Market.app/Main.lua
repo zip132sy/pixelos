@@ -176,15 +176,22 @@ local function loadConfig()
 				{ name = "MineOS", url = "http://mineos.buttex.ru/MineOSAPI/2.04/", enabled = true }
 			},
 			blacklist = {
-				{ sourceUrl = "*", name = "App Market", path = nil },
-				{ sourceUrl = "*", name = "Picture Edit", path = nil },
-				{ sourceUrl = "*", name = "System", path = "Libraries/System.lua" },
-				{ sourceUrl = "*", name = "SystemCheck", path = nil },
-				{ sourceUrl = "*", name = "SystemUpdate", path = nil },
-				{ sourceUrl = "*", name = "DiskUtility", path = nil },
-				{ sourceUrl = "*", name = "ErrorReporter", path = nil },
-				{ sourceUrl = "*", name = "BIOS", path = "Libraries/BIOS.lua" },
-				{ sourceUrl = "*", name = "Settings", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "App Market", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Picture Edit", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "System", path = "Libraries/System.lua" },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "SystemCheck", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "SystemUpdate", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "DiskUtility", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "ErrorReporter", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "BIOS", path = "Libraries/BIOS.lua" },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Settings", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Calculator", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Terminal", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Text Editor", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "File Manager", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Archive", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Task Manager", path = nil },
+				{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "About", path = nil },
 			}
 		}
 	end
@@ -198,15 +205,22 @@ local function loadConfig()
 	
 	if not config.blacklist then
 		config.blacklist = {
-			{ sourceUrl = "*", name = "App Market", path = nil },
-			{ sourceUrl = "*", name = "Picture Edit", path = nil },
-			{ sourceUrl = "*", name = "System", path = "Libraries/System.lua" },
-			{ sourceUrl = "*", name = "SystemCheck", path = nil },
-			{ sourceUrl = "*", name = "SystemUpdate", path = nil },
-			{ sourceUrl = "*", name = "DiskUtility", path = nil },
-			{ sourceUrl = "*", name = "ErrorReporter", path = nil },
-			{ sourceUrl = "*", name = "BIOS", path = "Libraries/BIOS.lua" },
-			{ sourceUrl = "*", name = "Settings", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "App Market", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Picture Edit", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "System", path = "Libraries/System.lua" },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "SystemCheck", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "SystemUpdate", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "DiskUtility", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "ErrorReporter", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "BIOS", path = "Libraries/BIOS.lua" },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Settings", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Calculator", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Terminal", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Text Editor", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "File Manager", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Archive", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "Task Manager", path = nil },
+			{ sourceUrl = "http://mineos.buttex.ru/MineOSAPI/2.04/", name = "About", path = nil },
 		}
 		saveConfig()
 	end

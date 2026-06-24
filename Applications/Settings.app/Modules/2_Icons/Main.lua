@@ -83,25 +83,39 @@ module.onTouch = function()
 
 	window.contentLayout:addChild(GUI.text(1, 1, 0x2D2D2D, localization.diskDisplaySettings or "Disk Display Settings"))
 
-	local diskTogglesLayout = window.contentLayout:addChild(GUI.layout(1, 1, window.contentLayout.width, 1, 1, 1))
-	diskTogglesLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_LEFT, GUI.ALIGNMENT_VERTICAL_TOP)
+	local diskSwitches = {}
+	local diskCount = 0
+	for address in component.list("filesystem") do
+		diskCount = diskCount + 1
+	end
+
+	local columnCount = 2
+	local rowCount = math.ceil(diskCount / columnCount)
+
+	local diskTogglesLayout = window.contentLayout:addChild(GUI.layout(1, 1, window.contentLayout.width, rowCount * 2, columnCount, rowCount))
+	diskTogglesLayout:setAlignment(1, 1, GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_TOP)
 	diskTogglesLayout:setSpacing(1, 1, 2)
 
 	if not userSettings.interfaceStatusBarDiskDisplays then
 		userSettings.interfaceStatusBarDiskDisplays = {}
 	end
 
-	local diskSwitches = {}
+	local row = 1
+	local col = 1
 	for address in component.list("filesystem") do
 		local proxy = component.proxy(address)
 		local label = proxy.getLabel() or address:sub(1, 8)
 		local diskKey = address:sub(1, 8)
 		local isShown = userSettings.interfaceStatusBarDiskDisplays[diskKey] ~= false
-		local diskSw = diskTogglesLayout:addChild(GUI.switchAndLabel(1, 1, 36, 6, 0x66DB80, 0xE1E1E1, 0xFFFFFF, 0xA5A5A5, label .. ": ", isShown))
+		local diskSw = diskTogglesLayout:setPosition(col, row, GUI.switchAndLabel(1, 1, 16, 6, 0x66DB80, 0xE1E1E1, 0xFFFFFF, 0xA5A5A5, label .. ": ", isShown))
 		diskSwitches[diskKey] = diskSw
-	end
 
-	diskTogglesLayout.height = math.max(1, #diskTogglesLayout.children * 2)
+		col = col + 1
+		if col > columnCount then
+			col = 1
+			row = row + 1
+		end
+	end
 
 	local function saveStatusBarSettings()
 		userSettings.interfaceStatusBarEnabled = statusBarSwitch.state
