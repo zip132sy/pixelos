@@ -5,6 +5,8 @@ local filesystem = require("Filesystem")
 local component = require("Component")
 local computer = require("Computer")
 local screen = require("Screen")
+local image = require("Image")
+local text = require("Text")
 
 local module = {}
 
@@ -51,7 +53,7 @@ end
 local function showPasswordDialog(callback)
 	local bufferWidth, bufferHeight = screen.getResolution()
 	local width = 40
-	local height = 9
+	local height = 8
 	local x = math.floor(bufferWidth / 2 - width / 2)
 	local y = math.floor(bufferHeight / 2 - height / 2)
 	
@@ -64,8 +66,6 @@ local function showPasswordDialog(callback)
 	
 	local input = dialogWorkspace:addChild(GUI.input(x + 2, 4, width - 4, 1, 0x2D2D2D, 0xE1E1E1, 0xA5A5A5, 0x2D2D2D, 0xE1E1E1, "", localization.devToolsPasswordPlaceholder or "输入密码", true, "*"))
 	
-	local errorLabel = dialogWorkspace:addChild(GUI.label(x + 2, 5, width - 4, 1, 0xCC0000, ""))
-	
 	local cancelButton = dialogWorkspace:addChild(GUI.button(x + 2, height, 10, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.cancel or "取消"))
 	local confirmButton = dialogWorkspace:addChild(GUI.button(x + width - 12, height, 10, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, localization.apply or "确定"))
 	
@@ -73,7 +73,6 @@ local function showPasswordDialog(callback)
 		dialogWorkspace:stop()
 		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
 		screen.update()
-		if callback then callback(false) end
 	end
 	
 	confirmButton.onTouch = function()
@@ -81,14 +80,12 @@ local function showPasswordDialog(callback)
 			dialogWorkspace:stop()
 			screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
 			screen.update()
-			if callback then callback(true) end
+			callback()
 		else
-			errorLabel.text = localization.devToolsWrongPassword or "密码错误"
 			input.text = ""
 			input.colors.default.text = 0xCC0000
 			dialogWorkspace:draw()
-			computer.pullSignal(1)
-			errorLabel.text = ""
+			computer.pullSignal(0.5)
 			input.colors.default.text = 0xE1E1E1
 			dialogWorkspace:draw()
 		end
@@ -141,7 +138,7 @@ local function showPathDialog(url, filePath, callback)
 		local newFile = fileInput.text or ""
 		
 		if newFile == "" then
-			GUI.alert("请输入文件名")
+			GUI.alert(localization.devToolsEmptyFileName or "请输入文件名")
 			return
 		end
 		
@@ -149,7 +146,7 @@ local function showPathDialog(url, filePath, callback)
 		dialogWorkspace:stop()
 		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
 		screen.update()
-		if callback then callback(url, newPath) end
+		callback(url, newPath)
 	end
 	
 	dialogWorkspace.eventHandler = function(ws, object, e1, e2, e3, e4, ...)
@@ -162,7 +159,7 @@ local function showPathDialog(url, filePath, callback)
 	dialogWorkspace:start()
 end
 
-local function showURLDialog(callback)
+local function showURLDialog()
 	local bufferWidth, bufferHeight = screen.getResolution()
 	local width = 50
 	local height = 10
@@ -193,7 +190,7 @@ local function showURLDialog(callback)
 				pathText.text = filePath
 				pathText.colors.text = 0x66B6FF
 			else
-				pathText.text = "无法解析路径"
+				pathText.text = localization.devToolsPathUnknown or "无法解析路径"
 				pathText.colors.text = 0xCC0000
 			end
 		else
@@ -208,7 +205,6 @@ local function showURLDialog(callback)
 		dialogWorkspace:stop()
 		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
 		screen.update()
-		if callback then callback() end
 	end
 	
 	downloadButton.onTouch = function()
@@ -221,10 +217,10 @@ local function showURLDialog(callback)
 				screen.update()
 				showPathDialog(url, filePath, showDownloadProgress)
 			else
-				GUI.alert("无效的URL")
+				GUI.alert(localization.devToolsInvalidURL or "无效的URL")
 			end
 		else
-			GUI.alert("请输入URL")
+			GUI.alert(localization.devToolsEmptyURL or "请输入URL")
 		end
 	end
 	
@@ -242,7 +238,7 @@ local function showDownloadProgress(url, filePath)
 	local dialogWorkspace = GUI.workspace(1, y, bufferWidth, height + 2)
 	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
 	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
-	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, "正在下载..."))
+	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, localization.devToolsDownloading or "正在下载..."))
 	
 	local displayPath = filePath
 	if #displayPath > 40 then
@@ -260,14 +256,14 @@ local function showDownloadProgress(url, filePath)
 	local internet = component.get("internet")
 	if not internet then
 		dialogWorkspace:stop()
-		GUI.alert("需要互联网卡")
+		GUI.alert(localization.devToolsNoInternet or "需要互联网卡")
 		return
 	end
 	
 	local pcallSuccess, requestHandle = pcall(internet.request, url)
 	if not pcallSuccess or not requestHandle then
 		dialogWorkspace:stop()
-		GUI.alert("连接失败")
+		GUI.alert(localization.devToolsConnectionFailed or "连接失败")
 		return
 	end
 	
@@ -286,7 +282,7 @@ local function showDownloadProgress(url, filePath)
 	local fileHandle, reason = filesystem.open(fullPath, "w")
 	if not fileHandle then
 		dialogWorkspace:stop()
-		GUI.alert("无法打开文件: " .. tostring(reason))
+		GUI.alert(localization.devToolsFileOpenFailed or "无法打开文件: " .. tostring(reason))
 		return
 	end
 	
@@ -340,200 +336,8 @@ local function showDownloadProgress(url, filePath)
 		showRestartDialog()
 	else
 		filesystem.remove(fullPath)
-		GUI.alert("下载失败: " .. tostring(errorReason))
+		GUI.alert(localization.devToolsDownloadFailed or "下载失败: " .. tostring(errorReason))
 	end
-end
-
-local function showBIOSFlashDialog()
-	local bufferWidth, bufferHeight = screen.getResolution()
-	local width = 50
-	local height = 10
-	local x = math.floor(bufferWidth / 2 - width / 2)
-	local y = math.floor(bufferHeight / 2 - height / 2)
-	
-	local dialogWorkspace = GUI.workspace(1, y, bufferWidth, height + 2)
-	local oldPixels = screen.copy(dialogWorkspace.x, dialogWorkspace.y, dialogWorkspace.width, dialogWorkspace.height)
-	
-	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
-	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
-	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, "刷写BIOS"))
-	
-	dialogWorkspace:addChild(GUI.label(x + 2, 3, width - 4, 1, 0xA5A5A5, "BIOS URL:"))
-	local input = dialogWorkspace:addChild(GUI.input(x + 2, 4, width - 4, 1, 0x2D2D2D, 0xE1E1E1, 0xA5A5A5, 0x2D2D2D, 0xE1E1E1, "", "https://gitee.com/zip132sy/pixelos/raw/master/EFI/BIOS.lua", false))
-	
-	dialogWorkspace:addChild(GUI.label(x + 2, 6, width - 4, 1, 0xA5A5A5, "解析文件名:"))
-	local nameText = dialogWorkspace:addChild(GUI.label(x + 2, 7, width - 4, 1, 0x66B6FF, ""))
-	
-	local cancelButton = dialogWorkspace:addChild(GUI.button(x + 2, height, 10, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.cancel or "取消"))
-	local flashButton = dialogWorkspace:addChild(GUI.button(x + width - 12, height, 10, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, "刷写"))
-	
-	local function updateNamePreview()
-		local url = input.text
-		if url and #url > 0 then
-			local filename = url:match("/([^/]+)$")
-			if filename then
-				nameText.text = filename
-				nameText.colors.text = 0x66B6FF
-			else
-				nameText.text = "无法解析"
-				nameText.colors.text = 0xCC0000
-			end
-		else
-			nameText.text = ""
-		end
-		dialogWorkspace:draw()
-	end
-	
-	input.onInputFinished = updateNamePreview
-	
-	cancelButton.onTouch = function()
-		dialogWorkspace:stop()
-		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
-		screen.update()
-	end
-	
-	flashButton.onTouch = function()
-		local url = input.text
-		if url and #url > 0 then
-			local filename = url:match("/([^/]+)$")
-			if filename then
-				dialogWorkspace:stop()
-				screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
-				screen.update()
-				flashBIOS(url)
-			else
-				GUI.alert("无效的URL")
-			end
-		else
-			GUI.alert("请输入URL")
-		end
-	end
-	
-	dialogWorkspace:draw()
-	dialogWorkspace:start()
-end
-
-local function flashBIOS(url)
-	local bufferWidth, bufferHeight = screen.getResolution()
-	local width = 50
-	local height = 10
-	local x = math.floor(bufferWidth / 2 - width / 2)
-	local y = math.floor(bufferHeight / 2 - height / 2)
-	
-	local dialogWorkspace = GUI.workspace(1, y, bufferWidth, height + 2)
-	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
-	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
-	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, "正在刷写BIOS..."))
-	
-	local progressBar = dialogWorkspace:addChild(GUI.progressBar(x + 2, 4, width - 4, 0x66B6FF, 0x2D2D2D, 0x2D2D2D, 0, true, true, "", ""))
-	local statusText = dialogWorkspace:addChild(GUI.label(x + 2, 6, width - 4, 1, 0x878787, "下载中..."))
-	
-	dialogWorkspace:draw()
-	
-	local internet = component.get("internet")
-	if not internet then
-		dialogWorkspace:stop()
-		GUI.alert("需要互联网卡")
-		return
-	end
-	
-	local pcallSuccess, requestHandle = pcall(internet.request, url)
-	if not pcallSuccess or not requestHandle then
-		dialogWorkspace:stop()
-		GUI.alert("连接失败")
-		return
-	end
-	
-	local data = ""
-	while true do
-		local chunk, reason = requestHandle:read(8192)
-		if chunk then
-			data = data .. chunk
-			progressBar.value = math.min(90, math.floor(#data / 4096 * 90))
-			statusText.text = "下载中: " .. #data .. " B"
-			dialogWorkspace:draw()
-		else
-			requestHandle:close()
-			if reason then
-				dialogWorkspace:stop()
-				GUI.alert("下载失败: " .. tostring(reason))
-				return
-			end
-			break
-		end
-	end
-	
-	if #data > 4096 then
-		dialogWorkspace:stop()
-		GUI.alert("BIOS文件超过4KB限制: " .. #data .. " B")
-		return
-	end
-	
-	local eeprom = component.get("eeprom")
-	if not eeprom then
-		dialogWorkspace:stop()
-		GUI.alert("找不到EEPROM组件")
-		return
-	end
-	
-	pcallSuccess, reason = pcall(eeprom.set, data)
-	if not pcallSuccess then
-		dialogWorkspace:stop()
-		GUI.alert("刷写失败: " .. tostring(reason))
-		return
-	end
-	
-	progressBar.value = 100
-	statusText.text = "Done!"
-	dialogWorkspace:draw()
-	computer.pullSignal(2)
-	dialogWorkspace:stop()
-	
-	showRestartDialog()
-end
-
-local function showMainMenu()
-	local bufferWidth, bufferHeight = screen.getResolution()
-	local width = 36
-	local height = 8
-	local x = math.floor(bufferWidth / 2 - width / 2)
-	local y = math.floor(bufferHeight / 2 - height / 2)
-	
-	local dialogWorkspace = GUI.workspace(1, y, bufferWidth, height + 2)
-	local oldPixels = screen.copy(dialogWorkspace.x, dialogWorkspace.y, dialogWorkspace.width, dialogWorkspace.height)
-	
-	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
-	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
-	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, "开发者工具"))
-	
-	local downloadButton = dialogWorkspace:addChild(GUI.button(x + 2, 3, width - 4, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, "下载文件"))
-	local biosButton = dialogWorkspace:addChild(GUI.button(x + 2, 5, width - 4, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, "刷写BIOS"))
-	local cancelButton = dialogWorkspace:addChild(GUI.button(x + 2, height, width - 4, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.cancel or "关闭"))
-	
-	downloadButton.onTouch = function()
-		dialogWorkspace:stop()
-		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
-		screen.update()
-		showURLDialog(function()
-			showMainMenu()
-		end)
-	end
-	
-	biosButton.onTouch = function()
-		dialogWorkspace:stop()
-		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
-		screen.update()
-		showBIOSFlashDialog()
-	end
-	
-	cancelButton.onTouch = function()
-		dialogWorkspace:stop()
-		screen.paste(dialogWorkspace.x, dialogWorkspace.y, oldPixels)
-		screen.update()
-	end
-	
-	dialogWorkspace:draw()
-	dialogWorkspace:start()
 end
 
 local function showRestartDialog()
@@ -548,12 +352,12 @@ local function showRestartDialog()
 	
 	dialogWorkspace:addChild(GUI.panel(1, 1, dialogWorkspace.width, dialogWorkspace.height, 0x1D1D1D))
 	dialogWorkspace:addChild(GUI.panel(x, 1, width, height, 0x2D2D2D))
-	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, "操作完成"))
+	dialogWorkspace:addChild(GUI.label(x, 1, width, 1, 0x00AAFF, localization.devToolsSuccess or "下载完成"))
 	
-	dialogWorkspace:addChild(GUI.label(x + 2, 3, width - 4, 1, 0xE1E1E1, "需要重启以生效"))
+	dialogWorkspace:addChild(GUI.label(x + 2, 3, width - 4, 1, 0xE1E1E1, localization.devToolsRestartPrompt or "文件已下载，需要重启以生效"))
 	
 	local cancelButton = dialogWorkspace:addChild(GUI.button(x + 2, height, 10, 1, 0xCC4940, 0xE1E1E1, 0x990000, 0xE1E1E1, localization.cancel or "稍后"))
-	local restartButton = dialogWorkspace:addChild(GUI.button(x + width - 12, height, 10, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, "重启"))
+	local restartButton = dialogWorkspace:addChild(GUI.button(x + width - 12, height, 10, 1, 0x3366CC, 0xE1E1E1, 0x3366CC, 0xE1E1E1, localization.devToolsRestart or "重启"))
 	
 	cancelButton.onTouch = function()
 		dialogWorkspace:stop()
@@ -632,18 +436,15 @@ module.onTouch = function()
 	local devToolsSwitch = window.contentLayout:addChild(GUI.switchAndLabel(1, 1, 36, 8, 0x66DB80, 0xE1E1E1, 0xFFFFFF, 0xA5A5A5, localization.devToolsEnabled .. ":", false)).switch
 	devToolsSwitch.onStateChanged = function()
 		if devToolsSwitch.state then
-			showPasswordDialog(function(success)
-				if success then
-					showMainMenu()
-				else
-					devToolsSwitch.state = false
-					workspace:draw()
-				end
+			showPasswordDialog(function()
+				showURLDialog()
 			end)
+			devToolsSwitch.state = false
+			workspace:draw()
 		end
 	end
 
-	window.contentLayout:addChild(GUI.textBox(1, 1, 36, 1, nil, 0xA5A5A5, {"从URL下载文件或刷写BIOS，无需重新安装"}, 1, 0, 0, true, true))
+	window.contentLayout:addChild(GUI.textBox(1, 1, 36, 1, nil, 0xA5A5A5, {localization.devToolsInfo or "从URL下载单个文件到系统，无需重新安装"}, 1, 0, 0, true, true))
 
 	update()
 
